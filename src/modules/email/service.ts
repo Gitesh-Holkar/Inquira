@@ -336,3 +336,10 @@ export function senderDomain(email: string | null): string | null {
   if (!email) return null;
   return extractAddress(email).split("@")[1] ?? null;
 }
+
+/** Threading metadata of an ingested message (used by quotes to reply in the same Gmail thread). */
+export async function getMessageMetaInternal(tx: Tx, orgId: string, gmailMessageId: string) {
+  const [m] = await tx.select({ subject: emailMessages.subject, rfcMessageId: emailMessages.rfcMessageId, headers: emailMessages.headers })
+    .from(emailMessages).where(and(eq(emailMessages.orgId, orgId), eq(emailMessages.gmailMessageId, gmailMessageId)));
+  return m ? { subject: m.subject, rfcMessageId: m.rfcMessageId, references: m.headers["references"] ?? null } : null;
+}

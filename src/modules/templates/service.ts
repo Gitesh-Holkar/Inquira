@@ -95,3 +95,8 @@ export const SAMPLE_VARS: TemplateVars = {
   city: "Pune",
   org_name: "Your Company",
 };
+
+export async function getTemplateInternal(tx: Tx, orgId: string, id: string): Promise<Template | null> {
+  const [t] = await tx.select().from(templates).where(and(eq(templates.id, id), eq(templates.orgId, orgId), isNull(templates.deletedAt)));
+  return t ?? null;
+}

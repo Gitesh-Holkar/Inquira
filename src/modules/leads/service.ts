@@ -396,3 +396,9 @@ export async function findRecentLeadByContactInternal(tx: Tx, orgId: string, c: 
 export async function touchLeadInternal(tx: Tx, orgId: string, leadId: string, patch: Partial<Pick<Lead, "gmailThreadId" | "gmailMessageId">> = {}) {
   await tx.update(leads).set({ lastActivityAt: new Date(), ...patch }).where(and(eq(leads.id, leadId), eq(leads.orgId, orgId)));
 }
+
+export async function countLeadsByChannelSinceInternal(tx: Tx, orgId: string, channel: string, since: Date) {
+  const [r] = await tx.select({ n: sql<number>`count(*)::int` }).from(leads)
+    .where(and(eq(leads.orgId, orgId), eq(leads.channel, channel), gte(leads.createdAt, since), isNull(leads.deletedAt)));
+  return r?.n ?? 0;
+}

@@ -12,10 +12,9 @@ import { actorString, type Ctx } from "@/modules/core/types";
 import { currentRatesInternal, productNameById } from "@/modules/catalog/service";
 import type { CurrentRate } from "@/modules/catalog/types";
 import { getLeadInternal, markQuotedInternal, type Lead } from "@/modules/leads/service";
-import { getDefaultTemplateInternal } from "@/modules/templates/service";
-import { templates } from "@/modules/templates/schema";
+import { getDefaultTemplateInternal, getTemplateInternal } from "@/modules/templates/service";
 import { DEFAULT_ITEM_BLOCK, render, type TemplateVars } from "@/modules/templates/engine";
-import { emailMessages } from "@/modules/email/schema";
+import { getMessageMetaInternal } from "@/modules/email/service";
 import { htmlToText } from "@/modules/email/parsers/text";
 import { gmailClientFor } from "@/modules/sources/gmail/service";
 import { gmailDraftUrl, gmailThreadUrl } from "@/modules/sources/gmail/client";
@@ -93,16 +92,10 @@ export async function createQuoteDraft(ctx: Ctx, raw: z.input<typeof createInput
     const items = await pickItems(tx, ctx, lead, input.gradeIds);
     const settings = await getOrgSettingsInternal(tx, ctx.orgId);
     const validityDate = addDays(todayIST(), input.validityDays ?? settings.quoteValidityDays);
-    const tpl = input.templateId
-      ? (await tx.select().from(templates).where(and(eq(templates.id, input.templateId), eq(templates.orgId, ctx.orgId))))[0]
-      : await getDefaultTemplateInternal(tx, ctx.orgId, "quote_email");
+    const tpl = input.templateId ? await getTemplateInternal(tx, ctx.orgId, input.templateId) : await getDefaultTemplateInternal(tx, ctx.orgId, "quote_email");
     if (!tpl) throw new AppError("VALIDATION", "No quotation template found. Create one under Templates.");
     const rendered = renderQuote(lead, items, tpl, validityDate, settings.orgName);
-    let original: { subject: string | null; rfcMessageId: string | null; references: string | null } | null = null;
-    if (lead.gmailMessageId) {
-      const [m] = await tx.select().from(emailMessages).where(and(eq(emailMessages.orgId, ctx.orgId), eq(emailMessages.gmailMessageId, lead.gmailMessageId)));
-      if (m) original = { subject: m.subject, rfcMessageId: m.rfcMessageId, references: m.headers["references"] ?? null };
-    }
+    const original = lead.gmailMessageId ? await getMessageMetaInternal(tx, ctx.orgId, lead.gmailMessageId) : null;
     const [q] = await tx.insert(quotations).values({
       orgId: ctx.orgId, leadId: lead.id, templateId: tpl.id, status: "rendered", items, validityDate,
       subject: rendered.subject, bodyText: rendered.body, toEmail: lead.email, gmailThreadId: lead.gmailThreadId, createdBy: actorString(ctx.actor),

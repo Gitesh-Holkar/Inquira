@@ -60,6 +60,10 @@ export const getBuyleadRules = defineService({
   handler: (ctx, _i, tx) => getRulesInternal(tx, ctx),
 });
 
+export async function todayDecisionCountsInternal(tx: Tx, orgId: string) {
+  return todayCounts(tx, orgId);
+}
+
 async function todayCounts(tx: Tx, orgId: string) {
   const since = startOfTodayIST();
   const rows = await tx.select({ decision: buyleadDecisions.decision, n: sql<number>`count(*)::int` })
