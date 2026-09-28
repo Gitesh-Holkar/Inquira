@@ -101,7 +101,7 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
                           className={cn("h-8", c.width, isChanged(r.gradeId, c.key) && "border-warning bg-warning-soft font-semibold")} />
                       </td>
                     ))}
-                    <td className="px-2 py-1 text-xs text-muted">{r.validFrom ? formatDate(r.validFrom) : "—"}</td>
+                    <td className="whitespace-nowrap px-2 py-1 text-xs text-muted">{r.validFrom ? formatDate(r.validFrom) : "—"}</td>
                     <td className="px-2 py-1"><HistoryButton gradeId={r.gradeId} title={`${r.productName} · ${r.gradeName}`} /></td>
                   </tr>
                 </Rows>

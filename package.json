@@ -24,7 +24,8 @@
     "db:local:reset": "bash scripts/local-db.sh reset",
     "seed:website": "tsx scripts/fetch-website-products.ts",
     "gen:keys": "tsx scripts/gen-keys.ts",
-    "demo:data": "tsx scripts/demo-data.ts"
+    "demo:data": "tsx scripts/demo-data.ts",
+    "db:remote:seed": "tsx scripts/db-remote-seed.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.31.0",

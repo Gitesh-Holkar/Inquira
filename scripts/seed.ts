@@ -45,7 +45,7 @@ async function ensureLocalUser(emailAddr: string): Promise<string> {
   }
 }
 
-const isMain = process.argv[1]?.endsWith("seed.ts");
+const isMain = /scripts\/seed\.ts$/.test(process.argv[1] ?? "");
 if (isMain) {
   try {
     const useSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) && process.env.SEED_LOCAL_AUTH !== "1";
