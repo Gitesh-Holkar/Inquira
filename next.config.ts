@@ -29,6 +29,15 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   serverExternalPackages: ["postgres"],
+  async rewrites() {
+    // Serve RFC 9728 / 8414 discovery documents from route handlers.
+    return [
+      { source: "/.well-known/oauth-protected-resource", destination: "/api/well-known/oauth-protected-resource" },
+      { source: "/.well-known/oauth-protected-resource/:path*", destination: "/api/well-known/oauth-protected-resource" },
+      { source: "/.well-known/oauth-authorization-server", destination: "/api/well-known/oauth-authorization-server" },
+      { source: "/.well-known/oauth-authorization-server/:path*", destination: "/api/well-known/oauth-authorization-server" },
+    ];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
