@@ -156,7 +156,8 @@ async function fillMissing(tx: Tx, ctx: Ctx, lead: Lead, input: NormalizedLead &
   for (const [k, v] of pairs) {
     if (!lead[k] && v) (patch as Record<string, unknown>)[k] = typeof v === "string" ? v.trim() : v;
   }
-  if (altRef && altRef.ref !== lead.sourceRef && !lead.alternateRefs.some((r) => r.ref === altRef.ref)) {
+  const sameAsPrimary = altRef && altRef.ref === lead.sourceRef && altRef.source === lead.channel;
+  if (altRef && !sameAsPrimary && !lead.alternateRefs.some((r) => r.ref === altRef.ref && r.source === altRef.source)) {
     patch.alternateRefs = [...lead.alternateRefs, altRef];
   }
   if (Object.keys(patch).length) {
