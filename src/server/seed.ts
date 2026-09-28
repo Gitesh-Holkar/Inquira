@@ -41,7 +41,7 @@ export async function seed(opts: SeedOptions) {
     if (!m) {
       await tx.insert(memberships).values({ orgId: ctx.orgId, userId: opts.ownerUserId, email: opts.ownerEmail, role: "owner", createdBy: "system:seed" });
       await audit(tx, ctx, { action: "org.create", entityType: "organization", entityId: ctx.orgId, changes: { name: opts.orgName, owner: opts.ownerEmail } });
-      log(`Owner membership added for ${opts.ownerEmail}`);
+      log(`Owner membership added for ${opts.ownerEmail.replace(/^(.).*(@.*)$/, "$1***$2")}`);
     }
     await getIntegrationInternal(tx, ctx.orgId, "gmail");
     await getIntegrationInternal(tx, ctx.orgId, "tradeindia");

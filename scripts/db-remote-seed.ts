@@ -12,7 +12,7 @@
  *        SUPABASE_SERVICE_ROLE_KEY, SEED_OWNER_EMAIL, local Postgres binaries (scripts/local-db.sh).
  */
 import { execSync } from "node:child_process";
-import { ensureSupabaseUser } from "./seed";
+import { ensureSupabaseUser, maskEmail, parseOwnerEmail } from "./seed";
 
 const need = ["SUPABASE_ACCESS_TOKEN", "SUPABASE_PROJECT_REF", "NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SEED_OWNER_EMAIL"];
 const missing = need.filter((k) => !process.env[k]);
@@ -40,9 +40,13 @@ if (n > 0) {
   process.exit(0);
 }
 
-const email = process.env.SEED_OWNER_EMAIL!.trim().toLowerCase();
+const email = parseOwnerEmail(process.env.SEED_OWNER_EMAIL);
+if (!email) {
+  console.error("SEED_OWNER_EMAIL doesn't contain an email address (e.g. you@company.com). Fix it in the environment settings.");
+  process.exit(1);
+}
 const ownerId = await ensureSupabaseUser(email);
-console.log(`Owner ${email} → Supabase Auth user ${ownerId}`);
+console.log(`Owner ${maskEmail(email)} → Supabase Auth user ${ownerId}`);
 
 const local = "postgres://postgres:postgres@127.0.0.1:54322/inquira_remote_seed";
 const admin = "postgres://postgres:postgres@127.0.0.1:54322/postgres";
@@ -51,7 +55,7 @@ sh("bash scripts/local-db.sh up");
 sh(`psql ${admin} -q -c "drop database if exists inquira_remote_seed with (force)" -c "create database inquira_remote_seed"`);
 sh(`psql ${local} -q -f scripts/local-db/supabase-shim.sql`);
 sh("npx tsx scripts/db-migrate.ts", { DATABASE_URL: local });
-console.log(sh("npx tsx scripts/seed.ts", { DATABASE_URL: local, SEED_OWNER_USER_ID: ownerId, SEED_LOCAL_AUTH: "1" }));
+console.log(sh("npx tsx scripts/seed.ts", { DATABASE_URL: local, SEED_OWNER_USER_ID: ownerId, SEED_OWNER_EMAIL: email, SEED_LOCAL_AUTH: "1" }));
 
 // Keep the whole dump (INSERTs can span lines) minus psql meta-commands (\restrict …) and
 // settings a non-superuser can't change. pg_dump orders tables by foreign-key dependency.
@@ -67,4 +71,4 @@ const check = await query<{ orgs: number; products: number; rates: number; membe
 );
 console.log("Remote now has:", JSON.stringify(check[0]));
 sh(`psql ${admin} -q -c "drop database if exists inquira_remote_seed with (force)"`);
-console.log(`Done. Sign in at your app URL with "Forgot password?" → ${email} to set a password.`);
+console.log(`Done. Sign in at your app URL with "Forgot password?" → ${maskEmail(email)} to set a password.`);

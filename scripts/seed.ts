@@ -12,7 +12,14 @@ import postgres from "postgres";
 import { closeDb } from "@/db/client";
 import { seed } from "@/server/seed";
 
-const email = (process.env.SEED_OWNER_EMAIL ?? "owner@example.com").trim().toLowerCase();
+/** Accepts "you@x.com", "<you@x.com>" or "Name <you@x.com>" (people paste all three). */
+export function parseOwnerEmail(raw: string | undefined): string | null {
+  const m = (raw ?? "").match(/[\w.+'-]+@[\w-]+(?:\.[\w-]+)+/);
+  return m ? m[0].toLowerCase() : null;
+}
+export const maskEmail = (e: string) => e.replace(/^(.).*(@.*)$/, "$1***$2");
+
+const email = parseOwnerEmail(process.env.SEED_OWNER_EMAIL ?? "owner@example.com") ?? "";
 const orgName = process.env.SEED_ORG_NAME ?? "STDM Food & Beverages Pvt. Ltd.";
 
 export async function ensureSupabaseUser(emailAddr: string): Promise<string> {
@@ -47,12 +54,16 @@ async function ensureLocalUser(emailAddr: string): Promise<string> {
 
 const isMain = /scripts\/seed\.ts$/.test(process.argv[1] ?? "");
 if (isMain) {
+  if (!email) {
+    console.error("SEED_OWNER_EMAIL must contain an email address, e.g. you@company.com");
+    process.exit(1);
+  }
   try {
     const useSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) && process.env.SEED_LOCAL_AUTH !== "1";
     const ownerUserId = process.env.SEED_OWNER_USER_ID ?? (useSupabase ? await ensureSupabaseUser(email) : await ensureLocalUser(email));
-    console.log(`Owner: ${email} (${useSupabase ? "Supabase Auth" : "local"} user ${ownerUserId})`);
+    console.log(`Owner: ${maskEmail(email)} (${useSupabase ? "Supabase Auth" : "local"} user ${ownerUserId})`);
     await seed({ orgName, ownerUserId, ownerEmail: email, log: (s) => console.log(s) });
-    if (useSupabase) console.log("Next: open the app, click 'Forgot password?' and enter", email, "to set your password.");
+    if (useSupabase) console.log("Next: open the app, click 'Forgot password?' and enter your email to set your password.");
   } finally {
     await closeDb();
   }
