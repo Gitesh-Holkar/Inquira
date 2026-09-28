@@ -53,7 +53,7 @@ export async function upsertLeadInternal(tx: Tx, ctx: Ctx, input: NormalizedLead
   const phone = toE164(input.phone);
   const email = cleanEmail(input.email);
   const catalog = await productMatcherCatalog(tx, ctx.orgId);
-  const product = matchProduct(input.productText, catalog);
+  const product = matchProduct(input.productText, catalog) ?? (input.productText ? null : matchProduct(input.message, catalog));
   const international = detectInternational({ ...input, phone });
 
   const [exact] = await tx
