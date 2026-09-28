@@ -17,15 +17,27 @@ Each item lists the question, what I assumed so the build could continue, and wh
 - **Where it matters:** `price_entries.moq_kg` and the quote template.
 - **To change:** Set it on the *Update rates* screen.
 
-## Q-003 — Full product list from stdmfood.com
-- **Question:** stdmfood.com is blocked by this build environment's network policy, so I couldn't scrape it. `seed/products.json` = the rates file (authoritative, with prices) + 7 product pages found via web search. That adds 1 product that isn't in the rates file: Carboxymethyl Starch (CMS), which has no price.
-- **Assumed:** The rates file is the catalogue.
-- **To do:** Once `stdmfood.com` is allowed, run `npm run seed:website` to diff the website catalogue against the database.
+## Q-003 — Website vs rates file naming (resolved: website crawled)
+- **What happened:** Once the network was opened, I crawled stdmfood.com's 50 product pages and merged them into `seed/products.json`.
+  - 47 site pages map onto rates-file products; their site names are kept as aliases and URLs.
+  - 5 products are on the website only, so they're imported **without a price**: Lupine Protein Isolate, Modified Starch, Modified Potato Starch, Resistant Modified Starch, Pea Dextrin Powder.
+  - The lecithins, oligosaccharides, E1404, Corn/Pea/Oat Fiber and Spirulina are in the rates file but not on the website.
+  - Carboxymethyl Starch (CMS) no longer exists on the site (redirects), so it was dropped.
+- **Please confirm** these names that disagree between the two sources:
+  1. Quinoa: website says *Concentrate Protein*, rates say *Isolate Protein*.
+  2. Oats: website says *Concentrate Protein*, rates say *Isolate Protein*.
+  3. Lentil: website says *Protein Concentrate*, rates say *Isolate Protein*.
+  4. Hemp: website says *Seed Concentrate Protein Powder*, rates say *Seed Protein Powder*.
+  5. Website "Resistant Starch" is mapped to rates "Resistant Potato Starch".
+- **Where it matters:**
+  - Product names in quotes: `seed/products.json`, the *Catalog* screen.
+  - Buy-lead matching: the aliases.
+- **To re-check later:** run `npm run seed:website`.
 
-## Q-004 — Supabase connection from the build container
-- **Question:** This cloud container can't reach `*.supabase.co` / `api.supabase.com`, and outbound Postgres TCP (5432/6543) is closed.
-- **Assumed:** Everything is built and tested against a local Postgres 16. It uses a Supabase-compatible shim (`auth` schema, `authenticated`/`service_role` roles, `auth.uid()`).
-- **To do:** Migrations and seed for the real project run via `npm run db:remote:apply`, which uses the Supabase Management API over HTTPS with `SUPABASE_ACCESS_TOKEN`, or via `npm run db:migrate` from your own machine. See `docs/SETUP.md`.
+## Q-004 — Supabase from the build container (resolved)
+- **Status:** Verified from a fresh session: project in ap-south-1, Postgres 17.6, Auth OK.
+- **How the build works around it:** The overnight build container can't see environment variables added after it started. So it develops and tests against a local Postgres that mimics Supabase (`npm run db:local:up`), and it applies migrations to the real project from a fresh session with `npm run db:remote:apply` (Management API over HTTPS).
+- **From your machine:** `npm run db:migrate` works directly (see SETUP.md).
 
 ## Q-005 — Rates flagged `needs_confirmation`
 1. **Spirulina Protein Powder "(White)":** what does "White" mean?

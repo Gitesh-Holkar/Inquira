@@ -1,5 +1,5 @@
 {
-  "source": "Rates file (authoritative list) + stdmfood.com product pages seen via web search on 2026-09-29. Direct fetch of stdmfood.com was blocked by this build environment's network policy; re-run `npm run seed:website` once the domain is allowed (see QUESTIONS.md Q-003).",
+  "source": "Rates file (authoritative prices) merged with the live stdmfood.com catalogue crawled on 2026-09-29 (protein-derivatives, modified-starch-derivatives, dextrins-fibers, sitemap: 50 product pages). Re-run with `npm run seed:website`.",
   "products": [
     {
       "name": "Brown Rice Protein Isolate",
@@ -13,10 +13,16 @@
         "brown rice isolate protein",
         "rice protein isolate",
         "rice protein",
-        "brown rice protein"
+        "brown rice protein",
+        "brown rice protein powder"
       ],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/brown-rice-protein-powder-7194238.html"
+      ],
+      "website_names": [
+        "Brown Rice Protein Powder"
+      ]
     },
     {
       "name": "Chickpea Protein Isolate",
@@ -30,8 +36,13 @@
         "chickpea isolate protein",
         "chickpea protein"
       ],
-      "website_url": "https://www.stdmfood.com/chickpea-isolate-protein-9485132.html",
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/chickpea-isolate-protein-9485132.html"
+      ],
+      "website_names": [
+        "Chickpea Isolate Protein"
+      ]
     },
     {
       "name": "Hemp Seed Protein Powder",
@@ -41,9 +52,17 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "hemp seed concentrate protein powder"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/he-mp-seed-concentrate-protein-powder-9485131.html"
+      ],
+      "website_names": [
+        "Hemp Seed Concentrate Protein Powder"
+      ],
+      "notes": "Website calls it a *concentrate*; rates file just says 'Hemp Seed Protein Powder'."
     },
     {
       "name": "Lentil Protein Isolate",
@@ -55,10 +74,17 @@
       ],
       "aliases": [
         "lentil isolate protein",
-        "lentil protein"
+        "lentil protein",
+        "lentils protein concentrate"
       ],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/lentils-protein-concentrate-8814808.html"
+      ],
+      "website_names": [
+        "Lentils Protein Concentrate"
+      ],
+      "notes": "Website says 'Lentils Protein Concentrate', rates file says 'Lentil Isolate Protein' — isolate or concentrate?"
     },
     {
       "name": "Mung Protein Isolate",
@@ -74,8 +100,13 @@
         "mung bean protein",
         "moong protein"
       ],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/mung-isolate-protein-8767400.html"
+      ],
+      "website_names": [
+        "Mung Isolate Protein"
+      ]
     },
     {
       "name": "Oats Protein Isolate",
@@ -87,10 +118,17 @@
       ],
       "aliases": [
         "oats isolate protein",
-        "oat protein"
+        "oat protein",
+        "oats concentrate protein"
       ],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/oats-concentrate-protein-8814816.html"
+      ],
+      "website_names": [
+        "Oats Concentrate Protein"
+      ],
+      "notes": "Website says 'Oats Concentrate Protein', rates file says 'Oats Isolate Protein' — isolate or concentrate?"
     },
     {
       "name": "Pea Protein Isolate",
@@ -105,8 +143,11 @@
         "pea protein",
         "pea protein powder"
       ],
-      "website_url": "https://www.stdmfood.com/pea-protein-isolate-7194237.html",
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/pea-protein-isolate-7194237.html"
+      ],
+      "website_names": []
     },
     {
       "name": "Peanut Protein Isolate",
@@ -120,8 +161,13 @@
         "peanut isolate protein",
         "groundnut protein"
       ],
-      "website_url": "https://www.stdmfood.com/peanut-isolate-protein-8767389.html",
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/peanut-isolate-protein-8767389.html"
+      ],
+      "website_names": [
+        "Peanut Isolate Protein"
+      ]
     },
     {
       "name": "Potato Protein Isolate",
@@ -134,8 +180,11 @@
       "aliases": [
         "potato protein"
       ],
-      "website_url": "https://www.stdmfood.com/potato-protein-isolate-8814735.html",
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/potato-protein-isolate-8814735.html"
+      ],
+      "website_names": []
     },
     {
       "name": "Pumpkin Seed Protein Powder",
@@ -145,9 +194,16 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "pumpkin seed protein"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/pumpkin-seed-protein-8814768.html"
+      ],
+      "website_names": [
+        "Pumpkin Seed Protein"
+      ]
     },
     {
       "name": "Quinoa Protein Isolate",
@@ -159,10 +215,17 @@
       ],
       "aliases": [
         "quinoa isolate protein",
-        "quinoa protein"
+        "quinoa protein",
+        "quinoa concentrate protein"
       ],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/quinoa-concentrate-protein-8814787.html"
+      ],
+      "website_names": [
+        "Quinoa Concentrate Protein"
+      ],
+      "notes": "Website says 'Quinoa Concentrate Protein', rates file says 'Quinoa Isolate Protein' — isolate or concentrate?"
     },
     {
       "name": "Soya Protein Isolate",
@@ -179,8 +242,14 @@
         "soya protein isolate powder",
         "isolated soy protein"
       ],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/soy-protein-isolate-powder-8814723.html",
+        "https://www.stdmfood.com/soy-protein-isolate-powder-7194240.html"
+      ],
+      "website_names": [
+        "Soy Protein Isolate Powder"
+      ]
     },
     {
       "name": "Spirulina Protein Powder",
@@ -191,8 +260,9 @@
         "White"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Wheat Protein Powder",
@@ -207,8 +277,11 @@
         "isolated wheat protein",
         "wheat gluten"
       ],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/wheat-protein-powder-9485124.html"
+      ],
+      "website_names": []
     },
     {
       "name": "Rapeseed Lecithin Powder",
@@ -219,8 +292,9 @@
         "Standard"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Soya Isoflavones",
@@ -231,8 +305,9 @@
         "Standard"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Soya Lecithin Powder",
@@ -246,8 +321,9 @@
         "soy lecithin",
         "soya lecithin"
       ],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Hydrogenated Soya Lecithin Powder",
@@ -258,8 +334,9 @@
         "Standard"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Soya Phosphatidylcholine",
@@ -271,8 +348,9 @@
         "50%"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Soya Phosphatidylserine",
@@ -284,8 +362,9 @@
         "50%"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Sunflower Lecithin Powder",
@@ -298,8 +377,9 @@
       "aliases": [
         "sunflower lecithin"
       ],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Hydrogenated Sunflower Lecithin Powder",
@@ -310,8 +390,9 @@
         "Standard"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Sunflower Phosphatidylcholine",
@@ -322,8 +403,9 @@
         "30%"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Sunflower Phosphatidylserine Powder",
@@ -335,8 +417,9 @@
         "50%"
       ],
       "aliases": [],
-      "website_url": "https://www.stdmfood.com/sunflower-phosphatidylserine-powder-9672859.html",
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Fructo Oligosaccharides (FOS)",
@@ -350,8 +433,9 @@
         "fos",
         "fructooligosaccharides"
       ],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Galacto Oligosaccharides Powder (GOS)",
@@ -365,8 +449,9 @@
         "gos",
         "galactooligosaccharides"
       ],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Isomalto Oligosaccharide Powder (IMO)",
@@ -380,8 +465,9 @@
         "imo",
         "isomaltooligosaccharide"
       ],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Xylo Oligosaccharide Powder (XOS)",
@@ -396,8 +482,9 @@
         "xylooligosaccharides",
         "xylo oligosaccharide"
       ],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "High Amylose Starch (Potato)",
@@ -407,9 +494,16 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "high amylose starch"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/high-amylose-starch-8766951.html"
+      ],
+      "website_names": [
+        "High Amylose Starch"
+      ]
     },
     {
       "name": "Pea Starch",
@@ -420,8 +514,11 @@
         "Standard"
       ],
       "aliases": [],
-      "website_url": "https://www.stdmfood.com/pea-starch-7194232.html",
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/pea-starch-7194232.html"
+      ],
+      "website_names": []
     },
     {
       "name": "Potato Starch",
@@ -437,8 +534,16 @@
         "waxy potato starch",
         "potato starch powder"
       ],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/waxy-potato-starch-7194242.html",
+        "https://www.stdmfood.com/native-potato-starch-7194234.html",
+        "https://www.stdmfood.com/potato-starch-9485114.html"
+      ],
+      "website_names": [
+        "Waxy Potato Starch",
+        "Native Potato Starch"
+      ]
     },
     {
       "name": "Resistant Potato Starch",
@@ -448,9 +553,17 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "resistant starch"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/resistant-starch-8766967.html"
+      ],
+      "website_names": [
+        "Resistant Starch"
+      ],
+      "notes": "Website page is 'Resistant Starch'; mapped to rates 'Resistant Potato Starch' — confirm."
     },
     {
       "name": "Rice Starch",
@@ -460,9 +573,16 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "native rice starch"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/native-rice-starch-7194231.html"
+      ],
+      "website_names": [
+        "Native Rice Starch"
+      ]
     },
     {
       "name": "Sweet Potato Starch",
@@ -473,8 +593,11 @@
         "Standard"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/sweet-potato-starch-8748264.html"
+      ],
+      "website_names": []
     },
     {
       "name": "Tapioca Starch",
@@ -488,8 +611,11 @@
         "tapioca starch powder",
         "cassava starch"
       ],
-      "website_url": "https://www.stdmfood.com/tapioca-starch-7194233.html",
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/tapioca-starch-7194233.html"
+      ],
+      "website_names": []
     },
     {
       "name": "Wheat Starch",
@@ -500,8 +626,11 @@
         "Standard"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/wheat-starch-7194236.html"
+      ],
+      "website_names": []
     },
     {
       "name": "E1401 Acid Treated Starch",
@@ -511,9 +640,16 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "acid treated starch e1401"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/acid-treated-starch-e1401-8748596.html"
+      ],
+      "website_names": [
+        "Acid Treated Starch E1401"
+      ]
     },
     {
       "name": "E1402 Alkaline Treated Starch",
@@ -523,9 +659,16 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "alkaline starch e1402"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/alkaline-starch-e1402-8748602.html"
+      ],
+      "website_names": [
+        "Alkaline Starch E1402"
+      ]
     },
     {
       "name": "E1404 Oxidized Starch",
@@ -536,8 +679,9 @@
         "Standard"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "E1405 Enzyme Treated Starch",
@@ -547,9 +691,16 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "enzyme treated starch e1405"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/enzyme-treated-starch-e1405-8748633.html"
+      ],
+      "website_names": [
+        "Enzyme Treated Starch E1405"
+      ]
     },
     {
       "name": "E1410 Mono Starch Phosphate",
@@ -559,9 +710,16 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "monostarch phosphate e1410"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/monostarch-phosphate-e1410-8748649.html"
+      ],
+      "website_names": [
+        "Monostarch Phosphate E1410"
+      ]
     },
     {
       "name": "E1412 Distarch Phosphate",
@@ -571,9 +729,16 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "distarch phosphate e1412"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/distarch-phosphate-e1412-8766719.html"
+      ],
+      "website_names": [
+        "Distarch Phosphate E1412"
+      ]
     },
     {
       "name": "E1413 Phosphated Distarch Phosphate",
@@ -583,9 +748,16 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "phosphated distarch phosphate e1413"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/phosphated-distarch-phosphate-e1413-9485116.html"
+      ],
+      "website_names": [
+        "Phosphated Distarch Phosphate E1413"
+      ]
     },
     {
       "name": "E1414 Acetylated Distarch Phosphate",
@@ -595,9 +767,16 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "acetylated distarch phosphate e1414"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/acetylated-distarch-phosphate-e1414-9485117.html"
+      ],
+      "website_names": [
+        "Acetylated Distarch Phosphate E1414"
+      ]
     },
     {
       "name": "E1420 Acetylated Starch",
@@ -607,9 +786,16 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "acetylated starch e1420"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/acetylated-starch-e1420-9485110.html"
+      ],
+      "website_names": [
+        "Acetylated Starch E1420"
+      ]
     },
     {
       "name": "E1422 Acetylated Distarch Adipate",
@@ -619,9 +805,16 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "acetylated distarch adipate"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/acetylated-distarch-adipate-9485111.html"
+      ],
+      "website_names": [
+        "Acetylated Distarch Adipate"
+      ]
     },
     {
       "name": "E1440 Hydroxypropyl Starch",
@@ -631,9 +824,16 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "hydroxy propyl starch e1440"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/hydroxy-propyl-starch-e1440-8766896.html"
+      ],
+      "website_names": [
+        "Hydroxy Propyl Starch E1440"
+      ]
     },
     {
       "name": "E1442 Hydroxypropyl Distarch Phosphate",
@@ -644,9 +844,16 @@
         "Standard",
         "Cold Water Soluble"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "hydroxy propyl distarch phosphate e1442"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/hydroxy-propyl-distarch-phosphate-e1442-8766928.html"
+      ],
+      "website_names": [
+        "Hydroxy Propyl Distarch Phosphate E1442"
+      ]
     },
     {
       "name": "E1450 Sodium Octenyl Succinate Starch",
@@ -656,9 +863,16 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "starch sodium octenyl succinate e1450"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/starch-sodium-octenyl-succinate-e1450-8766934.html"
+      ],
+      "website_names": [
+        "Starch Sodium Octenyl Succinate E1450"
+      ]
     },
     {
       "name": "Corn Fiber",
@@ -669,8 +883,9 @@
         "Standard"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Peanut Flour",
@@ -685,8 +900,11 @@
         "groundnut flour",
         "peanut flour powder"
       ],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/peanut-flour-8814824.html"
+      ],
+      "website_names": []
     },
     {
       "name": "Potato Dextrin",
@@ -697,8 +915,11 @@
         "Standard"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/potato-dextrin-8828979.html"
+      ],
+      "website_names": []
     },
     {
       "name": "Potato Fiber",
@@ -709,9 +930,16 @@
         "Soluble",
         "Insoluble"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "potato fiber powder"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/potato-fiber-powder-8814946.html"
+      ],
+      "website_names": [
+        "Potato Fiber Powder"
+      ]
     },
     {
       "name": "Pea Fiber",
@@ -723,8 +951,9 @@
         "Insoluble"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Rice Fiber",
@@ -735,9 +964,16 @@
         "Standard",
         "Insoluble"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "rice fiber powder"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/rice-fiber-powder-8814968.html"
+      ],
+      "website_names": [
+        "Rice Fiber Powder"
+      ]
     },
     {
       "name": "Oat Fiber",
@@ -748,8 +984,9 @@
         "Insoluble"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [],
+      "website_names": []
     },
     {
       "name": "Rice Dextrin",
@@ -760,8 +997,11 @@
         "Standard"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/rice-dextrin-8829020.html"
+      ],
+      "website_names": []
     },
     {
       "name": "Soya Fibre",
@@ -771,9 +1011,16 @@
       "grades": [
         "Insoluble"
       ],
-      "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "aliases": [
+        "soya fiber"
+      ],
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/soya-fiber-8814978.html"
+      ],
+      "website_names": [
+        "Soya Fiber"
+      ]
     },
     {
       "name": "Soya Flour",
@@ -789,8 +1036,11 @@
         "defatted soya flour",
         "defatted soy flour"
       ],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/soya-flour-8814855.html"
+      ],
+      "website_names": []
     },
     {
       "name": "Wheat Dextrin",
@@ -801,8 +1051,11 @@
         "Standard"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/wheat-dextrin-8829000.html"
+      ],
+      "website_names": []
     },
     {
       "name": "Wheat Fiber",
@@ -814,22 +1067,95 @@
         "Insoluble"
       ],
       "aliases": [],
-      "website_url": null,
-      "source": "rates_file"
+      "source": "rates_file",
+      "website_urls": [
+        "https://www.stdmfood.com/wheat-fiber-8814963.html"
+      ],
+      "website_names": []
     },
     {
-      "name": "Carboxymethyl Starch (CMS)",
-      "category": "Starches",
+      "name": "Lupine Protein Isolate",
+      "category": "Protein Derivatives",
       "gst_percent": null,
       "pack_size": null,
-      "grades": [],
-      "aliases": [
-        "cms",
-        "carboxymethyl starch"
+      "grades": [
+        "Standard"
       ],
-      "website_url": "https://www.stdmfood.com/carboxymethyl-starch-8766940.html",
-      "source": "website_search_result",
-      "notes": "Seen on stdmfood.com (search result title mentions Technical/Analytical/Bio Tech grades) but not in the rates file. No price imported."
+      "aliases": [],
+      "website_urls": [
+        "https://www.stdmfood.com/lupine-protein-isolate-12650628.html"
+      ],
+      "website_names": [],
+      "source": "website",
+      "notes": "On stdmfood.com but not in the rates file: no price imported."
+    },
+    {
+      "name": "Modified Potato Starch",
+      "category": "Modified Starch Derivatives",
+      "gst_percent": null,
+      "pack_size": null,
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_urls": [
+        "https://www.stdmfood.com/modified-potato-starch-7194230.html"
+      ],
+      "website_names": [],
+      "source": "website",
+      "notes": "On stdmfood.com but not in the rates file: no price imported."
+    },
+    {
+      "name": "Resistant Modified Starch",
+      "category": "Modified Starch Derivatives",
+      "gst_percent": null,
+      "pack_size": null,
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_urls": [
+        "https://www.stdmfood.com/resistant-modified-starch-9485107.html"
+      ],
+      "website_names": [],
+      "source": "website",
+      "notes": "On stdmfood.com but not in the rates file: no price imported."
+    },
+    {
+      "name": "Modified Starch",
+      "category": "Modified Starch Derivatives",
+      "gst_percent": null,
+      "pack_size": null,
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_urls": [
+        "https://www.stdmfood.com/modified-starch-12338100.html"
+      ],
+      "website_names": [],
+      "source": "website",
+      "notes": "On stdmfood.com but not in the rates file: no price imported."
+    },
+    {
+      "name": "Pea Dextrin Powder",
+      "category": "Dextrins & Fibers",
+      "gst_percent": null,
+      "pack_size": null,
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_urls": [
+        "https://www.stdmfood.com/pea-dextrin-powder-8829040.html"
+      ],
+      "website_names": [],
+      "source": "website",
+      "notes": "On stdmfood.com but not in the rates file: no price imported."
     }
-  ]
+  ],
+  "brand": {
+    "accent_hex": "#69bd43",
+    "note": "Most frequent accent colour in stdmfood.com CSS (green)."
+  }
 }
