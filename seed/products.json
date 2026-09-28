@@ -1,0 +1,835 @@
+{
+  "source": "Rates file (authoritative list) + stdmfood.com product pages seen via web search on 2026-09-29. Direct fetch of stdmfood.com was blocked by this build environment's network policy; re-run `npm run seed:website` once the domain is allowed (see QUESTIONS.md Q-003).",
+  "products": [
+    {
+      "name": "Brown Rice Protein Isolate",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "brown rice isolate protein",
+        "rice protein isolate",
+        "rice protein",
+        "brown rice protein"
+      ],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Chickpea Protein Isolate",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "chickpea isolate protein",
+        "chickpea protein"
+      ],
+      "website_url": "https://www.stdmfood.com/chickpea-isolate-protein-9485132.html",
+      "source": "rates_file"
+    },
+    {
+      "name": "Hemp Seed Protein Powder",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Lentil Protein Isolate",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "lentil isolate protein",
+        "lentil protein"
+      ],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Mung Protein Isolate",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "mung isolate protein",
+        "mung protein",
+        "mung bean protein",
+        "moong protein"
+      ],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Oats Protein Isolate",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "oats isolate protein",
+        "oat protein"
+      ],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Pea Protein Isolate",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "pea isolate protein",
+        "pea protein",
+        "pea protein powder"
+      ],
+      "website_url": "https://www.stdmfood.com/pea-protein-isolate-7194237.html",
+      "source": "rates_file"
+    },
+    {
+      "name": "Peanut Protein Isolate",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "peanut isolate protein",
+        "groundnut protein"
+      ],
+      "website_url": "https://www.stdmfood.com/peanut-isolate-protein-8767389.html",
+      "source": "rates_file"
+    },
+    {
+      "name": "Potato Protein Isolate",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "potato protein"
+      ],
+      "website_url": "https://www.stdmfood.com/potato-protein-isolate-8814735.html",
+      "source": "rates_file"
+    },
+    {
+      "name": "Pumpkin Seed Protein Powder",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Quinoa Protein Isolate",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "quinoa isolate protein",
+        "quinoa protein"
+      ],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Soya Protein Isolate",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "soya isolate protein",
+        "soy protein isolate",
+        "soy protein isolate powder",
+        "soya protein isolate powder",
+        "isolated soy protein"
+      ],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Spirulina Protein Powder",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "White"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Wheat Protein Powder",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "wheat protein",
+        "isolated wheat protein",
+        "wheat gluten"
+      ],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Rapeseed Lecithin Powder",
+      "category": "Lecithin",
+      "gst_percent": 18,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Soya Isoflavones",
+      "category": "Lecithin",
+      "gst_percent": 18,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Soya Lecithin Powder",
+      "category": "Lecithin",
+      "gst_percent": 18,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "soy lecithin",
+        "soya lecithin"
+      ],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Hydrogenated Soya Lecithin Powder",
+      "category": "Lecithin",
+      "gst_percent": 18,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Soya Phosphatidylcholine",
+      "category": "Lecithin",
+      "gst_percent": 18,
+      "pack_size": "25 Kg",
+      "grades": [
+        "30%",
+        "50%"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Soya Phosphatidylserine",
+      "category": "Lecithin",
+      "gst_percent": 18,
+      "pack_size": "25 Kg",
+      "grades": [
+        "20%",
+        "50%"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Sunflower Lecithin Powder",
+      "category": "Lecithin",
+      "gst_percent": 18,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "sunflower lecithin"
+      ],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Hydrogenated Sunflower Lecithin Powder",
+      "category": "Lecithin",
+      "gst_percent": 18,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Sunflower Phosphatidylcholine",
+      "category": "Lecithin",
+      "gst_percent": 18,
+      "pack_size": "25 Kg",
+      "grades": [
+        "30%"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Sunflower Phosphatidylserine Powder",
+      "category": "Lecithin",
+      "gst_percent": 18,
+      "pack_size": "25 Kg",
+      "grades": [
+        "20%",
+        "50%"
+      ],
+      "aliases": [],
+      "website_url": "https://www.stdmfood.com/sunflower-phosphatidylserine-powder-9672859.html",
+      "source": "rates_file"
+    },
+    {
+      "name": "Fructo Oligosaccharides (FOS)",
+      "category": "Saccharides",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "fos",
+        "fructooligosaccharides"
+      ],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Galacto Oligosaccharides Powder (GOS)",
+      "category": "Saccharides",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "gos",
+        "galactooligosaccharides"
+      ],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Isomalto Oligosaccharide Powder (IMO)",
+      "category": "Saccharides",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "imo",
+        "isomaltooligosaccharide"
+      ],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Xylo Oligosaccharide Powder (XOS)",
+      "category": "Saccharides",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "xos",
+        "xylooligosaccharides",
+        "xylo oligosaccharide"
+      ],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "High Amylose Starch (Potato)",
+      "category": "Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Pea Starch",
+      "category": "Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": "https://www.stdmfood.com/pea-starch-7194232.html",
+      "source": "rates_file"
+    },
+    {
+      "name": "Potato Starch",
+      "category": "Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Native",
+        "Waxy"
+      ],
+      "aliases": [
+        "native potato starch",
+        "waxy potato starch",
+        "potato starch powder"
+      ],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Resistant Potato Starch",
+      "category": "Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Rice Starch",
+      "category": "Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Sweet Potato Starch",
+      "category": "Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Tapioca Starch",
+      "category": "Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "tapioca starch powder",
+        "cassava starch"
+      ],
+      "website_url": "https://www.stdmfood.com/tapioca-starch-7194233.html",
+      "source": "rates_file"
+    },
+    {
+      "name": "Wheat Starch",
+      "category": "Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "E1401 Acid Treated Starch",
+      "category": "E Number Modified Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "E1402 Alkaline Treated Starch",
+      "category": "E Number Modified Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "E1404 Oxidized Starch",
+      "category": "E Number Modified Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "E1405 Enzyme Treated Starch",
+      "category": "E Number Modified Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "E1410 Mono Starch Phosphate",
+      "category": "E Number Modified Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "E1412 Distarch Phosphate",
+      "category": "E Number Modified Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "E1413 Phosphated Distarch Phosphate",
+      "category": "E Number Modified Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "E1414 Acetylated Distarch Phosphate",
+      "category": "E Number Modified Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "E1420 Acetylated Starch",
+      "category": "E Number Modified Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "E1422 Acetylated Distarch Adipate",
+      "category": "E Number Modified Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "E1440 Hydroxypropyl Starch",
+      "category": "E Number Modified Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "E1442 Hydroxypropyl Distarch Phosphate",
+      "category": "E Number Modified Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard",
+        "Cold Water Soluble"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "E1450 Sodium Octenyl Succinate Starch",
+      "category": "E Number Modified Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Corn Fiber",
+      "category": "Flour/ Fiber/ Dextrin",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Peanut Flour",
+      "category": "Flour/ Fiber/ Dextrin",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "defatted peanut flour",
+        "groundnut flour",
+        "peanut flour powder"
+      ],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Potato Dextrin",
+      "category": "Flour/ Fiber/ Dextrin",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Potato Fiber",
+      "category": "Flour/ Fiber/ Dextrin",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Soluble",
+        "Insoluble"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Pea Fiber",
+      "category": "Flour/ Fiber/ Dextrin",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard",
+        "Insoluble"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Rice Fiber",
+      "category": "Flour/ Fiber/ Dextrin",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard",
+        "Insoluble"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Oat Fiber",
+      "category": "Flour/ Fiber/ Dextrin",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Insoluble"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Rice Dextrin",
+      "category": "Flour/ Fiber/ Dextrin",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Soya Fibre",
+      "category": "Flour/ Fiber/ Dextrin",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Insoluble"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Soya Flour",
+      "category": "Flour/ Fiber/ Dextrin",
+      "gst_percent": 5,
+      "pack_size": "25/50 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "soya flour powder",
+        "soy flour",
+        "defatted soya flour",
+        "defatted soy flour"
+      ],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Wheat Dextrin",
+      "category": "Flour/ Fiber/ Dextrin",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Wheat Fiber",
+      "category": "Flour/ Fiber/ Dextrin",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard",
+        "Insoluble"
+      ],
+      "aliases": [],
+      "website_url": null,
+      "source": "rates_file"
+    },
+    {
+      "name": "Carboxymethyl Starch (CMS)",
+      "category": "Starches",
+      "gst_percent": null,
+      "pack_size": null,
+      "grades": [],
+      "aliases": [
+        "cms",
+        "carboxymethyl starch"
+      ],
+      "website_url": "https://www.stdmfood.com/carboxymethyl-starch-8766940.html",
+      "source": "website_search_result",
+      "notes": "Seen on stdmfood.com (search result title mentions Technical/Analytical/Bio Tech grades) but not in the rates file. No price imported."
+    }
+  ]
+}

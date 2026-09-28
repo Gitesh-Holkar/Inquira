@@ -1,0 +1,21 @@
+{
+  "format": "ignored",
+  "subject": "Industrial production rises 8%, & more - Daily Digest",
+  "date": "2026-09-28T15:43:05Z",
+  "headers": {
+    "List-Unsubscribe": "<mailto:unsubscribe@digest.newsletter.example>"
+  },
+  "text": "All you need to know about the day. Daily Digest 28 September 2026. Sensex 72771.72 ▼ 1.52%. Unsubscribe",
+  "expected": {
+    "classification": "ignored",
+    "reason": "newsletter"
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "ignored-newsletter",
+  "from": "noreply@digest.newsletter.example",
+  "_anonymised": true
+}

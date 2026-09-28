@@ -1,0 +1,27 @@
+{
+  "format": "indiamart.buylead",
+  "subject": "Buyer Details for Rice Protein Meal 90 Protein",
+  "date": "2026-09-28T08:29:03Z",
+  "text": "                                            Buy Lead through IndiaMART Buyer's Contact Details:\n\n                  Phone ✓ Email ✓ GST ✓\n\n                            Kavya Rao Hilltop Food Products Dimapur - 797112, NL\n                             +91-9000000404\n\n                            E-mail: kavya.hilltop@example.com\n\n\t\t\t\t\t\t\tSells: Cocoa Powder, Cap Sealing Machine, Alkalized Cocoa Powder\n\n\t\t\t\t\t\t\tMember Since: 9+ years\n\n                        Buylead Details: Rice Protein Meal 90 Protein\n\n                             Quantity : 25 Kg Protein Form : Concentrate Protein Content % : 90 % Organic Status : Conventional Probable Order Value : Rs. 1,100 - 8,000 Probable Requirement Type : Business Use\n\n                          Reply To This Message\n\n                     IndiaMART recommends you to get in touch with buyer on both Email and Mobile Email: buyleads@indiamart.com Call Us : 096-9696-9696 Visit : https://help.indiamart.com IndiaMART InterMESH Ltd. 6th floor, Tower 2, Assotech Business Cresterra, Plot No.22, Sec 135, Noida-201305, UP If you would like to unsubscribe and stop receiving these emails click here  ",
+  "expected": {
+    "classification": "inquiry",
+    "source": "indiamart",
+    "kind": "buylead",
+    "phone": "+919000000404",
+    "email": "kavya.hilltop@example.com",
+    "state": "Nagaland",
+    "city": "Dimapur",
+    "country": "India",
+    "product": "Rice Protein Meal 90 Protein",
+    "quantity": "25 Kg",
+    "international": false
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "indiamart-buylead-details",
+  "from": "buyleads@indiamart.com",
+  "_anonymised": true
+}

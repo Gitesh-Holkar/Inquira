@@ -1,0 +1,18 @@
+{
+  "format": "ignored",
+  "subject": "Your OTP for login is 482913",
+  "date": "2026-09-28T10:00:00Z",
+  "text": "Your one time password (OTP) is 482913. It is valid for 10 minutes. Do not share it with anyone.",
+  "expected": {
+    "classification": "ignored",
+    "reason": "otp"
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "ignored-otp",
+  "from": "no-reply@portal.example",
+  "_anonymised": true
+}

@@ -1,0 +1,20 @@
+{
+  "format": "direct",
+  "subject": "Bulk Inquiry – Rice Protein Concentrate for Import to Indonesia",
+  "date": "2026-09-28T05:12:28Z",
+  "text": "Dear Company,\n\nMy name is Budi, and I represent PT CONTOH NUSANTARA, a leading\ndistribution company based in Indonesia. We are currently seeking a\nreliable supplier for bulk quantities of Rice protein concentrate and\nare interested in placing an initial trial order before moving forward\nwith larger ongoing purchases.\n\nCould you kindly confirm if you have prior experience shipping to\nIndonesia? Your confirmation, along with any product specifications or\npricing details, would be greatly appreciated.\n\nKind regards,\n\nBudi Hartono\nBusiness Development Manager\nPT CONTOH NUSANTARA\nJakarta, Indonesia\n",
+  "expected": {
+    "classification": "needs_review",
+    "source": "gmail",
+    "kind": "direct",
+    "international_hint": true
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "direct-inquiry-international",
+  "from": "Budi Hartono <budi@distributor-id.example>",
+  "_anonymised": true
+}

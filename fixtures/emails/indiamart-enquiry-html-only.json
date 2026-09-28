@@ -1,0 +1,29 @@
+{
+  "format": "indiamart.enquiry",
+  "subject": "Enquiry for Soya Flour Powder, Protein Content: 50-55, Packaging Size: 25 kg from Arjun via IndiaMART",
+  "date": "2026-09-28T06:31:08Z",
+  "text": "Dear%20%7B%7B.toname%7D%7D%2C%0A%0A%7B%7B.mail_header_line_plain_text%7D%7D%0A%0A%7B%7B.offer_details_plain_text%7D%7D%0A%0A%7B%7B.mail_buyer_details_plain_text%7D%7D",
+  "html": "<!doctype html><html><head><title>Business Enquiry for Soya Flour Powder, Protein Content: 50-55, Packaging Size: 25 kg</title></head>\n<body><table><tr><td>\n<p style=\"margin:0 0 12px;font-size:16px;\">\n  Hi <span style=\"font-weight:700;\">Ravi Kumar</span>,\n</p>\n<p style=\"margin:0 0 16px;font-size:14px;line-height:20px\">\nI found your company on IndiaMART while searching for my requirement. I am looking for\n      <b>Soya Flour Powder, Protein Content: 50-55, Packaging Size: 25 kg</b>.\n</p>\n<table><tbody>\n<tr><td colspan=\"3\"><span><strong>Below are my requirements:</strong></span></td></tr>\n<tr><td style=\"font-weight: bold;\">\n      Quantity\n    </td><td>\n      :\n    </td><td>\n      200 Kg\n    </td></tr>\n<tr><td style=\"font-weight: bold;\">Packaging Size</td><td>:</td><td>25 kg</td></tr>\n<tr><td style=\"font-weight: bold;\">Type</td><td>:</td><td>Protein Isolate</td></tr>\n<tr><td style=\"font-weight: bold;\">Protein Content</td><td>:</td><td>&gt;90% (Isolate)</td></tr>\n<tr><td style=\"font-weight: bold;\">Type of Requirement</td><td>:</td><td>Monthly</td></tr>\n<tr><td style=\"font-weight: bold;\">Probable Order Value</td><td>:</td><td>Rs. 16,000 - 21,000</td></tr>\n<tr><td style=\"font-weight: bold;\">Probable Requirement Type</td><td>:</td><td>Business Use</td></tr>\n</tbody></table>\n<a href=\"https://indmrt.in/INDMRT/xxxxxxxx/call+91-9000000202\">Call</a>\n<a href=\"https://example.invalid/chat\">Chat</a>\n<table><tbody>\n<tr><td> <br>Regards,\n</td></tr>\n<tr><td><span>\n      Arjun Patel\n    </span></td></tr>\n<tr><td><span>\n    Greenfield Agro Industries Limited</span> <span><span> (GST verified by IndiaMART)</span></span></td></tr>\n<tr><td><img alt=tickicon><span><strong>Click to call:</strong>\n<a href=\"https://indmrt.in/INDMRT/xxxxxxxx/call+91-9000000202\">+91-9000000202 </a></span></td></tr>\n<tr><td><img alt=tickicon><span>\n      Email:\n      <a href=\"mailto:arjun.greenfield@example.com\">arjun.greenfield@example.com</a>\n  </span></td></tr>\n<tr><td><span>\n    Plot No-12, Sample Nagar, Nabarangpur - 764059, Odisha, India\n    </span></td></tr>\n<tr><td><span><strong> Additional details about me: </strong></span></td></tr>\n<tr><td><span>I deal in  Bio Fertilizers, Organic Fertilizers and Manure</span></td></tr>\n<tr><td><span><strong> Interested Products : </strong> Pouch Printing Services</span></td></tr>\n<tr><td><span><strong> Requirements till date : </strong> 4</span></td></tr>\n<tr><td><span><strong> Member since : </strong> 11 Years</span></td></tr>\n</tbody></table>\n</td></tr></table>\n<p>If you'd like to unsubscribe and stop receiving these emails <a href=\"https://example.invalid/unsub\">click here</a>.</p>\n</body></html>",
+  "expected": {
+    "classification": "inquiry",
+    "source": "indiamart",
+    "kind": "enquiry",
+    "contact_name": "Arjun Patel",
+    "company": "Greenfield Agro Industries Limited",
+    "phone": "+919000000202",
+    "email": "arjun.greenfield@example.com",
+    "city": "Nabarangpur",
+    "state": "Odisha",
+    "country": "India",
+    "product": "Soya Flour Powder, Protein Content: 50-55, Packaging Size: 25 kg",
+    "quantity": "200 Kg",
+    "international": false
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "cc": [],
+  "id": "indiamart-enquiry-html-only",
+  "from": "buyershelp+enq@indiamart.com",
+  "_anonymised": true
+}

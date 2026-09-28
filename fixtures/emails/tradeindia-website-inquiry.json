@@ -1,0 +1,30 @@
+{
+  "format": "tradeindia.inquiry",
+  "subject": "Inquiry from +917900000000000 through tradeindia.com",
+  "date": "2026-09-27T16:46:12Z",
+  "text": ".",
+  "html": "<table><tbody><tr><td>\n<p><span> Dear Mr Ravi Kumar</span>\nYou are receiving this mail as you're a registered user of TradeIndia - India's largest B2B e-commerce portal.<br />\n<span> You have a new inquiry. Act quickly and increase your chances of conversion.</span></p>\n<ul>\n<li><span>Sender Name:</span>&nbsp;&nbsp;Mr. Suresh Pillai </li>\n<li><span>Product Details:</span>&nbsp;&nbsp; </li>\n<li><span>Requirement Details:</span> &nbsp;&nbsp;I would like to discuss my requirements in detail. Can we set up a time to talk? Wheat Dextrin\n\t<br><br>\n        Thank you,<br>\n        Mr. Suresh Pillai<br>\n-------------------------------------------------------------\nDetails of the sender\n    Name           : Mr. Suresh Pillai\n    Company        : Harvest Table Foods Pvt. Ltd.\n    Email          :  suresh.pillai@example.com info@harvesttable.example\n    Mobile No.     :  +919000001010  +919000001011\n    City           : Mumbai\n    State          : Maharashtra\n    IP/Country     : 192.0.2.10/32/India\n-------------------------------------------------------------\n</li>\n<li><span>Buyer Details:</span> &nbsp;&nbsp;Name : Mr. Suresh Pillai<br />Phone No :<br><a href=\"tel:22000000\">22000000</a><br />Mobile No :<br><a href=\"tel:+919000001010\">+919000001010</a>  <br />Email : suresh.pillai@example.com<br />City : Mumbai<br />State : Maharashtra<br />Company : Harvest Table Foods Pvt. Ltd.<br />IP/Country : 192.0.2.11/India </li>\n</ul>\n<a href=\"http://delivery.bouncesto.tradeindia.com/XXXX?id=redacted&ext=cmZpX2lkPTkwMDAwMDAwMyZhbXA7c2VjdGlvbj1JbmJveCNteVJlcGx5\">Click here to check inquiry</a>\n</td></tr></tbody></table>\n<br><img src=\"https://inquiry.tradeindia.com/utils/email_read.html?key=redacted&email_key=1&rfi_id=900000003&mailer_id=523\">",
+  "expected": {
+    "classification": "inquiry",
+    "source": "tradeindia",
+    "kind": "inquiry",
+    "source_ref": "900000003",
+    "contact_name": "Mr. Suresh Pillai",
+    "company": "Harvest Table Foods Pvt. Ltd.",
+    "phone": "+919000001010",
+    "email": "suresh.pillai@example.com",
+    "city": "Mumbai",
+    "state": "Maharashtra",
+    "country": "India",
+    "product": null,
+    "message_contains": "Wheat Dextrin",
+    "international": false
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "cc": [],
+  "id": "tradeindia-website-inquiry",
+  "from": "inquiry.paid@rfis.tradeindia.com",
+  "_anonymised": true
+}

@@ -1,0 +1,19 @@
+{
+  "format": "direct",
+  "subject": "Requirement for Rice fiber powder",
+  "date": "2026-09-28T12:19:17Z",
+  "text": "Hello ,\n\nHope you are doing well.\n\nWe have a requirement for :- Rice fiber powder , 700kg\n\nKindly send me the best price along with the documents like.\nCOA\nComposition\n\nThanks & Regards\nPriya Sharma\nSourcing Executive\nLeafy Greens Organic Pvt. Ltd.\nP: +91 9000001111\nRegd. Office: 12 Sample Street, Bhubaneswar, Odisha\n",
+  "expected": {
+    "classification": "needs_review",
+    "source": "gmail",
+    "kind": "direct"
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "direct-inquiry-domestic",
+  "from": "Priya Sharma <priya.sourcing@example.com>",
+  "_anonymised": true
+}

@@ -1,0 +1,28 @@
+{
+  "format": "tradeindia.inquiry",
+  "subject": "Looking for suppliers of Potato Starch Powder Production Plant",
+  "date": "2026-09-28T12:47:36Z",
+  "text": " www.tradeindia.com\n\n| Dear Seller You are receiving this mail as you're a registered user of TradeIndia - India's largest B2B e-commerce portal. You have a new inquiry. Act quickly and increase your chances of conversion. * Sender Name: Mr. Nikhil Joshi * Product Details: Potato Starch Powder Production Plant * Requirement Details: New Inquiry Alert! You've recieved an inquiry for Potato Starch Powder Produc... from: Company Name: Blue Ocean Overseas Mobile: +919000000909 Country: IN Need more help? Connect with your account manager. We value your business & can't wait to serve you! -TradeIndia. * Buyer Details: Mobile - +919000000909 city - Sidhpur state - Gujarat country - IN Click here to check inquiry[](http://delivery.rfis.tradeindia.com/XXXX?id=redacted&ext=cmZpX2lkPV9fUkZJX0lEX18mYW1wO3NlY3Rpb249SW5ib3gjbXlSZXBseQ==) |\n| How to convert inquiry into sale: |\n| * Respond timely * Focus on customer's needs * Personalized follow-up |\n| We empower MSMEs |\n\n| |\n| Follow us: | [](http://delivery.rfis.tradeindia.com/XXXX?id=redacted) |\n\n| | To chat with us, say ‘hi’ @ 9000000000 |\n\n| Unsubscribe[](__REMOVE_LINK__) |",
+  "expected": {
+    "classification": "inquiry",
+    "source": "tradeindia",
+    "kind": "inquiry",
+    "source_ref": null,
+    "contact_name": "Mr. Nikhil Joshi",
+    "company": "Blue Ocean Overseas",
+    "phone": "+919000000909",
+    "city": "Sidhpur",
+    "state": "Gujarat",
+    "country": "IN",
+    "product": "Potato Starch Powder Production Plant",
+    "international": false
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "tradeindia-looking-for-suppliers",
+  "from": "inquiry.paid@rfis.tradeindia.com",
+  "_anonymised": true
+}

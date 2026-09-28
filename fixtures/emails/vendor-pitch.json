@@ -1,0 +1,19 @@
+{
+  "format": "direct",
+  "subject": "Premium HDPE/PP Woven Fabric & Bags",
+  "date": "2026-09-25T06:36:08Z",
+  "text": "Dear Sir/Madam,\nGreetings from Dynamic Packaging. We are pleased to introduce ourselves as a manufacturer of HDPE/PP Woven Fabric & Bags, PP-BOPP Bags, HM/LD Liners, FIBC/Jumbo Bags.\nPlease let us know your requirement.\nRegards, Nitin",
+  "expected": {
+    "classification": "needs_review",
+    "source": "gmail",
+    "kind": "direct"
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "vendor-pitch",
+  "from": "Nitin Kapoor <nk@packaging.example>",
+  "_anonymised": true
+}

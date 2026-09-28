@@ -1,0 +1,21 @@
+{
+  "format": "own_sent",
+  "to": [
+    "buyer.one@example.com"
+  ],
+  "subject": "Re: Inquiry for Peanut Protein Isolate",
+  "date": "2026-09-28T08:54:07Z",
+  "labels": [
+    "SENT"
+  ],
+  "text": "Dear Sir,\n\nThank you for your inquiry. Please find below the commercial details for\nPeanut Protein Isolate:\n\n- Price: Rs 485/kg (Ex-factory)\n- Packaging: 20 kg pack size\n- MOQ: 100 kg\n- GST: 18% extra\n- Lead Time: 1–2 days\n- Payment Terms: 100% advance\n\nKindly find attached the Certificate of Analysis (COA) and Product\nSpecification Sheet for your reference.\n\nPlease let us know if you have any questions or require further information.\n\nWith Regards\n[signature block - appended from Gmail send-as settings]\n",
+  "expected": {
+    "classification": "ignored",
+    "reason": "own_mail"
+  },
+  "html": null,
+  "cc": [],
+  "id": "own-sent-quotation",
+  "from": "Seller Foods <sales@seller.example>",
+  "_anonymised": true
+}

@@ -1,0 +1,24 @@
+{
+  "format": "indiamart.reply",
+  "subject": "Ravi, 2 new messages for Defatted Peanut Flour enquiry from Sunita via IndiaMART",
+  "date": "2026-09-28T11:05:14Z",
+  "text": " \n\n                   Dear Ravi Kumar,\n                   You have 2 new messages from Sunita Verma , Verma Traders regarding Defatted Peanut Flour\n\n\t\t\t\t\n\t\t\t\t\tPlease send COA report\n\t\t\t\t\t\tSep 28, 4:07 pm\n\t\t\t\t\t\n\t\t\t\t\t\t????\n\t\t\t\t\t\tSep 28, 4:14 pm\n\n                             Call\n\n                            Chat\n\n                Regards,\n\n                      Sunita Verma  New Delhi   +91-9000000606 📧  sunita.verma@example.com\n\n\t\tOriginal Requirements\n\t\tProduct Name\n\t\t:\n\t\tDefatted Peanut Flour\n\n                                     Note : Reply to this mail will be delivered to the email id ( sunita.verma@example.com ) and will also be visible in your lead manager section on IndiaMART.\n",
+  "expected": {
+    "classification": "conversation_candidate",
+    "source": "indiamart",
+    "kind": "reply",
+    "contact_name": "Sunita Verma",
+    "company": "Verma Traders",
+    "phone": "+919000000606",
+    "email": "sunita.verma@example.com",
+    "product": "Defatted Peanut Flour"
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "indiamart-reply-messages",
+  "from": "buyershelp+reply@indiamart.com",
+  "_anonymised": true
+}

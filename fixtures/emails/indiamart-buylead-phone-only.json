@@ -1,0 +1,25 @@
+{
+  "format": "indiamart.buylead",
+  "subject": "Buyer Details for Sweet Potato Starch",
+  "date": "2026-09-28T06:18:44Z",
+  "text": "                                            Buy Lead through IndiaMART Buyer's Contact Details:\n\n                  Phone ✓\n\n                            Mohan\n                             +91-9000000505\n\n\t\t\t\t\t\t\tMember Since: 2+ years\n\n                        Buylead Details: Sweet Potato Starch\n\n                             Grade : Food Grade Packaging Size : 25 kg Application : Food Industry Quantity : 100 Kg\n\n                          Reply To This Message\n\n                     IndiaMART recommends you to get in touch with buyer on both Email and Mobile Email: buyleads@indiamart.com",
+  "expected": {
+    "classification": "inquiry",
+    "source": "indiamart",
+    "kind": "buylead",
+    "contact_name": "Mohan",
+    "phone": "+919000000505",
+    "email": null,
+    "product": "Sweet Potato Starch",
+    "quantity": "100 Kg",
+    "international": false
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "indiamart-buylead-phone-only",
+  "from": "buyleads@indiamart.com",
+  "_anonymised": true
+}

@@ -1,0 +1,26 @@
+{
+  "format": "indiamart.enquiry",
+  "subject": "Export Enquiry for Peanut Flour Powder for Protein Supplements (Food Grade) from Karim, Lebanon via IndiaMART",
+  "date": "2026-09-28T08:03:59Z",
+  "text": "Download App\n\n  Hi Ravi Kumar ,\n\nI found your company on IndiaMART while searching for my requirement. I am looking for\n                                                                                        Peanut Flour Powder for Protein Supplements (Food Grade) .\n\n               Call\n\n               Chat\n\n                                                                                                                 Regards,\n\n                                                                                                                                        Karim Haddad\n\n                                                                                                                    nutrifoods lb\n\n                                                                                                                                                                                                                         Click to call:\n                                                                                                                    +961-70000303\n\n                                                                                                                        Email:\n                                                                                                                        karim.haddad@example.com\n\n                                                                                                                    Lebanon\n\n                         Additional details about me:\n\n                             Interested Products : Peanut Flour\n\n                         Requirements till date : 3\n\n                     Member since : This Month\n",
+  "expected": {
+    "classification": "international",
+    "source": "indiamart",
+    "kind": "enquiry",
+    "contact_name": "Karim Haddad",
+    "company": "nutrifoods lb",
+    "phone": "+96170000303",
+    "email": "karim.haddad@example.com",
+    "country": "Lebanon",
+    "product": "Peanut Flour Powder for Protein Supplements (Food Grade)",
+    "international": true
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "indiamart-export-enquiry",
+  "from": "buyershelp+enq@indiamart.com",
+  "_anonymised": true
+}

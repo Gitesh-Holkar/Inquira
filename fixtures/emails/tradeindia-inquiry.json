@@ -1,0 +1,29 @@
+{
+  "format": "tradeindia.inquiry",
+  "subject": "CHICKPEA ISOLATE PROTEIN Inquiry from Vikram Shah through tradeindia.com",
+  "date": "2026-09-27T15:30:13Z",
+  "text": " www.tradeindia.com\n\n| [](http://delivery.rfis.tradeindia.com/XXXX?id=redacted) Sell in Bulk. Buy in Bulk. #SabMilegaYahinMilega |\n\n| Dear Mr Ravi Kumar You are receiving this mail as you're a registered user of TradeIndia - India's largest B2B e-commerce portal. You have a new inquiry. Act quickly and increase your chances of conversion. * Sender Name: Vikram Shah * Product Details: Chickpea Isolate Protein * Requirement Details: New Inquiry Alert! You've recieved an inquiry for Chickpea Isolate Protein from: Company Name: New Company-Vikram Shah Mobile: +919000000707 Country: IN Need more help? Connect with your account manager. We value your business & can't wait to serve you! -TradeIndia. * Buyer Details: Name - Vikram Shah Email - noreply@noreply.tradeindia.com Mobile - +919000000707 city - Hyderabad state - Telangana country - IN Click here to check inquiry[](http://delivery.rfis.tradeindia.com/XXXX?id=redacted&fl=redacted&ext=cmZpX2lkPTkwMDAwMDAwMSZhbXA7c2VjdGlvbj1JbmJveCNteVJlcGx5) |\n| How to convert inquiry into sale: |\n| * Respond timely * Focus on customer's needs * Personalized follow-up |\n| We empower MSMEs |\n\n| |\n| Follow us: | [](http://delivery.rfis.tradeindia.com/XXXX?id=redacted) |\n\n| | To chat with us, say ‘hi’ @ 9000000000 |\n\n| Unsubscribe[](__REMOVE_LINK__) |",
+  "expected": {
+    "classification": "inquiry",
+    "source": "tradeindia",
+    "kind": "inquiry",
+    "source_ref": "900000001",
+    "contact_name": "Vikram Shah",
+    "company": null,
+    "phone": "+919000000707",
+    "email": null,
+    "city": "Hyderabad",
+    "state": "Telangana",
+    "country": "IN",
+    "product": "Chickpea Isolate Protein",
+    "international": false
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "tradeindia-inquiry",
+  "from": "inquiry.paid@rfis.tradeindia.com",
+  "_anonymised": true
+}

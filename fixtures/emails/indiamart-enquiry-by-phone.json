@@ -1,0 +1,30 @@
+{
+  "format": "indiamart.enquiry",
+  "observed_count_note": "most common IndiaMART format",
+  "subject": "Pea Protein Enquiry by Phone on 28-SEP-2026 at 05:49 PM",
+  "date": "2026-09-28T12:50:12Z",
+  "text": "Download App\n\n  Hi Ravi Kumar ,\n\nI found your company on IndiaMART while searching for\n                                                                                        Pea Protein. I need\n                                                                                        Pea Protein .\n\n                                                                                                        Below are my requirements:\n\n                                                                                                                        Quantity\n\n                                                                                                                        :\n\n                                                                                                                        1 kg\n\n                                                                                                                        Protein Content %\n\n                                                                                                                        :\n\n                                                                                                                        80%\n\n                                                                                                                        Buyer Filled Details\n\n                                                                                                                        :\n\n                                                                                                                        Buyer needs a sample pack.\n\n                                                                                                                        Probable Order Value\n\n                                                                                                                        :\n\n                                                                                                                        Rs. 400 - 500\n\n               Call\n\n               Chat\n\n                                                                                                                 Regards,\n\n                                                                                                                                        Meera Nair\n\n                                                                                                                    Sunleaf Organics\n\n                                                                                                                                                                                                                         Click to call:\n                                                                                                                    +91-9000000101\n\n                                                                                                                        Email:\n                                                                                                                        Not Provided\n\n                                                                                                                            (Please call buyer,email not available)\n\n                                                                                                                    Bengaluru, Karnataka, India\n\n                         Additional details about me:\n\n                             Interested Products : Organic Jaggery Powder,Soya Atta,Skimmed Milk Powder,Ribbon Blender\n\n                         Requirements till date : 41\n\n                     Member since : 1 Year\n\n          Need Help?\n            |  \n          Contact Us\n             \n\nIf you'd like to unsubscribe and stop receiving these emails click here .\n",
+  "expected": {
+    "classification": "inquiry",
+    "source": "indiamart",
+    "kind": "enquiry",
+    "contact_name": "Meera Nair",
+    "company": "Sunleaf Organics",
+    "phone": "+919000000101",
+    "email": null,
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "country": "India",
+    "product": "Pea Protein",
+    "quantity": "1 kg",
+    "international": false
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "indiamart-enquiry-by-phone",
+  "from": "buyershelp+enq@indiamart.com",
+  "_anonymised": true
+}

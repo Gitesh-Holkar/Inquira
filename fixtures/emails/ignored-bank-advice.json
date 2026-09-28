@@ -1,0 +1,18 @@
+{
+  "format": "ignored",
+  "subject": "Payee Advice Dated 28-Sep-2026 for Seller Foods , Cust Ref: 0000000000000000 , UTR: XXXX000000000000",
+  "date": "2026-09-28T12:18:48Z",
+  "text": "Dear Customer, We are pleased to attach your National Electronic Funds Transfer (NEFT) payment advice with this email.",
+  "expected": {
+    "classification": "ignored",
+    "reason": "bank_alert"
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "ignored-bank-advice",
+  "from": "advices@bank.example",
+  "_anonymised": true
+}
