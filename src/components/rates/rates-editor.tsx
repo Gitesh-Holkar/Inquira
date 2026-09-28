@@ -126,7 +126,7 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
               <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {COLS.map((c) => (
                   <label key={c.key} className="grid gap-1 text-xs text-muted">{c.label}
-                    <Input inputMode={c.inputMode} value={val(r.gradeId, c.key)} onChange={(e) => set(r.gradeId, c.key, e.target.value)}
+                    <Input aria-label={`${r.productName} ${r.gradeName} ${c.label}`} inputMode={c.inputMode} value={val(r.gradeId, c.key)} onChange={(e) => set(r.gradeId, c.key, e.target.value)}
                       className={cn(isChanged(r.gradeId, c.key) && "border-warning bg-warning-soft font-semibold")} />
                   </label>
                 ))}

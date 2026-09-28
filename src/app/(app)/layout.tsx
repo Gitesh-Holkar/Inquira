@@ -18,7 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isAdmin = s.role === "owner" || s.role === "admin";
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[15rem_1fr]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
       <aside className="sticky top-0 hidden h-dvh flex-col gap-4 border-r border-border bg-surface px-3 py-4 lg:flex">
         <Link href="/" className="flex items-center gap-2 px-3 text-lg font-semibold">
           <span className="grid size-7 place-items-center rounded-md bg-primary text-sm font-bold text-primary-foreground">In</span>

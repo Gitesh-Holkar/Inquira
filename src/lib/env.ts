@@ -19,7 +19,11 @@ let cached: Env | null = null;
 
 /** Parsed lazily so `next build` doesn't need runtime secrets. */
 export function env(): Env {
-  if (!cached) cached = schema.parse(process.env);
+  if (!cached) {
+    // Treat empty strings (common in dashboards and .env files) as "not set".
+    const raw = Object.fromEntries(Object.entries(process.env).filter(([, v]) => v !== undefined && v !== ""));
+    cached = schema.parse(raw);
+  }
   return cached;
 }
 

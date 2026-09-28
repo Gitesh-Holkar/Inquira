@@ -25,14 +25,15 @@ export function InboxList({ leads }: { leads: InboxLead[] }) {
   const wa = useRef<Record<string, () => void>>({});
   const qt = useRef<Record<string, () => void>>({});
   const rows = useRef<(HTMLLIElement | null)[]>([]);
+  const byKeyboard = useRef(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (t.closest("input, textarea, select, [contenteditable=true], [role=dialog]") || e.metaKey || e.ctrlKey || e.altKey) return;
       const lead = leads[sel];
-      if (e.key === "j") setSel((i) => Math.min(leads.length - 1, i + 1));
-      else if (e.key === "k") setSel((i) => Math.max(0, i - 1));
+      if (e.key === "j") { byKeyboard.current = true; setSel((i) => Math.min(leads.length - 1, i + 1)); }
+      else if (e.key === "k") { byKeyboard.current = true; setSel((i) => Math.max(0, i - 1)); }
       else if ((e.key === "e" || e.key === "Enter") && lead) router.push(`/leads/${lead.id}`);
       else if (e.key === "w" && lead) wa.current[lead.id]?.();
       else if (e.key === "q" && lead) qt.current[lead.id]?.();
@@ -44,16 +45,21 @@ export function InboxList({ leads }: { leads: InboxLead[] }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [leads, sel, router]);
 
-  useEffect(() => rows.current[sel]?.scrollIntoView({ block: "nearest" }), [sel]);
+  useEffect(() => {
+    // Only follow the selection when it moved via j/k (never on load or hover).
+    if (!byKeyboard.current) return;
+    byKeyboard.current = false;
+    rows.current[sel]?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [sel]);
 
   return (
     <>
-      <ul className="grid gap-2" aria-label="Leads">
+      <ul className="grid grid-cols-1 gap-2" aria-label="Leads">
         {leads.map((l, i) => {
           const where = [l.city, l.state, l.isInternational ? l.country : null].filter(Boolean).join(", ");
           return (
             <li key={l.id} ref={(el) => { rows.current[i] = el; }} data-selected={i === sel || undefined}
-              className={cn("rounded-lg border border-border bg-surface shadow-card", i === sel && "ring-2 ring-ring")}
+              className={cn("min-w-0 rounded-lg border border-border bg-surface shadow-card", i === sel && "ring-2 ring-ring")}
               onMouseEnter={() => setSel(i)}>
               <div className="flex flex-col gap-3 p-3 md:flex-row md:items-center">
                 <Link href={`/leads/${l.id}`} className="min-w-0 flex-1 rounded-md">
@@ -76,7 +82,7 @@ export function InboxList({ leads }: { leads: InboxLead[] }) {
                       <CopyButton value={formatPhone(l.phone)} label="phone" compact />
                     </>
                   ) : null}
-                  {l.email ? <CopyButton value={l.email} label="email" compact /> : null}
+                  {l.email ? <CopyButton value={l.email} label="email" compact icon="email" /> : null}
                   <QuoteButton leadId={l.id} compact disabled={l.isInternational} reason="Quotes are disabled for international leads (no USD pricing yet)." runRef={(fn) => (qt.current[l.id] = fn)} />
                 </div>
               </div>

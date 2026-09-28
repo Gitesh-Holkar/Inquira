@@ -27,6 +27,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  devIndicators: false,
+  // Dev only: let the dev server be opened via 127.0.0.1 as well as localhost.
+  allowedDevOrigins: ["127.0.0.1"],
   reactStrictMode: true,
   serverExternalPackages: ["postgres"],
   async rewrites() {

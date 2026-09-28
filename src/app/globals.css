@@ -110,3 +110,7 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Grid items default to min-width:auto, so long truncated text can widen the column
+   beyond the screen ("grid blowout"). Let every grid child shrink instead. */
+.grid > * { min-width: 0; }

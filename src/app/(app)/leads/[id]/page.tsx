@@ -72,7 +72,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
 
       {lead.isInternational ? <Alert tone="warning" className="mb-4" title="International inquiry — quotation drafts are disabled">It stays here (never deleted) until USD pricing is supported.</Alert> : null}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="grid min-w-0 content-start gap-4">
           <Card>
             <CardHeader><CardTitle>Buyer</CardTitle></CardHeader>
@@ -87,7 +87,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               </dl>
               <div className="flex flex-wrap gap-2">
                 {lead.phone ? <><WhatsAppButton leadId={lead.id} phone={lead.phone} /><CallButton phone={lead.phone} /><CopyButton value={formatPhone(lead.phone)} label="phone" /></> : null}
-                {lead.email ? <CopyButton value={lead.email} label="email" /> : null}
+                {lead.email ? <CopyButton value={lead.email} label="email" icon="email" /> : null}
                 {can(s.ctx, "quotes.create") ? <QuoteButton leadId={lead.id} disabled={lead.isInternational} reason="Quotes are disabled for international leads." /> : null}
               </div>
             </CardContent>

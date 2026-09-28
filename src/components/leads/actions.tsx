@@ -1,14 +1,14 @@
 "use client";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Copy, FileSignature, MessageCircle, Phone } from "lucide-react";
+import { AtSign, Copy, FileSignature, MessageCircle, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/primitives";
 import { whatsappUrl } from "@/lib/phone";
 import { quoteAction, whatsappTextAction } from "@/app/(app)/leads/actions";
 
-export function CopyButton({ value, label, compact }: { value: string; label: string; compact?: boolean }) {
+export function CopyButton({ value, label, compact, icon }: { value: string; label: string; compact?: boolean; icon?: "email" }) {
   return (
     <Button variant="outline" size={compact ? "icon" : "touch"} aria-label={`Copy ${label}`} title={`Copy ${label}`}
       onClick={async () => {
@@ -19,7 +19,7 @@ export function CopyButton({ value, label, compact }: { value: string; label: st
           toast.error("Couldn't copy. Select and copy it manually.");
         }
       }}>
-      <Copy />{compact ? null : <span>Copy {label}</span>}
+      {icon === "email" ? <AtSign /> : <Copy />}{compact ? null : <span>Copy {label}</span>}
     </Button>
   );
 }

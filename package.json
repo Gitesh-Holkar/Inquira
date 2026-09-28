@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.12" },
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -21,7 +23,8 @@
     "db:local:down": "bash scripts/local-db.sh down",
     "db:local:reset": "bash scripts/local-db.sh reset",
     "seed:website": "tsx scripts/fetch-website-products.ts",
-    "gen:keys": "tsx scripts/gen-keys.ts"
+    "gen:keys": "tsx scripts/gen-keys.ts",
+    "demo:data": "tsx scripts/demo-data.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.31.0",
