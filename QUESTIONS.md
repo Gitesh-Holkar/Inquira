@@ -46,6 +46,29 @@ Each item lists the question, what I assumed so the build could continue, and wh
 4. **Soya Flour (₹95):** is the pack size 25 kg or 50 kg?
 
 ## Q-006 — Salesperson name in notifications
-- **Question:** IndiaMART and TradeIndia greet a named salesperson.
-- **Assumed:** Parsers never depend on that name, and the connected mailbox address is read from the Gmail integration, never hard-coded.
-- **Question for you:** Should drafts be addressed from a specific person?
+- **Question:** IndiaMART and TradeIndia greet a named salesperson. Should drafts be addressed from a specific person?
+- **Assumed:** Parsers never depend on that name. The draft's From address is the Gmail account's default send-as identity, with its display name and signature.
+
+## Q-007 — Gmail first sync reads 14 days
+- **Question:** The first Gmail sync reads 14 days (TradeIndia: 30). Do you want a longer history?
+- **Where it matters:** `BACKFILL_DAYS` in `src/modules/sources/gmail/service.ts` (ADR-017).
+
+## Q-008 — Owner email value
+- **What happened:** `SEED_OWNER_EMAIL` in the cloud environment contained angle brackets. The seed script now extracts the address, and the owner account was created from it.
+- **Please check:** Make sure that's the address you want to sign in with. If not, add another user (SETUP §4).
+
+## Q-009 — Quotes for buyers without an email address
+- **Question:** IndiaMART often says "Email: Not Provided". For those leads the Gmail draft is created in the notification thread **with no recipient**, and you add one or use WhatsApp instead. Is that OK, or should such leads default to WhatsApp only?
+- **Where it matters:** `src/modules/quotes/service.ts` (`to: lead.email`).
+
+## Q-010 — Replying to portal notification threads
+- **Question:** Drafts for portal leads are created in the portal notification's Gmail thread (so they're easy to find) but addressed **to the buyer's email**, not the portal. Is that how you reply today?
+
+## Q-011 — Password-reset emails
+- **Question:** Supabase's built-in mailer only sends a few emails per hour, which is fine for one owner. Before inviting a team, set up custom SMTP (Supabase → Authentication → Emails → SMTP). Do you have an SMTP provider?
+
+## Q-012 — Inviting teammates
+- **Question:** There's no members screen yet (SETUP §4 has the SQL). Should it be next on the roadmap?
+
+## Q-013 — Scheduled resume
+- **What happened:** The 04:10 IST resume is scheduled (trigger `trig_01MkFUSSb63XEULCu98HgQZQ`). The build finished before it fired, so that run will just re-check and exit.

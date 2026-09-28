@@ -6,7 +6,9 @@ const PUBLIC = [/^\/login/, /^\/auth\//, /^\/api\//, /^\/\.well-known\//, /^\/_n
 /** Refreshes the Supabase session cookie and sends signed-out users to /login. */
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  const isPublic = PUBLIC.some((re) => re.test(path));
+  // Public paths (login, auth callbacks, APIs with their own auth, OAuth discovery) need no
+  // session check — skipping it keeps MCP and cron calls fast and off Supabase Auth.
+  if (PUBLIC.some((re) => re.test(path))) return NextResponse.next({ request });
   let response = NextResponse.next({ request });
 
   const devMode = process.env.AUTH_MODE === "dev" && process.env.NODE_ENV !== "production" && !process.env.VERCEL;
@@ -28,7 +30,7 @@ export async function proxy(request: NextRequest) {
     signedIn = !!data.user;
   }
 
-  if (!signedIn && !isPublic) {
+  if (!signedIn) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = path === "/" ? "" : `?next=${encodeURIComponent(path + request.nextUrl.search)}`;

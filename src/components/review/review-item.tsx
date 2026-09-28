@@ -10,7 +10,7 @@ import { classifyAction } from "@/app/(app)/review/actions";
 
 export type ReviewEmail = {
   id: string; from: string | null; subject: string | null; receivedAt: string; reason: string | null; body: string;
-  domain: string | null; fromName: string | null; fromEmail: string | null; hint: string | null;
+  domain: string | null; freeMail: boolean; fromName: string | null; fromEmail: string | null; hint: string | null;
   parsed: Record<string, string | null> | null; suggestion: { classification: string; reason: string; by: string } | null;
 };
 
@@ -18,13 +18,17 @@ const LEAD_FIELDS: [string, string][] = [["contactName", "Name"], ["companyName"
 
 export function ReviewItem({ e, canRule }: { e: ReviewEmail; canRule: boolean }) {
   const [mode, setMode] = useState<null | "inquiry" | "international">(null);
-  const [ignoreDomain, setIgnoreDomain] = useState(false);
+  const [ignoreSender, setIgnoreSender] = useState(false);
+  // For gmail.com & co. only the exact address can be ignored (a domain rule would hit every buyer).
+  const ignoreRule = e.freeMail || !e.domain
+    ? (e.fromEmail ? { matchType: "sender_email" as const, pattern: e.fromEmail.toLowerCase(), label: e.fromEmail } : null)
+    : { matchType: "sender_domain" as const, pattern: e.domain, label: `@${e.domain}` };
   const [done, setDone] = useState(false);
   const [pending, start] = useTransition();
   const router = useRouter();
   const send = (classification: "inquiry" | "international" | "ignored", lead?: Record<string, string>) =>
     start(async () => {
-      const r = await classifyAction({ emailId: e.id, classification, lead, ignoreDomain: ignoreDomain ? e.domain : null });
+      const r = await classifyAction({ emailId: e.id, classification, lead, ignoreRule: ignoreSender && ignoreRule ? { matchType: ignoreRule.matchType, pattern: ignoreRule.pattern } : null });
       if (!r.ok) return void toast.error(r.error);
       setDone(true);
       if (r.data.leadId) toast.success("Lead created", { action: { label: "Open", onClick: () => router.push(`/leads/${r.data.leadId}`) } });
@@ -64,10 +68,10 @@ export function ReviewItem({ e, canRule }: { e: ReviewEmail; canRule: boolean })
           <Button size="touch" onClick={() => setMode("inquiry")} disabled={pending}>Inquiry → lead</Button>
           <Button size="touch" variant="outline" onClick={() => setMode("international")} disabled={pending}>International</Button>
           <Button size="touch" variant="outline" onClick={() => send("ignored")} disabled={pending}>Ignore</Button>
-          {canRule && e.domain ? (
-            <label className="flex items-center gap-2 text-sm text-muted">
-              <input type="checkbox" className="size-4" checked={ignoreDomain} onChange={(ev) => setIgnoreDomain(ev.target.checked)} />
-              Always ignore @{e.domain}
+          {canRule && ignoreRule ? (
+            <label className="flex min-w-0 items-center gap-2 text-sm text-muted">
+              <input type="checkbox" className="size-4 shrink-0" checked={ignoreSender} onChange={(ev) => setIgnoreSender(ev.target.checked)} />
+              <span className="min-w-0 break-all">Always ignore {ignoreRule.label}</span>
             </label>
           ) : null}
           <Link href="/settings?tab=rules" className="ml-auto text-xs text-primary underline-offset-4 hover:underline">Rules</Link>

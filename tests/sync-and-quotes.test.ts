@@ -250,3 +250,16 @@ describe("Quote drafts", () => {
     expect(wa.text).toContain("Rs. 485.00/kg");
   });
 });
+
+describe("classification rules safety", () => {
+  beforeEach(resetDb);
+  afterAll(closeDb);
+  it("refuses domain-wide ignore rules for public email providers", async () => {
+    const { createClassificationRule } = await import("@/modules/email/service");
+    const { ctx } = await setupOrgWithUser("admin");
+    await expect(createClassificationRule(ctx, { name: "x", matchType: "sender_domain", pattern: "gmail.com", action: "ignore", priority: 100, enabled: true, applyToReviewQueue: false }))
+      .rejects.toThrow(/public email provider/);
+    const ok = await createClassificationRule(ctx, { name: "x", matchType: "sender_email", pattern: "spammer@gmail.com", action: "ignore", priority: 100, enabled: true, applyToReviewQueue: false });
+    expect(ok.rule.pattern).toBe("spammer@gmail.com");
+  });
+});

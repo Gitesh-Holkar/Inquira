@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { CheckCircle2 } from "lucide-react";
 import { requireSession } from "@/lib/auth";
-import { listEmailsNeedingReview, senderDomain } from "@/modules/email/service";
+import { FREE_MAIL_DOMAINS, listEmailsNeedingReview, senderDomain } from "@/modules/email/service";
 import { can } from "@/modules/core/permissions";
 import { Card, EmptyState, PageHeader } from "@/components/ui/primitives";
 import { ReviewItem } from "@/components/review/review-item";
@@ -25,7 +25,7 @@ export default async function ReviewPage() {
               <ReviewItem key={i.id} canRule={can(s.ctx, "rules.write") && can(s.ctx, "emails.classify")}
                 e={{
                   id: i.id, from: i.from, subject: i.subject, receivedAt: i.receivedAt.toISOString(), reason: i.reason, body: i.body,
-                  domain: senderDomain(fromEmail), fromName, fromEmail,
+                  domain: senderDomain(fromEmail), freeMail: FREE_MAIL_DOMAINS.has(senderDomain(fromEmail) ?? ""), fromName, fromEmail,
                   hint: (i.hints as { internationalCountry?: string } | null)?.internationalCountry ?? null,
                   parsed: (i.parsedFields as Record<string, string | null> | null) ?? null,
                   suggestion: (i.suggestion as ReviewEmailSuggestion | null) ?? null,

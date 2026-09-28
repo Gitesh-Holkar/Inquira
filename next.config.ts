@@ -18,7 +18,8 @@ const securityHeaders = [
       "font-src 'self' data:",
       "connect-src 'self' https://*.supabase.co",
       "frame-ancestors 'none'",
-      "form-action 'self' https://accounts.google.com",
+      // OAuth consent redirects back to the MCP client (claude.ai or a loopback Claude Code callback).
+      "form-action 'self' https: http://localhost:* http://127.0.0.1:*",
       "base-uri 'self'",
       "object-src 'none'",
     ].join("; "),

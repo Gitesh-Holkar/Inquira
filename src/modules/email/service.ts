@@ -256,12 +256,21 @@ export const ruleInput = z.object({
   enabled: z.boolean().default(true),
 });
 
+/** Public mailbox providers: a domain-wide rule on these would hit every buyer using them. */
+export const FREE_MAIL_DOMAINS = new Set([
+  "gmail.com", "googlemail.com", "yahoo.com", "yahoo.co.in", "yahoo.in", "ymail.com", "rediffmail.com", "outlook.com", "hotmail.com",
+  "live.com", "msn.com", "icloud.com", "me.com", "aol.com", "protonmail.com", "proton.me", "zoho.com", "zohomail.in", "gmx.com", "mail.com",
+]);
+
 export const createClassificationRule = defineService({
   name: "email.createRule",
   input: ruleInput.extend({ applyToReviewQueue: z.boolean().default(false) }),
   permission: "rules.write",
   handler: async (ctx, input, tx) => {
     const { applyToReviewQueue, ...rule } = input;
+    if (rule.matchType === "sender_domain" && FREE_MAIL_DOMAINS.has(rule.pattern.replace(/^@/, ""))) {
+      throw new AppError("VALIDATION", `${rule.pattern} is a public email provider used by many buyers. Make a rule for the exact sender address instead.`, { fieldErrors: { pattern: ["Use the full sender address for public email providers"] } });
+    }
     const [r] = await tx.insert(classificationRules).values({ orgId: ctx.orgId, ...rule, createdBy: actorString(ctx.actor) }).returning();
     await audit(tx, ctx, { action: "rule.create", entityType: "classification_rule", entityId: r!.id, changes: rule });
     await emit(tx, ctx, { type: "rule.created", entityType: "classification_rule", entityId: r!.id });
