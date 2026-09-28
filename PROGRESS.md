@@ -45,9 +45,9 @@ The whole MVP from the brief (§7) is built, tested and pushed to branch `claude
   - AES-256-GCM for stored credentials; hashed tokens
   - security headers and rate limits
   - private `app` schema
-- **Supabase project `inquira` (Mumbai):** migrations applied and seeded (1 org, 66 products, 70 rates, your owner account, RLS 26/26). Checked from a helper session at 03:38 IST.
+- **Supabase project `inquira` (Mumbai):** all 3 migrations applied and seeded (1 org, 66 products, 70 rates, your owner account, RLS 26/26, private `documents` bucket). Last checked from a helper session at 03:44 IST.
 - **Quality:**
-  - 94 unit/integration tests, 6 Playwright tests (desktop 1440 + phone 390)
+  - 95 unit/integration tests, 6 Playwright tests (desktop 1440 + phone 390)
   - typecheck, lint and `next build` all pass
   - screenshots in `docs/screenshots/`
 
@@ -55,7 +55,7 @@ The whole MVP from the brief (§7) is built, tested and pushed to branch `claude
 
 ### 2. What's incomplete / not verified
 - **Not tested against the live Gmail and TradeIndia APIs.** No credentials were available overnight. Both are covered by tests against faithful fakes built from your real email formats. TradeIndia's JSON field names come from its public integration format and the adapter tolerates variants; see [TRADEINDIA_API.md](docs/TRADEINDIA_API.md). **The first real sync is the real test:** check Settings → Recent sync runs.
-- **Migration `0002_storage_bucket`** (the private `documents` bucket for future COA/TDS files) was added last and still needs applying. The pg_cron schedule (§8) also needs your app URL first. Both are one-liners: `npm run db:migrate` from your machine, or SETUP §8.
+- The **pg_cron schedule** (SETUP §8) needs your app URL first, so it's one of your steps. All 3 migrations are applied, including the private `documents` storage bucket for future COA/TDS files.
 - **Deliberately not built:**
   - an in-app members screen (add teammates with the SQL in SETUP §4)
   - CIMD (claude.ai falls back to DCR, which works)
@@ -114,4 +114,9 @@ The whole MVP from the brief (§7) is built, tested and pushed to branch `claude
 - **03:38 IST.**
   - Real Supabase migrated (0000–0001) and seeded over HTTPS by helper sessions.
   - `SEED_OWNER_EMAIL` had angle brackets; the parser now accepts that.
-- **03:45 IST.** Docs (SETUP, ARCHITECTURE, SECURITY, DECISIONS, …), storage-bucket migration, final checks.
+- **03:45 IST.**
+  - Docs (SETUP, ARCHITECTURE, SECURITY, DECISIONS, …).
+  - Migration 0002 (storage bucket) applied to Supabase.
+  - Safety fix: the review queue never offers domain-wide ignore for gmail.com etc.
+  - Hash-token password links handled.
+  - Final checks green: typecheck, lint, 95 tests, `next build`, 6/6 Playwright.

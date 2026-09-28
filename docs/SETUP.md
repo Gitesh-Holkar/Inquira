@@ -88,7 +88,7 @@ The owner account (`SEED_OWNER_EMAIL`) already exists but has no password yet.
 
 1. Open `https://YOUR-APP/login` → **Forgot password? / First time here?**
 2. Enter your email → **Email me a link**.
-3. Open the email from Supabase and click the link.
+3. Open the email from Supabase and click the link. Use the **same browser** you asked from; for security the link is tied to that browser.
 4. Choose a password (at least 10 characters).
 5. You land on the dashboard.
 
@@ -96,7 +96,7 @@ If no email arrives:
 1. In Supabase, open **Authentication → Users**.
 2. Find your email → **⋯** → **Send password recovery**.
 
-Supabase's built-in mailer sends only a few emails per hour.
+That link works in any browser. Supabase's built-in mailer sends only a few emails per hour.
 
 **Adding teammates later:**
 1. Supabase → Authentication → **Invite user**. They set a password the same way.
