@@ -120,3 +120,4 @@ The whole MVP from the brief (§7) is built, tested and pushed to branch `claude
   - Safety fix: the review queue never offers domain-wide ignore for gmail.com etc.
   - Hash-token password links handled.
   - Final checks green: typecheck, lint, 95 tests, `next build`, 6/6 Playwright.
+- **01 Oct 2026.** Vercel project had no production deployment; pushed this note to trigger the first production build from the production branch.
