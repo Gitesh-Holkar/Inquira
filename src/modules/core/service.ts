@@ -22,6 +22,18 @@ export async function membershipsForUserInternal(tx: Tx, userId: string) {
     .orderBy(organizations.createdAt);
 }
 
+/** TEMPORARY (sign-in off): the first organisation's owner. */
+export async function firstOwnerInternal(tx: Tx) {
+  const [m] = await tx
+    .select({ userId: memberships.userId, email: memberships.email })
+    .from(memberships)
+    .innerJoin(organizations, eq(organizations.id, memberships.orgId))
+    .where(and(eq(memberships.role, "owner"), isNull(memberships.deletedAt), isNull(organizations.deletedAt)))
+    .orderBy(organizations.createdAt, memberships.createdAt)
+    .limit(1);
+  return m ?? null;
+}
+
 export async function getOrgSettingsInternal(tx: Tx, orgId: string) {
   const [s] = await tx.select().from(orgSettings).where(eq(orgSettings.orgId, orgId));
   const [o] = await tx.select().from(organizations).where(eq(organizations.id, orgId));

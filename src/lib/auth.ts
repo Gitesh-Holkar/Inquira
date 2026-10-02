@@ -5,7 +5,7 @@ import { getDb, withSystemTx } from "@/db/client";
 import { isDevAuth } from "./env";
 import { DEV_COOKIE, verifyDevSession } from "./dev-auth";
 import { supabaseConfigured, supabaseServer } from "./supabase/server";
-import { membershipsForUserInternal } from "@/modules/core/service";
+import { firstOwnerInternal, membershipsForUserInternal } from "@/modules/core/service";
 import { can, type Permission } from "@/modules/core/permissions";
 import type { Ctx, Role } from "@/modules/core/types";
 
@@ -13,7 +13,14 @@ export const ORG_COOKIE = "inquira_org";
 
 export type SessionUser = { id: string; email: string };
 
+/** TEMPORARY: sign-in turned off for testing; every visitor acts as the owner. Revert this commit to undo. */
+const SIGN_IN_OFF = true;
+
 export async function getSessionUser(): Promise<SessionUser | null> {
+  if (SIGN_IN_OFF) {
+    const owner = await withSystemTx((tx) => firstOwnerInternal(tx));
+    return owner ? { id: owner.userId, email: owner.email } : null;
+  }
   if (isDevAuth()) {
     const store = await cookies();
     const id = verifyDevSession(store.get(DEV_COOKIE)?.value);

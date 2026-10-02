@@ -12,8 +12,11 @@ export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const devMode = process.env.AUTH_MODE === "dev" && process.env.NODE_ENV !== "production" && !process.env.VERCEL;
-  let signedIn = false;
-  if (devMode) {
+  // TEMPORARY: sign-in turned off for testing (owner's request). Revert this commit to turn it back on.
+  let signedIn = true;
+  if (signedIn) {
+    // no check
+  } else if (devMode) {
     signedIn = !!request.cookies.get("inquira_dev_session")?.value;
   } else if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
