@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, gte, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Tx } from "@/db/client";
 import { decryptJson, encryptJson } from "@/lib/crypto";
@@ -6,7 +6,7 @@ import { notFound } from "@/lib/errors";
 import { audit, emit } from "./audit";
 import { defineService } from "./service-kit";
 import { actorString, type Ctx } from "./types";
-import { auditLogs, events, integrations, integrationSecrets, jobs, memberships, organizations, orgSettings, syncRuns } from "./schema";
+import { auditLogs, integrations, integrationSecrets, jobs, memberships, organizations, orgSettings, syncRuns } from "./schema";
 
 export type Provider = "gmail" | "tradeindia";
 export type Integration = typeof integrations.$inferSelect;
@@ -62,7 +62,10 @@ export async function getIntegrationInternal(tx: Tx, orgId: string, provider: Pr
   const [row] = await tx.select().from(integrations).where(and(eq(integrations.orgId, orgId), eq(integrations.provider, provider)));
   if (row) return row;
   const [created] = await tx.insert(integrations).values({ orgId, provider, createdBy: "system:bootstrap" }).onConflictDoNothing().returning();
-  if (created) return created;
+  if (created) {
+    await audit(tx, { orgId, actor: { kind: "system", job: "bootstrap" } }, { action: "integration.create", entityType: "integration", entityId: created.id, changes: { provider } });
+    return created;
+  }
   const [again] = await tx.select().from(integrations).where(and(eq(integrations.orgId, orgId), eq(integrations.provider, provider)));
   return again!;
 }
@@ -211,11 +214,6 @@ export const listAudit = defineService({
       .where(and(eq(auditLogs.orgId, ctx.orgId), input.entityType ? eq(auditLogs.entityType, input.entityType) : undefined, input.entityId ? eq(auditLogs.entityId, input.entityId) : undefined))
       .orderBy(desc(auditLogs.createdAt)).limit(input.limit),
 });
-
-export async function countEventsSinceInternal(tx: Tx, orgId: string, type: string, since: Date) {
-  const [r] = await tx.select({ n: sql<number>`count(*)::int` }).from(events).where(and(eq(events.orgId, orgId), eq(events.type, type), gte(events.createdAt, since)));
-  return r?.n ?? 0;
-}
 
 export async function listOrgIdsInternal(tx: Tx) {
   return (await tx.select({ id: organizations.id }).from(organizations).where(isNull(organizations.deletedAt))).map((r) => r.id);

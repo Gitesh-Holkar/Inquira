@@ -31,7 +31,9 @@ export function InboxList({ leads }: { leads: InboxLead[] }) {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (t.closest("input, textarea, select, [contenteditable=true], [role=dialog]") || e.metaKey || e.ctrlKey || e.altKey) return;
-      const lead = leads[sel];
+      // Enter on a focused button or link must activate that control, not open the selected lead.
+      if (e.key === "Enter" && t.closest("a, button, summary, [role=button]")) return;
+      const lead = leads[Math.min(sel, leads.length - 1)];
       if (e.key === "j") { byKeyboard.current = true; setSel((i) => Math.min(leads.length - 1, i + 1)); }
       else if (e.key === "k") { byKeyboard.current = true; setSel((i) => Math.max(0, i - 1)); }
       else if ((e.key === "e" || e.key === "Enter") && lead) router.push(`/leads/${lead.id}`);

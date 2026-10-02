@@ -7,7 +7,7 @@ import { audit, emit } from "@/modules/core/audit";
 import { defineService } from "@/modules/core/service-kit";
 import { actorString, type Ctx } from "@/modules/core/types";
 import { resolveContactInternal, cleanEmail } from "@/modules/contacts/service";
-import { matchProduct, productMatcherCatalog } from "@/modules/catalog/service";
+import { matchProduct, productMatcherCatalog, productNameById } from "@/modules/catalog/service";
 import { leadNotes, leads, leadStatusChanges } from "./schema";
 import { LEAD_STATUSES, listLeadsInput, type NormalizedLead } from "./types";
 
@@ -180,9 +180,12 @@ function listWhere(orgId: string, input: z.output<typeof listLeadsInput>): SQL |
   if (input.to) conds.push(lte(leads.receivedAt, new Date(input.to)));
   if (input.q) {
     const like = `%${input.q.replace(/[%_\\]/g, (c) => "\\" + c)}%`;
+    // Phones are stored as E.164 (+919876543210); "98765 43210" or "098765-43210" should still match.
+    const digits = input.q.replace(/\D/g, "").replace(/^0+/, "");
     conds.push(or(
       ilike(leads.contactName, like), ilike(leads.companyName, like), ilike(leads.phone, like), ilike(leads.email, like),
       ilike(leads.productText, like), ilike(leads.city, like), ilike(leads.state, like),
+      digits.length >= 5 ? ilike(leads.phone, `%${digits}%`) : undefined,
     ));
   }
   return and(...conds);
@@ -287,6 +290,7 @@ export const updateLead = defineService({
     const lead = await getLeadInternal(tx, ctx.orgId, input.leadId);
     if (!lead) throw notFound("Lead");
     const f = input.fields;
+    if (f.productId && !(await productNameById(tx, ctx.orgId, f.productId))) throw notFound("Product");
     const patch: Partial<typeof leads.$inferInsert> = { ...f } as Partial<typeof leads.$inferInsert>;
     if (f.phone !== undefined) {
       const p = f.phone ? toE164(f.phone) : null;
@@ -323,8 +327,10 @@ export const createManualLead = defineService({
     message: z.string().trim().max(4000).optional(),
   }),
   permission: "leads.create",
-  handler: async (ctx, input, tx) =>
-    upsertLeadInternal(tx, ctx, { ...input, email: input.email || null, source: "manual", sourceRef: `manual:${crypto.randomUUID()}`, channel: "manual", receivedAt: new Date() }),
+  handler: async (ctx, input, tx) => {
+    if (input.phone && !toE164(input.phone)) throw new AppError("VALIDATION", "That phone number doesn't look valid", { fieldErrors: { phone: ["Invalid phone number"] } });
+    return upsertLeadInternal(tx, ctx, { ...input, email: input.email || null, source: "manual", sourceRef: `manual:${crypto.randomUUID()}`, channel: "manual", receivedAt: new Date() });
+  },
 });
 
 export const deleteLead = defineService({
@@ -364,7 +370,7 @@ export async function leadStatsInternal(tx: Tx, orgId: string, since: Date) {
   const bySource = await tx
     .select({ source: leads.source, n: sql<number>`count(*)::int` })
     .from(leads)
-    .where(and(eq(leads.orgId, orgId), isNull(leads.deletedAt), gte(leads.createdAt, since)))
+    .where(and(eq(leads.orgId, orgId), isNull(leads.deletedAt), gte(leads.receivedAt, since)))
     .groupBy(leads.source);
   const [{ needing = 0 } = {}] = await tx
     .select({ needing: sql<number>`count(*)::int` })
@@ -399,6 +405,6 @@ export async function touchLeadInternal(tx: Tx, orgId: string, leadId: string, p
 
 export async function countLeadsByChannelSinceInternal(tx: Tx, orgId: string, channel: string, since: Date) {
   const [r] = await tx.select({ n: sql<number>`count(*)::int` }).from(leads)
-    .where(and(eq(leads.orgId, orgId), eq(leads.channel, channel), gte(leads.createdAt, since), isNull(leads.deletedAt)));
+    .where(and(eq(leads.orgId, orgId), eq(leads.channel, channel), gte(leads.receivedAt, since), isNull(leads.deletedAt)));
   return r?.n ?? 0;
 }

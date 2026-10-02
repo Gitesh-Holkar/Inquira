@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink, Globe2, Mail } from "lucide-react";
 import { requireSession } from "@/lib/auth";
 import { AppError } from "@/lib/errors";
-import { formatDate, formatDateTime, formatINR, formatPercent, formatRelative } from "@/lib/format";
+import { formatDate, formatDateTime, formatINR, formatNumber, formatPercent, formatRelative } from "@/lib/format";
 import { formatPhone } from "@/lib/phone";
 import { getLead } from "@/modules/leads/service";
 import { listEmailsForLead } from "@/modules/email/service";
@@ -138,7 +138,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                       </div>
                       <ul className="mt-2 grid gap-1">
                         {q.items.map((i) => (
-                          <li key={i.priceEntryId}>{i.productName}{i.gradeName !== "Standard" ? ` (${i.gradeName})` : ""}: <strong>{formatINR(i.pricePerKgInr)}/kg</strong> + GST {formatPercent(i.gstPercent)}% · {i.priceBasis}{i.moqKg ? ` · MOQ ${formatPercent(i.moqKg)} kg` : ""}</li>
+                          <li key={i.priceEntryId}>{i.productName}{i.gradeName !== "Standard" ? ` (${i.gradeName})` : ""}: <strong>{formatINR(i.pricePerKgInr)}/kg</strong> + GST {formatPercent(i.gstPercent)}% · {i.priceBasis}{i.moqKg ? ` · MOQ ${formatNumber(i.moqKg)} kg` : ""}</li>
                         ))}
                       </ul>
                       {q.error ? <p className="mt-1 text-danger">{q.error}</p> : null}
@@ -155,7 +155,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         <div className="grid content-start gap-4">
           <Card>
             <CardHeader><CardTitle>Status</CardTitle></CardHeader>
-            <CardContent><StatusChanger leadId={lead.id} status={lead.status} disabled={!canWrite} /></CardContent>
+            <CardContent><StatusChanger key={lead.status} leadId={lead.id} status={lead.status} disabled={!canWrite} /></CardContent>
           </Card>
           <Card>
             <CardHeader><CardTitle>Notes & timeline</CardTitle></CardHeader>

@@ -13,8 +13,12 @@ export const JOB_HANDLERS: Record<string, Handler> = {
   "tradeindia.sync": (ctx) => syncTradeIndia(ctx),
 };
 
+/** Don't start another job after this long; the route's maxDuration is 60 s and one Gmail run may take ~35 s. */
+const START_BUDGET_MS = 20_000;
+
 /** Called by /api/cron/tick every 10 minutes: schedule syncs for every org, then drain due jobs. */
-export async function tick(opts: { maxJobs?: number; schedule?: boolean } = {}) {
+export async function tick(opts: { maxJobs?: number; schedule?: boolean; startBudgetMs?: number } = {}) {
+  const startedAt = Date.now();
   const scheduled: string[] = [];
   if (opts.schedule !== false) {
     const orgIds = await withSystemTx((tx) => listOrgIdsInternal(tx));
@@ -29,8 +33,11 @@ export async function tick(opts: { maxJobs?: number; schedule?: boolean } = {}) 
     }
   }
   const results: { id: string; type: string; ok: boolean; result?: unknown; error?: string }[] = [];
-  const jobs = await withSystemTx((tx) => claimJobsInternal(tx, opts.maxJobs ?? 10));
-  for (const job of jobs) {
+  const budget = opts.startBudgetMs ?? START_BUDGET_MS;
+  // Claim one job at a time, so jobs not reached in this run stay queued (not locked) for the next tick.
+  for (let n = 0; n < (opts.maxJobs ?? 10) && Date.now() - startedAt < budget; n++) {
+    const [job] = await withSystemTx((tx) => claimJobsInternal(tx, 1));
+    if (!job) break;
     const handler = JOB_HANDLERS[job.type];
     const ctx: Ctx = { orgId: job.orgId, actor: { kind: "system", job: job.type } };
     try {

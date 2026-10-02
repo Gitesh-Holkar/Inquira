@@ -5,7 +5,7 @@ import { History, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog, Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge, Card, Input } from "@/components/ui/primitives";
-import { formatDate, formatDateTime, formatINR, formatPercent } from "@/lib/format";
+import { formatDate, formatDateTime, formatINR, formatNumber, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { rateHistoryAction, saveRatesAction, type RateChange } from "@/app/(app)/rates/actions";
 
@@ -38,14 +38,26 @@ function validate(e: Editable): string | null {
 export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }: { rows: RateRow[]; canEdit: boolean; today: string; defaultBasis: string; initialQuery?: string }) {
   const [query, setQuery] = useState(initialQuery ?? "");
   const [edits, setEdits] = useState<Record<string, Editable>>({});
+  // Flagged rates ("Confirm" badge) the user marked as correct without changing them.
+  const [acks, setAcks] = useState<Record<string, true>>({});
   const [validFrom, setValidFrom] = useState(today);
   const [pending, start] = useTransition();
   const base = useMemo(() => Object.fromEntries(rows.map((r) => [r.gradeId, initial(r)])), [rows]);
 
-  const changed = useMemo(() => Object.entries(edits).filter(([id, e]) => COLS.some((c) => e[c.key] !== base[id]![c.key])), [edits, base]);
+  const changed = useMemo(() => {
+    const ids = new Set(Object.entries(edits).filter(([id, e]) => COLS.some((c) => e[c.key] !== base[id]![c.key])).map(([id]) => id));
+    for (const id of Object.keys(acks)) ids.add(id);
+    return [...ids].map((id) => [id, edits[id] ?? base[id]!] as const);
+  }, [edits, acks, base]);
   const errors = useMemo(() => Object.fromEntries(changed.map(([id, e]) => [id, validate(e)]).filter(([, v]) => v)), [changed]);
   const visible = rows.filter((r) => !query || `${r.productName} ${r.gradeName} ${r.category ?? ""}`.toLowerCase().includes(query.toLowerCase()));
 
+  const toggleAck = (id: string) => setAcks((p) => {
+    const next = { ...p };
+    if (next[id]) delete next[id];
+    else next[id] = true;
+    return next;
+  });
   const set = (id: string, key: keyof Editable, value: string) => setEdits((p) => ({ ...p, [id]: { ...(p[id] ?? base[id]!), [key]: value } }));
   const val = (id: string, key: keyof Editable) => (edits[id] ?? base[id]!)[key];
   const isChanged = (id: string, key: keyof Editable) => !!edits[id] && edits[id]![key] !== base[id]![key];
@@ -58,6 +70,7 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
     if (!r.ok) return void toast.error(r.error); // edits kept so nothing is lost
     toast.success(`Saved ${r.data.count} rate${r.data.count === 1 ? "" : "s"} (valid from ${formatDate(r.data.validFrom)})`);
     setEdits({});
+    setAcks({});
   });
 
   return (
@@ -68,7 +81,7 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter products…" aria-label="Filter products" className="pl-9" />
         </div>
         {canEdit ? (
-          <label className="flex items-center gap-2 text-sm">Valid from <Input type="date" value={validFrom} onChange={(e) => setValidFrom(e.target.value)} className="w-40" /></label>
+          <label className="flex items-center gap-2 text-sm">Valid from <Input type="date" value={validFrom} min={today} onChange={(e) => setValidFrom(e.target.value)} className="w-40" /></label>
         ) : <Badge>Read-only — only admins can change rates</Badge>}
       </div>
 
@@ -90,7 +103,7 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
                   <tr className={cn("border-b border-border", errors[r.gradeId] && "bg-danger-soft/40")}>
                     <td className="px-3 py-1.5">
                       <span className="font-medium">{r.productName}</span>{r.gradeName !== "Standard" ? <span className="text-muted"> · {r.gradeName}</span> : null}
-                      {r.confirm ? <Badge tone="warning" className="ml-2" title="Flagged when importing the rates file; see QUESTIONS.md">Confirm</Badge> : null}
+                      {r.confirm ? <ConfirmFlag acked={!!acks[r.gradeId]} canEdit={canEdit && !!r.price} onToggle={() => toggleAck(r.gradeId)} /> : null}
                       {!r.price ? <Badge className="ml-2">No rate</Badge> : null}
                       {errors[r.gradeId] ? <p className="text-xs text-danger" role="alert">{errors[r.gradeId]}</p> : null}
                     </td>
@@ -118,7 +131,8 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-medium">{r.productName}{r.gradeName !== "Standard" ? <span className="text-muted"> · {r.gradeName}</span> : null}</p>
-                <p className="text-sm text-muted">{r.price ? <>{formatINR(r.price)}/kg + GST {formatPercent(r.gst)}%</> : "No rate yet"}{r.confirm ? " · needs confirmation" : ""}</p>
+                <p className="text-sm text-muted">{r.price ? <>{formatINR(r.price)}/kg + GST {formatPercent(r.gst)}%</> : "No rate yet"}</p>
+                {r.confirm ? <ConfirmFlag acked={!!acks[r.gradeId]} canEdit={canEdit && !!r.price} onToggle={() => toggleAck(r.gradeId)} /> : null}
               </div>
               <HistoryButton gradeId={r.gradeId} title={`${r.productName} · ${r.gradeName}`} />
             </div>
@@ -141,7 +155,7 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
         <div className="sticky bottom-20 z-20 mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface p-3 shadow-card lg:bottom-4">
           <p className="text-sm"><strong>{changed.length}</strong> unsaved change{changed.length === 1 ? "" : "s"} · old rates stay in history</p>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setEdits({})} disabled={pending}>Discard</Button>
+            <Button variant="outline" onClick={() => { setEdits({}); setAcks({}); }} disabled={pending}>Discard</Button>
             <ConfirmDialog trigger={<Button disabled={pending || Object.keys(errors).length > 0}>{pending ? "Saving…" : `Save ${changed.length} change${changed.length === 1 ? "" : "s"}`}</Button>}
               title={`Save ${changed.length} rate change${changed.length === 1 ? "" : "s"}?`} description={`New quotes will use these rates from ${formatDate(validFrom)}. Previous rates are kept in the history and can't be edited.`}
               confirmLabel="Save rates" onConfirm={save} />
@@ -149,6 +163,17 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
         </div>
       ) : null}
     </>
+  );
+}
+
+/** "Confirm" badge on rates flagged during import (QUESTIONS.md Q-005), with a one-click "Mark correct". */
+function ConfirmFlag({ acked, canEdit, onToggle }: { acked: boolean; canEdit: boolean; onToggle: () => void }) {
+  if (!canEdit) return <Badge tone="warning" className="ml-2" title="Flagged when importing the rates file; see QUESTIONS.md">Confirm</Badge>;
+  return (
+    <span className="ml-2 inline-flex items-center gap-1">
+      <Badge tone={acked ? "success" : "warning"} title="Flagged when importing the rates file; see QUESTIONS.md">{acked ? "Will confirm" : "Confirm"}</Badge>
+      <button type="button" onClick={onToggle} className="min-h-8 rounded px-1.5 text-xs text-primary underline-offset-4 hover:underline">{acked ? "Undo" : "Mark correct"}</button>
+    </span>
   );
 }
 
@@ -178,7 +203,7 @@ function HistoryButton({ gradeId, title }: { gradeId: string; title: string }) {
           <ol className="grid gap-2 text-sm">
             {rows.map((h, i) => (
               <li key={h.id} className={cn("rounded-md border border-border p-2", i === 0 && "border-primary")}>
-                <p><strong>{formatINR(h.price)}/kg</strong> + GST {formatPercent(h.gst)}% · {h.basis}{h.moq ? ` · MOQ ${formatPercent(h.moq)} kg` : ""}{h.pack ? ` · ${h.pack}` : ""} {i === 0 ? <Badge tone="success">Current</Badge> : null}</p>
+                <p><strong>{formatINR(h.price)}/kg</strong> + GST {formatPercent(h.gst)}% · {h.basis}{h.moq ? ` · MOQ ${formatNumber(h.moq)} kg` : ""}{h.pack ? ` · ${h.pack}` : ""} {i === 0 ? <Badge tone="success">Current</Badge> : null}</p>
                 <p className="text-xs text-muted">From {formatDate(h.validFrom)} · entered {formatDateTime(h.at)} by {h.by.startsWith("human:") ? "team member" : h.by}</p>
                 {h.note ? <p className="text-xs text-muted">{h.note}</p> : null}
               </li>

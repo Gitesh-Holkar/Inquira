@@ -4,6 +4,8 @@ Inquira is a lead-management web app for B2B food-ingredient suppliers. The firs
 
 **Read first, every session:** `PROGRESS.md` (current and next step, handover), `QUESTIONS.md`, `docs/DECISIONS.md`. Then run `git status`, `npm test` and `npm run typecheck`, and fix anything broken before continuing.
 
+**Where things are:** `docs/CODEMAP.md` lists every file, exported function, page, route and job, and what it is for. Look there before searching. **Keep it current:** when you add, rename, move or delete a function, file, route, page or job, update CODEMAP.md in the same commit.
+
 ## Hard rules (never break)
 0. Work only in the `inquira` repository.
    - Never read, clone or modify another repo, and never open issues/PRs there.
@@ -51,9 +53,12 @@ src/db/client.ts                              getDb, withUserTx (RLS as `authent
 src/lib/                                      env, errors, crypto, phone, format, auth, rate-limit, actions
 drizzle/  seed/  fixtures/emails/  scripts/  tests/  e2e/  docs/
 ```
+Function-level index: `docs/CODEMAP.md`.
 
 ## Conventions
 - **Service layer:** define public functions with `defineService({ name, input: zod, permission, handler(ctx, input, tx) })`. The handler must call `audit()` and `emit()` for every write. Cross-module calls use the other module's `…Internal(tx, ctx, …)` functions.
+  - Touches `integration_secrets` → add `runAs: "system"` (the `authenticated` role can't read it). Calls Google/TradeIndia → `defineExternalService` with its own short `withSystemTx` calls.
+  - Test new services as a signed-in role in `tests/human-paths.test.ts`: system-context tests bypass RLS and hide permission bugs.
 - **Boundaries (ESLint-enforced):**
   - A module never imports another module's `schema` (FK references inside `schema.ts` are fine).
   - UI code never imports `@/db` or any schema.

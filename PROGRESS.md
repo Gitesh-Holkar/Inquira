@@ -3,8 +3,8 @@
 **Resume prompt** (use this if a session is interrupted):
 > Resume the Inquira build in the `inquira` repository only. Read CLAUDE.md, then PROGRESS.md, and continue from "Next step". Follow all rules in docs/ and CLAUDE.md.
 
-**Current task:** 12 — Final pass (done). The MVP is complete and ready for Gitesh's morning setup.
-**Next step:** Gitesh follows the "Your steps" list below. A future session picks up from the ROADMAP or from open QUESTIONS.
+**Current task:** Full code audit + fixes (done, 2 Oct 2026). See the session log below.
+**Next step:** Gitesh finishes setup (sign-in per docs/SETUP.md §4, then Gmail, TradeIndia, cron, Claude). A future session picks up from the ROADMAP or from open QUESTIONS. Start with docs/CODEMAP.md to find code.
 
 ---
 
@@ -47,7 +47,7 @@ The whole MVP from the brief (§7) is built, tested and pushed to branch `claude
   - private `app` schema
 - **Supabase project `inquira` (Mumbai):** all 3 migrations applied and seeded (1 org, 66 products, 70 rates, your owner account, RLS 26/26, private `documents` bucket). Last checked from a helper session at 03:44 IST.
 - **Quality:**
-  - 95 unit/integration tests, 6 Playwright tests (desktop 1440 + phone 390)
+  - 109 unit/integration tests (incl. every service as a signed-in role under RLS), 10 Playwright tests (desktop 1440 + phone 390)
   - typecheck, lint and `next build` all pass
   - screenshots in `docs/screenshots/`
 
@@ -66,13 +66,13 @@ The whole MVP from the brief (§7) is built, tested and pushed to branch `claude
 ### 3. Your steps (about 45 minutes)
 1. **Deploy to Vercel** and set the environment variables → [SETUP §2–3](docs/SETUP.md#2-environment-variables). Generate `APP_ENCRYPTION_KEY` and `CRON_SECRET` there.
 2. **Supabase login URLs** (Site URL + `/auth/callback`) → [SETUP §1](docs/SETUP.md#1-supabase).
-3. **Set your password** with "Forgot password?" → [SETUP §4](docs/SETUP.md#4-your-first-sign-in).
+3. **Set your password** with "Forgot password? / First time here?" (there is no sign-up button; the owner account already exists) → [SETUP §4](docs/SETUP.md#4-your-first-sign-in).
 4. **Google Cloud OAuth client** (Gmail API, both scopes, publish to *Production*, the redirect URI) → **Connect Gmail** → [SETUP §5](docs/SETUP.md#5-connect-gmail).
 5. **TradeIndia**: User ID / Profile ID / Key → Test connection → [SETUP §6](docs/SETUP.md#6-connect-tradeindia).
 6. **pg_cron** 10-minute schedule → [SETUP §8](docs/SETUP.md#8-schedule-the-10-minute-sync).
 7. **Connect Claude** (claude.ai → Connectors → `https://YOUR-APP/api/mcp`) → [SETUP §7](docs/SETUP.md#7-connect-claude-mcp-server).
 8. **Cowork IndiaMART task** in test mode → [COWORK_INDIAMART_TASK.md](docs/COWORK_INDIAMART_TASK.md).
-9. Review the **4 flagged rates** on the Rates screen (orange "Confirm" badge).
+9. Review the **4 flagged rates** on the Rates screen (orange "Confirm" badge): fix the value, or click **Mark correct**, then **Save**.
 
 ### 4. Most important questions ([QUESTIONS.md](QUESTIONS.md))
 - **Q-001:** Are the rates GST-exclusive? I assumed yes (your sent quotes say "GST extra").
@@ -120,4 +120,13 @@ The whole MVP from the brief (§7) is built, tested and pushed to branch `claude
   - Safety fix: the review queue never offers domain-wide ignore for gmail.com etc.
   - Hash-token password links handled.
   - Final checks green: typecheck, lint, 95 tests, `next build`, 6/6 Playwright.
-- **01 Oct 2026.** Vercel project had no production deployment; pushed this note to trigger the first production build from the production branch.
+- **01 Oct 2026.** Vercel project had no production deployment; pushed a note to trigger the first production build from the production branch.
+- **2 Oct 2026 — full audit (backend + frontend), fixes, CODEMAP.**
+  - **Critical, fixed:** saving Gmail/TradeIndia credentials, Connect Gmail and Disconnect failed for every signed-in user ("permission denied for table integration_secrets"): those services ran under RLS, and `authenticated` can't touch secrets. Now `defineService({ runAs: "system" })`; network-calling services use the new `defineExternalService`. Tests only used system contexts, so this was missed → new `tests/human-paths.test.ts` runs every service as owner/sales/viewer under RLS.
+  - **Sign-in:** clear messages for "no password yet", expired link, link opened in another browser, Supabase email rate limit, and accounts without an organisation (previously a silent loop back to the login page); email links and redirects use the address actually in use (a wrong APP_URL no longer breaks them); `token_hash` links supported (SETUP §4); admin banner when APP_URL ≠ the site address.
+  - **Sync:** Gmail stops after a 35 s budget (backlog continues next run), skips already-stored ids, drops messages deleted in Gmail (were retried forever), retries 403 rate limits; cron starts no new job after 20 s and claims one at a time.
+  - **Correctness:** dashboard "new today" counts by arrival (a 30-day backfill showed as today); back-dated rates refused (they never became current); flagged rates can be confirmed ("Mark correct"); buy-lead cap counted correctly in test mode and clicks in test mode flagged; manual lead with invalid phone rejected; lead can't link another org's product; phone search ignores spaces/leading 0; quote From/headers encoded and injection-safe; OAuth client secret compared in constant time; missing audit rows added (rule bulk-apply, token refresh, bootstrap rows).
+  - **UI:** Enter on a focused button no longer opens the selected lead; viewers don't see classify buttons; WhatsApp can't open with empty text; status picker follows outside changes; Templates/IndiaMART reachable on phones; "always ignore" rule failure reported separately.
+  - **Cleanup:** removed dead functions (getEmail, getContact, addGrade, previewTemplate, countEventsSinceInternal, diff, conflict, truncate, collapseWhitespace, DialogTrigger/Close) and 9 unused npm packages. `npm audit --omit=dev`: 0 vulnerabilities.
+  - **Docs:** new `docs/CODEMAP.md` (every file/function/route/job → purpose, plus "I want to change X → edit Y"); CLAUDE.md requires keeping it current.
+  - Checks: typecheck, lint, 109 tests, `next build`, 10/10 Playwright all green.

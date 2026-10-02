@@ -10,6 +10,7 @@ import { POST as tokenPost } from "@/app/api/oauth/token/route";
 import { GET as prmGet } from "@/app/api/well-known/oauth-protected-resource/route";
 import { GET as asGet } from "@/app/api/well-known/oauth-authorization-server/route";
 import { ingestMessageInternal } from "@/modules/email/service";
+import { MCP_TOOL_NAMES } from "@/modules/mcp/server";
 import { resetDb, setupOrgWithUser, systemCtx } from "./helpers/db";
 
 let rpcId = 1;
@@ -59,10 +60,8 @@ describe("MCP server", () => {
     const init = await rpc(token, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
     expect(init.status).toBe(200);
     const list = (await (await rpc(token, "tools/list")).json()) as { result: { tools: { name: string }[] } };
-    expect(list.result.tools.map((t) => t.name).sort()).toEqual([
-      "add_lead_note", "create_quote_draft", "get_buylead_rules", "get_buylead_summary", "get_classification_rules", "get_current_rates", "get_lead",
-      "list_emails_needing_review", "list_leads_needing_action", "log_buylead_decision", "submit_email_classification", "update_lead_status",
-    ]);
+    expect(list.result.tools.map((t) => t.name).sort()).toEqual([...MCP_TOOL_NAMES].sort());
+    expect(MCP_TOOL_NAMES).toHaveLength(12);
 
     const { leadId } = await withSystemTx((tx) => upsertLeadInternal(tx, systemCtx(org.id), {
       source: "tradeindia", sourceRef: "1", channel: "tradeindia_api", contactName: "Vikram", phone: "+919000000707", productText: "Pea Protein",

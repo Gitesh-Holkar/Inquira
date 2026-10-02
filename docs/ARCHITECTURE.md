@@ -189,6 +189,9 @@ See `MCP_PERMISSIONS` in `src/modules/core/permissions.ts`.
 2. Export the schema from `src/db/schema.ts` and add the module name to `MODULES` in `eslint.config.mjs`.
 3. Run `npm run db:generate`, then create a **custom** migration (`npx drizzle-kit generate --custom --name <x>_rls`). It must enable RLS and add policies with `app.is_member` / `app.has_role`, like `drizzle/0001_rls_policies.sql`. Extend `tests/rls.test.ts`.
 4. Write services with `defineService`, adding a new permission in `core/permissions.ts` if needed. Call `audit()` and `emit()` in every write.
+   - A service that reads or writes a system-only table (`integration_secrets`) needs `runAs: "system"`. The `authenticated` role can never read those tables, so without it the call fails for every signed-in user. Scope every query by `ctx.orgId`.
+   - A service that calls an external API (Google, TradeIndia) uses `defineExternalService` and opens short `withSystemTx` transactions itself, so no database connection is held during the network call.
+   - Add the new function to `docs/CODEMAP.md`, and test it as a signed-in role in `tests/human-paths.test.ts` (that runs under RLS like the real app).
 
 ### Add a lead source (e.g. Justdial, website form)
 1. Implement a client and `normalize(raw) → NormalizedLead` in `src/modules/sources/<source>/`, with a unique `sourceRef`.

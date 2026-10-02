@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, lte, or, gte, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Tx } from "@/db/client";
-import { notFound } from "@/lib/errors";
+import { AppError, notFound } from "@/lib/errors";
 import { todayIST } from "@/lib/format";
 import { audit, emit } from "@/modules/core/audit";
 import { defineService } from "@/modules/core/service-kit";
@@ -108,12 +108,17 @@ export const updateRates = defineService({
   permission: "rates.write",
   handler: async (ctx, input, tx) => {
     const validFrom = input.validFrom ?? todayIST();
+    // A back-dated entry would never become current (a newer valid_from already exists), so it would be
+    // saved but silently ignored by quotes. History is append-only; corrections start today.
+    if (validFrom < todayIST()) {
+      throw new AppError("VALIDATION", "“Valid from” can't be in the past. Use today's date; the old rate stays in history.", { fieldErrors: { validFrom: ["Use today or a later date"] } });
+    }
     const gradeIds = [...new Set(input.items.map((i) => i.gradeId))];
     const grades = await tx
       .select({ id: productGrades.id, name: productGrades.name, productName: products.name })
       .from(productGrades)
       .innerJoin(products, eq(products.id, productGrades.productId))
-      .where(and(eq(productGrades.orgId, ctx.orgId), inArray(productGrades.id, gradeIds)));
+      .where(and(eq(productGrades.orgId, ctx.orgId), inArray(productGrades.id, gradeIds), isNull(productGrades.deletedAt)));
     const byId = new Map(grades.map((g) => [g.id, g]));
     for (const id of gradeIds) if (!byId.has(id)) throw notFound(`Grade ${id}`);
 
@@ -196,19 +201,6 @@ export const createProduct = defineService({
   input: createProductInput,
   permission: "catalog.write",
   handler: (ctx, input, tx) => createProductInternal(tx, ctx, input),
-});
-
-export const addGrade = defineService({
-  name: "catalog.addGrade",
-  input: z.object({ productId: z.string().uuid(), name: z.string().trim().min(1).max(60) }),
-  permission: "catalog.write",
-  handler: async (ctx, input, tx) => {
-    const [p] = await tx.select().from(products).where(and(eq(products.id, input.productId), eq(products.orgId, ctx.orgId)));
-    if (!p) throw notFound("Product");
-    const [g] = await tx.insert(productGrades).values({ orgId: ctx.orgId, productId: p.id, name: input.name, createdBy: actorString(ctx.actor) }).returning();
-    await audit(tx, ctx, { action: "grade.create", entityType: "product_grade", entityId: g!.id, changes: { product: p.name, grade: g!.name } });
-    return g!;
-  },
 });
 
 // ---------- product matching (used by leads, buy-lead rules, quotes) ----------

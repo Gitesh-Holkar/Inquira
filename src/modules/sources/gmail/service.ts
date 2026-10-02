@@ -5,17 +5,17 @@ import { randomToken, safeEqual, sha256 } from "@/lib/crypto";
 import { appUrl } from "@/lib/env";
 import { AppError, publicMessage } from "@/lib/errors";
 import { emit } from "@/modules/core/audit";
-import { defineService } from "@/modules/core/service-kit";
+import { defineExternalService, defineService } from "@/modules/core/service-kit";
 import type { Ctx } from "@/modules/core/types";
 import {
   enqueueJobInternal, finishSyncRunInternal, getIntegrationInternal, readSecretsInternal, recordIntegrationFailure,
   recordIntegrationSuccess, startSyncRunInternal, updateIntegrationInternal, writeSecretsInternal, type Integration,
 } from "@/modules/core/service";
-import { ingestMessageInternal } from "@/modules/email/service";
+import { ingestMessageInternal, storedGmailIdsInternal } from "@/modules/email/service";
 import type { IngestMessage } from "@/modules/email/types";
 import { emptyStats, type SyncStats } from "../types";
 import {
-  exchangeCode, extractBodies, GMAIL_SCOPES, GmailClient, GmailHistoryExpired, GmailReauthRequired, header, parseAddressList, parseFrom,
+  exchangeCode, extractBodies, GMAIL_SCOPES, GmailClient, GmailHistoryExpired, GmailMessageGone, GmailReauthRequired, header, parseAddressList, parseFrom,
   type GmailCredentials, type GmailMessage,
 } from "./client";
 
@@ -31,6 +31,7 @@ export const saveGmailClient = defineService({
     clientSecret: z.string().trim().min(10).max(200),
   }),
   permission: "integrations.manage",
+  runAs: "system", // writes integration_secrets
   handler: async (ctx, input, tx) => {
     const integ = await getIntegrationInternal(tx, ctx.orgId, "gmail");
     await writeSecretsInternal(tx, ctx, integ, { clientId: input.clientId, clientSecret: input.clientSecret });
@@ -47,6 +48,7 @@ export const startGmailConnect = defineService({
   name: "gmail.startConnect",
   input: z.object({}).default({}),
   permission: "integrations.manage",
+  runAs: "system", // reads the client secret, stores the PKCE verifier
   handler: async (ctx, _i, tx) => {
     const integ = await getIntegrationInternal(tx, ctx.orgId, "gmail");
     const secrets = await readSecretsInternal<GmailSecrets>(tx, integ.id);
@@ -71,11 +73,11 @@ export function orgIdFromState(state: string): string | null {
   return id && /^[0-9a-f-]{36}$/.test(id) ? id : null;
 }
 
-export const completeGmailConnect = defineService({
+export const completeGmailConnect = defineExternalService({
   name: "gmail.completeConnect",
   input: z.object({ code: z.string().min(5).max(2000), state: z.string().min(10).max(300) }),
   permission: "integrations.manage",
-  handler: async (ctx, input) => completeConnectInternal(ctx, input),
+  handler: (ctx, input) => completeConnectInternal(ctx, input),
 });
 
 export async function completeConnectInternal(ctx: Ctx, input: { code: string; state: string }, f: typeof fetch = fetch) {
@@ -117,19 +119,24 @@ export async function completeConnectInternal(ctx: Ctx, input: { code: string; s
   return { accountEmail: profile.emailAddress };
 }
 
-export const disconnectGmail = defineService({
+export const disconnectGmail = defineExternalService({
   name: "gmail.disconnect",
   input: z.object({}).default({}),
   permission: "integrations.manage",
-  handler: async (ctx, _i, tx) => {
-    const integ = await getIntegrationInternal(tx, ctx.orgId, "gmail");
-    const secrets = await readSecretsInternal<GmailSecrets>(tx, integ.id);
+  handler: async (ctx) => {
+    const { integ, secrets } = await withSystemTx(async (tx) => {
+      const integ = await getIntegrationInternal(tx, ctx.orgId, "gmail");
+      return { integ, secrets: await readSecretsInternal<GmailSecrets>(tx, integ.id) };
+    });
     if (secrets?.refreshToken) {
+      // Best effort: tell Google to drop the grant. Outside any transaction (network call).
       await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(secrets.refreshToken)}`, { method: "POST" }).catch(() => undefined);
     }
-    await writeSecretsInternal(tx, ctx, integ, { refreshToken: null });
-    await updateIntegrationInternal(tx, ctx, integ.id, { status: secrets?.clientId ? "configured" : "not_connected", accountEmail: null, cursor: {} }, "integration.disconnect");
-    await emit(tx, ctx, { type: "integration.disconnected", entityType: "integration", entityId: integ.id, payload: { provider: "gmail" } });
+    await withSystemTx(async (tx) => {
+      await writeSecretsInternal(tx, ctx, integ, { refreshToken: null });
+      await updateIntegrationInternal(tx, ctx, integ.id, { status: secrets?.clientId ? "configured" : "not_connected", accountEmail: null, cursor: {} }, "integration.disconnect");
+      await emit(tx, ctx, { type: "integration.disconnected", entityType: "integration", entityId: integ.id, payload: { provider: "gmail" } });
+    });
     return { ok: true };
   },
 });
@@ -161,15 +168,18 @@ export function toIngestMessage(msg: GmailMessage): IngestMessage {
 
 const BACKFILL_DAYS = 14;
 const MAX_PER_RUN = 150;
+/** Stop fetching new messages after this long, so a run always finishes inside the 60 s function limit. */
+const TIME_BUDGET_MS = 35_000;
 
 /**
  * Incremental Gmail sync using historyId; falls back to a date-based resync when the
- * history id has expired (Gmail keeps ~1 week). Messages beyond MAX_PER_RUN are kept in
- * cursor.backlog and processed next run, so every message is eventually stored.
+ * history id has expired (Gmail keeps ~1 week). Messages beyond MAX_PER_RUN (or the time
+ * budget) are kept in cursor.backlog and processed next run, so every message is eventually stored.
  */
-export async function syncGmail(ctx: Ctx, opts: { fetchImpl?: typeof fetch; maxPerRun?: number; now?: Date } = {}): Promise<SyncStats & { skipped?: string }> {
+export async function syncGmail(ctx: Ctx, opts: { fetchImpl?: typeof fetch; maxPerRun?: number; now?: Date; timeBudgetMs?: number } = {}): Promise<SyncStats & { skipped?: string }> {
   const now = opts.now ?? new Date();
   const max = opts.maxPerRun ?? MAX_PER_RUN;
+  const deadline = Date.now() + (opts.timeBudgetMs ?? TIME_BUDGET_MS);
   let clientInfo: Awaited<ReturnType<typeof gmailClientFor>>;
   try {
     clientInfo = await gmailClientFor(ctx, opts.fetchImpl);
@@ -213,10 +223,18 @@ export async function syncGmail(ctx: Ctx, opts: { fetchImpl?: typeof fetch; maxP
         pageToken = l.nextPageToken;
       } while (pageToken && ids.length < 5000);
     }
-    const unique = [...new Set(ids)];
+    // Don't download messages that are already stored (overlapping resyncs, retries).
+    const listed = [...new Set(ids)];
+    const stored = await withSystemTx((tx) => storedGmailIdsInternal(tx, ctx.orgId, listed));
+    stats.duplicates += stored.size;
+    const unique = listed.filter((id) => !stored.has(id));
     const now_ = unique.slice(0, max);
     const later = unique.slice(max);
-    for (const id of now_) {
+    for (const [i, id] of now_.entries()) {
+      if (Date.now() > deadline) {
+        later.unshift(...now_.slice(i)); // out of time: the rest goes first next run
+        break;
+      }
       try {
         const msg = await client.getMessage(id);
         stats.fetched++;
@@ -225,6 +243,7 @@ export async function syncGmail(ctx: Ctx, opts: { fetchImpl?: typeof fetch; maxP
         else if (r.leadCreated) stats.created++;
       } catch (e) {
         if (e instanceof GmailReauthRequired) throw e;
+        if (e instanceof GmailMessageGone) continue; // deleted in Gmail since it was listed: nothing to store
         stats.errors++;
         stats.errorMessages.push(`${id}: ${(e as Error).message.slice(0, 200)}`);
         later.push(id); // retry next run

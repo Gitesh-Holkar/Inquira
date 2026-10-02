@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { and, desc, eq, gt, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { withSystemTx, type Tx } from "@/db/client";
-import { randomToken, sha256 } from "@/lib/crypto";
+import { randomToken, safeEqual, sha256 } from "@/lib/crypto";
 import { AppError, notFound } from "@/lib/errors";
 import { audit, emit } from "@/modules/core/audit";
 import { defineService } from "@/modules/core/service-kit";
@@ -196,6 +196,11 @@ async function issueTokens(tx: Tx, orgId: string, clientId: string, clientName: 
   return { access_token: access, token_type: "Bearer", expires_in: ACCESS_TOKEN_TTL_S, refresh_token: refresh, scope: "mcp" };
 }
 
+/** Token grants happen without a browser session; audit them as the user who approved the connection. */
+function oauthActor(orgId: string, userId: string): Ctx {
+  return { orgId, actor: { kind: "human", userId, email: "", role: "admin" } };
+}
+
 function verifyPkce(verifier: string, challenge: string) {
   const computed = createHash("sha256").update(verifier).digest("base64url");
   return computed === challenge;
@@ -208,7 +213,7 @@ export async function tokenEndpoint(form: URLSearchParams, basicAuth?: { clientI
   if (!client) throw new OAuthError("invalid_client", "Unknown client", 401);
   if (client.clientSecretHash) {
     const secret = form.get("client_secret") ?? basicAuth?.clientSecret ?? "";
-    if (sha256(secret) !== client.clientSecretHash) throw new OAuthError("invalid_client", "Bad client credentials", 401);
+    if (!safeEqual(sha256(secret), client.clientSecretHash)) throw new OAuthError("invalid_client", "Bad client credentials", 401);
   }
 
   if (grant === "authorization_code") {
@@ -222,7 +227,7 @@ export async function tokenEndpoint(form: URLSearchParams, basicAuth?: { clientI
       if (!/^[A-Za-z0-9._~-]{43,128}$/.test(verifier) || !verifyPkce(verifier, row.codeChallenge)) throw new OAuthError("invalid_grant", "PKCE verification failed");
       await tx.update(oauthCodes).set({ usedAt: new Date() }).where(eq(oauthCodes.id, row.id));
       const t = await issueTokens(tx, row.orgId, clientId, client.clientName, row.userId);
-      await audit(tx, { orgId: row.orgId, actor: { kind: "human", userId: row.userId, email: "", role: "admin" } }, { action: "mcp.oauth_token", entityType: "oauth_client", changes: { clientId, grant } });
+      await audit(tx, oauthActor(row.orgId, row.userId), { action: "mcp.oauth_token", entityType: "oauth_client", changes: { clientId, grant } });
       return t;
     });
   }
@@ -235,7 +240,9 @@ export async function tokenEndpoint(form: URLSearchParams, basicAuth?: { clientI
       // Rotate: revoke the old refresh token and its access token, issue new ones in the same response.
       await tx.update(oauthRefreshTokens).set({ revokedAt: new Date() }).where(eq(oauthRefreshTokens.id, row.id));
       if (row.accessTokenId) await tx.update(mcpTokens).set({ revokedAt: new Date() }).where(eq(mcpTokens.id, row.accessTokenId));
-      return issueTokens(tx, row.orgId, clientId, client.clientName, row.userId);
+      const t = await issueTokens(tx, row.orgId, clientId, client.clientName, row.userId);
+      await audit(tx, oauthActor(row.orgId, row.userId), { action: "mcp.oauth_refresh", entityType: "oauth_client", changes: { clientId, grant } });
+      return t;
     });
   }
   throw new OAuthError("unsupported_grant_type", "Only authorization_code and refresh_token are supported");

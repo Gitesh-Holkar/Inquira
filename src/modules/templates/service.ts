@@ -6,7 +6,7 @@ import { audit, emit } from "@/modules/core/audit";
 import { defineService } from "@/modules/core/service-kit";
 import { actorString, type Ctx } from "@/modules/core/types";
 import { templates } from "./schema";
-import { DEFAULT_QUOTE_BODY, DEFAULT_QUOTE_SUBJECT, DEFAULT_WHATSAPP_BODY, render, unknownPlaceholders, type TemplateVars } from "./engine";
+import { DEFAULT_QUOTE_BODY, DEFAULT_QUOTE_SUBJECT, DEFAULT_WHATSAPP_BODY, unknownPlaceholders, type TemplateVars } from "./engine";
 
 export type Template = typeof templates.$inferSelect;
 const kind = z.enum(["quote_email", "whatsapp"]);
@@ -74,11 +74,6 @@ export const saveTemplate = defineService({
     return row;
   },
 });
-
-/** Live preview with sample values (no DB writes). */
-export function previewTemplate(body: string, subject: string | null, vars: TemplateVars) {
-  return { subject: subject ? render(subject, vars) : null, body: render(body, vars), unknown: unknownPlaceholders(`${subject ?? ""}\n${body}`) };
-}
 
 export const SAMPLE_VARS: TemplateVars = {
   contact_name: "Mr. Sharma",

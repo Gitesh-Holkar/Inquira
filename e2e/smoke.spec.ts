@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const shot = (page: Page, name: string) =>
-  page.screenshot({ path: `docs/screenshots/${name}-${test.info().project.name === "mobile" ? "390" : "1440"}.png`, fullPage: true });
+  page.screenshot({ path: `docs/screenshots/${name}-${test.info().project.name === "mobile" ? "390" : "1440"}.png`, fullPage: true, caret: "initial" });
 
 async function signIn(page: Page) {
   await page.goto("/login");
@@ -130,4 +130,32 @@ test("signed-out users are sent to login; MCP needs auth", async ({ page, reques
   expect(r.headers()["www-authenticate"]).toContain("resource_metadata=");
   const meta = await request.get("/.well-known/oauth-protected-resource");
   expect((await meta.json()).resource).toMatch(/\/api\/mcp$/);
+});
+
+test("sign-in explains failed email links", async ({ page }) => {
+  // Supabase's own error (expired / already used) → back to /login with a reason.
+  await page.goto("/auth/callback?error=access_denied&error_code=otp_expired");
+  await expect(page).toHaveURL(/\/login\?error=link_expired/);
+  await expect(page.getByText(/expired or was already used/)).toBeVisible();
+  await page.goto("/login?error=other_browser");
+  await expect(page.getByText(/same browser where you asked for it/)).toBeVisible();
+  // Implicit-flow links put the error in the URL hash.
+  await page.goto("/login#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired");
+  await expect(page.getByText(/expired or was already used/)).toBeVisible();
+  await expect(page.getByText(/There is no public sign-up/)).toBeVisible();
+});
+
+test("flagged rates can be confirmed without changing them", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/rates");
+  const mark = page.getByRole("button", { name: "Mark correct" }).locator("visible=true").first();
+  const acked = page.getByText("Will confirm").locator("visible=true");
+  // Dev server hydrates lazily: click until the first flagged row shows "Will confirm" (never twice).
+  await expect(async () => {
+    if (!(await acked.count())) await mark.click();
+    await expect(page.getByRole("button", { name: /Save 1 change/ })).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 30_000 });
+  await expect(acked).toHaveCount(1);
+  await page.getByRole("button", { name: "Discard" }).click();
+  await expect(page.getByRole("button", { name: /Save 1 change/ })).toBeHidden();
 });

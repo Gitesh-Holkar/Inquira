@@ -2,7 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { Tx } from "@/db/client";
 import { AppError, notFound, publicMessage } from "@/lib/errors";
-import { addDays, formatAmount, formatDate, formatPercent, todayIST } from "@/lib/format";
+import { addDays, formatAmount, formatDate, formatNumber, formatPercent, todayIST } from "@/lib/format";
 import { whatsappUrl } from "@/lib/phone";
 import { audit, emit } from "@/modules/core/audit";
 import { authorize } from "@/modules/core/permissions";
@@ -19,7 +19,7 @@ import { htmlToText } from "@/modules/email/parsers/text";
 import { gmailClientFor } from "@/modules/sources/gmail/service";
 import { gmailDraftUrl, gmailThreadUrl } from "@/modules/sources/gmail/client";
 import { quotations, type QuoteItemSnapshot } from "./schema";
-import { bodyToHtml, buildMime } from "./mime";
+import { bodyToHtml, buildMime, formatAddress } from "./mime";
 
 export type Quotation = typeof quotations.$inferSelect;
 
@@ -40,7 +40,7 @@ function snapshot(r: CurrentRate): QuoteItemSnapshot {
 function itemVars(i: QuoteItemSnapshot): TemplateVars {
   return {
     product: i.productName, grade: i.gradeName, price_per_kg: formatAmount(i.pricePerKgInr), price_basis: i.priceBasis,
-    gst_percent: formatPercent(i.gstPercent), moq: i.moqKg ? formatPercent(i.moqKg) : "", pack_size: i.packSize ?? "",
+    gst_percent: formatPercent(i.gstPercent), moq: i.moqKg ? formatNumber(i.moqKg) : "", pack_size: i.packSize ?? "",
   };
 }
 
@@ -113,7 +113,7 @@ export async function createQuoteDraft(ctx: Ctx, raw: z.input<typeof createInput
     const text = signatureHtml ? `${rendered.body}\n\n-- \n${htmlToText(signatureHtml)}` : rendered.body;
     const threadSubject = original?.subject ? (/^re:/i.test(original.subject) ? original.subject : `Re: ${original.subject}`) : rendered.subject;
     const mime = buildMime({
-      from: primary ? (primary.displayName ? `${primary.displayName} <${primary.sendAsEmail}>` : primary.sendAsEmail) : null,
+      from: primary ? formatAddress(primary.sendAsEmail, primary.displayName) : null,
       to: lead.email, subject: lead.gmailThreadId ? threadSubject : rendered.subject, text, html: bodyToHtml(rendered.body, signatureHtml),
       inReplyTo: lead.gmailThreadId ? original?.rfcMessageId : null,
       references: lead.gmailThreadId && original?.rfcMessageId ? [original.references, original.rfcMessageId].filter(Boolean).join(" ") : null,
@@ -162,7 +162,7 @@ export const whatsappForLead = defineService({
     const vars: TemplateVars = {
       contact_name: greetingName(lead), company_name: lead.companyName ?? "", product: first?.productName ?? lead.productText ?? "your requirement",
       grade: first?.gradeName ?? "", price_per_kg: first ? formatAmount(first.pricePerKgInr) : "", price_basis: first?.priceBasis ?? "",
-      gst_percent: first ? formatPercent(first.gstPercent) : "", moq: first?.moqKg ? formatPercent(first.moqKg) : "", pack_size: first?.packSize ?? "",
+      gst_percent: first ? formatPercent(first.gstPercent) : "", moq: first?.moqKg ? formatNumber(first.moqKg) : "", pack_size: first?.packSize ?? "",
       validity_date: formatDate(addDays(todayIST(), settings.quoteValidityDays)), quantity: lead.quantityText ? ` (${lead.quantityText})` : "",
       city: lead.city ?? "", org_name: settings.orgName,
     };

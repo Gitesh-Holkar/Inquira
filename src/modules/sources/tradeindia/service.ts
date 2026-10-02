@@ -2,7 +2,7 @@ import { z } from "zod";
 import { withSystemTx } from "@/db/client";
 import { AppError, publicMessage } from "@/lib/errors";
 import { emit } from "@/modules/core/audit";
-import { defineService } from "@/modules/core/service-kit";
+import { defineExternalService, defineService } from "@/modules/core/service-kit";
 import type { Ctx } from "@/modules/core/types";
 import {
   enqueueJobInternal, finishSyncRunInternal, getIntegrationInternal, readSecretsInternal, recordIntegrationFailure,
@@ -20,6 +20,7 @@ export const saveTradeIndiaCredentials = defineService({
   name: "tradeindia.saveCredentials",
   input: z.object({ userId: z.string().trim().min(1).max(40), profileId: z.string().trim().min(1).max(40), key: z.string().trim().min(8).max(200) }),
   permission: "integrations.manage",
+  runAs: "system", // writes integration_secrets
   handler: async (ctx, input, tx) => {
     const integ = await getIntegrationInternal(tx, ctx.orgId, "tradeindia");
     await writeSecretsInternal(tx, ctx, integ, { userId: input.userId, profileId: input.profileId, key: input.key });
@@ -39,11 +40,11 @@ async function credsFor(ctx: Ctx) {
 }
 
 /** "Test connection": fetch yesterday→today, page 1 only. Marks the integration connected on success. */
-export const testTradeIndiaConnection = defineService({
+export const testTradeIndiaConnection = defineExternalService({
   name: "tradeindia.test",
   input: z.object({}).default({}),
   permission: "integrations.manage",
-  handler: async (ctx) => testConnectionInternal(ctx),
+  handler: (ctx) => testConnectionInternal(ctx),
 });
 
 export async function testConnectionInternal(ctx: Ctx, f: typeof fetch = fetch) {

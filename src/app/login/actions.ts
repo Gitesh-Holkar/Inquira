@@ -2,7 +2,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { devUserIdByEmail } from "@/lib/auth";
+import { appSessionFor, devUserIdByEmail } from "@/lib/auth";
 import { appUrl, isDevAuth } from "@/lib/env";
 import { DEV_COOKIE, signDevSession } from "@/lib/dev-auth";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
@@ -20,14 +20,41 @@ async function ipKey(prefix: string) {
   return `${prefix}:${clientIp(new Request("http://x", { headers: h }))}`;
 }
 
+/**
+ * The address the person is using right now (e.g. https://inquira-xyz.vercel.app), for links in auth
+ * emails. Falls back to APP_URL. Supabase only accepts redirect URLs listed under Authentication → URL
+ * Configuration, so a forged Host header can't send links elsewhere.
+ */
+async function currentOrigin(): Promise<string> {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  if (!host || !/^[a-z0-9.-]+(:\d+)?$/i.test(host)) return appUrl();
+  const proto = h.get("x-forwarded-proto") ?? (/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host) ? "http" : "https");
+  return `${proto === "http" ? "http" : "https"}://${host}`;
+}
+
+const NO_PASSWORD_HINT = "Email or password is incorrect. First time here? Click “Forgot password? / First time here?” below to set your password.";
+
 export async function signIn(_prev: AuthState, form: FormData): Promise<AuthState> {
   const parsed = z.object({ email: z.string().trim().toLowerCase().email(), password: z.string().min(1) }).safeParse({ email: form.get("email"), password: form.get("password") });
   if (!parsed.success) return { error: "Enter your email and password.", email: String(form.get("email") ?? "") };
   if (!rateLimit(await ipKey("login"), { capacity: 10, refillPerMinute: 5 })) return { error: "Too many attempts. Wait a minute and try again.", email: parsed.data.email };
   if (!supabaseConfigured()) return { error: "Supabase is not configured on this server.", email: parsed.data.email };
   const supabase = await supabaseServer();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) return { error: "Email or password is incorrect.", email: parsed.data.email };
+  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
+  if (error) {
+    const code = (error as { code?: string }).code ?? "";
+    if (code === "email_not_confirmed" || /not confirmed/i.test(error.message)) {
+      return { error: "This email isn't confirmed yet. Use “Forgot password? / First time here?” to get a link that confirms it.", email: parsed.data.email };
+    }
+    if (error.status === 429) return { error: "Too many attempts. Wait a minute and try again.", email: parsed.data.email };
+    return { error: NO_PASSWORD_HINT, email: parsed.data.email };
+  }
+  // A correct password is not enough: the account must belong to an organisation in Inquira.
+  if (!(await appSessionFor({ id: data.user.id, email: data.user.email ?? parsed.data.email }))) {
+    await supabase.auth.signOut();
+    return { error: `${parsed.data.email} can sign in but isn't a member of any organisation in Inquira. Use the owner email from setup, or ask the owner to add you.`, email: parsed.data.email };
+  }
   redirect(safeNext(form.get("next")));
 }
 
@@ -37,9 +64,16 @@ export async function sendReset(_prev: AuthState, form: FormData): Promise<AuthS
   if (!rateLimit(await ipKey("reset"), { capacity: 3, refillPerMinute: 1 })) return { error: "Please wait a minute before asking again.", email: email.data };
   if (!supabaseConfigured()) return { error: "Supabase is not configured on this server." };
   const supabase = await supabaseServer();
-  await supabase.auth.resetPasswordForEmail(email.data, { redirectTo: `${appUrl()}/auth/callback?next=/auth/update-password` });
-  // Same answer whether or not the account exists.
-  return { message: "If that email has an account, a link to set your password is on its way.", email: email.data };
+  const { error } = await supabase.auth.resetPasswordForEmail(email.data, { redirectTo: `${await currentOrigin()}/auth/callback?next=/auth/update-password` });
+  // Supabase answers the same way whether or not the account exists, so showing its errors leaks nothing.
+  if (error) {
+    console.error("resetPasswordForEmail failed:", error.status, error.message);
+    if (error.status === 429 || /rate limit/i.test(error.message)) {
+      return { error: "Supabase's built-in email service sends only a few emails per hour. Wait an hour and try again, or ask the project owner to send a recovery link from the Supabase dashboard (Authentication → Users).", email: email.data };
+    }
+    return { error: `The email could not be sent (${error.message}). Check Supabase → Authentication → Emails, or send a recovery link from Authentication → Users.`, email: email.data };
+  }
+  return { message: "If that email has an account, a link to set your password is on its way. Open it in this browser. It can take a minute; check spam too.", email: email.data };
 }
 
 export async function updatePassword(_prev: AuthState, form: FormData): Promise<AuthState> {

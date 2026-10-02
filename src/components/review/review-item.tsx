@@ -16,7 +16,7 @@ export type ReviewEmail = {
 
 const LEAD_FIELDS: [string, string][] = [["contactName", "Name"], ["companyName", "Company"], ["phone", "Phone"], ["email", "Email"], ["city", "City"], ["state", "State"], ["productText", "Product"], ["quantityText", "Quantity"]];
 
-export function ReviewItem({ e, canRule }: { e: ReviewEmail; canRule: boolean }) {
+export function ReviewItem({ e, canClassify, canRule }: { e: ReviewEmail; canClassify: boolean; canRule: boolean }) {
   const [mode, setMode] = useState<null | "inquiry" | "international">(null);
   const [ignoreSender, setIgnoreSender] = useState(false);
   // For gmail.com & co. only the exact address can be ignored (a domain rule would hit every buyer).
@@ -31,7 +31,8 @@ export function ReviewItem({ e, canRule }: { e: ReviewEmail; canRule: boolean })
       const r = await classifyAction({ emailId: e.id, classification, lead, ignoreRule: ignoreSender && ignoreRule ? { matchType: ignoreRule.matchType, pattern: ignoreRule.pattern } : null });
       if (!r.ok) return void toast.error(r.error);
       setDone(true);
-      if (r.data.leadId) toast.success("Lead created", { action: { label: "Open", onClick: () => router.push(`/leads/${r.data.leadId}`) } });
+      if (r.data.ruleError) toast.warning(`Marked as ignored, but the rule wasn't saved: ${r.data.ruleError}`);
+      else if (r.data.leadId) toast.success("Lead created", { action: { label: "Open", onClick: () => router.push(`/leads/${r.data.leadId}`) } });
       else toast.success(r.data.applied ? `Ignored, and ${r.data.applied} similar email(s) cleared by the new rule` : "Marked as ignored");
     });
   if (done) return null;
@@ -49,7 +50,9 @@ export function ReviewItem({ e, canRule }: { e: ReviewEmail; canRule: boolean })
         <summary className="cursor-pointer text-sm text-muted">Show email ({e.reason})</summary>
         <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-surface-2 p-2 font-sans text-sm">{e.body}</pre>
       </details>
-      {mode ? (
+      {!canClassify ? (
+        <p className="mt-3 text-sm text-muted">View only: ask a sales user or admin to classify this email.</p>
+      ) : mode ? (
         <form className="mt-3 grid gap-2 sm:grid-cols-2" onSubmit={(ev) => {
           ev.preventDefault();
           send(mode, Object.fromEntries(new FormData(ev.currentTarget)) as Record<string, string>);

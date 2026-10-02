@@ -1,15 +1,28 @@
 "use client";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+
+const noSubscribe = () => () => {};
+
+/** "#error=access_denied&error_code=otp_expired&…" (an old or already-used email link) → a message. */
+function hashError(hash: string): string | null {
+  const p = new URLSearchParams(hash.slice(1));
+  if (!p.get("error") && !p.get("error_code")) return null;
+  if (p.get("error_code") === "otp_expired") return "That email link has expired or was already used. Ask for a new one below.";
+  return `That email link didn't work (${p.get("error_description") ?? p.get("error")}). Ask for a new one below.`;
+}
 
 /**
  * Handles Supabase links that carry the session in the URL hash (#access_token=…&type=recovery|invite),
- * e.g. "Send password recovery" from the Supabase dashboard. Code-based links go through /auth/callback.
+ * e.g. "Send password recovery" from the Supabase dashboard, and the #error=… they carry when expired.
+ * Code-based links go through /auth/callback.
  */
 export function HashSessionHandler() {
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
+  // Read on the client only (the server never sees the hash), without a hydration mismatch.
+  const linkError = useSyncExternalStore(noSubscribe, () => hashError(window.location.hash), () => null);
   useEffect(() => {
     const hash = new URLSearchParams(window.location.hash.slice(1));
     const accessToken = hash.get("access_token");
@@ -29,9 +42,10 @@ export function HashSessionHandler() {
       router.replace(type === "recovery" || type === "invite" || type === "signup" ? "/auth/update-password" : "/");
     });
   }, [router]);
-  return msg ? (
+  const text = msg ?? linkError;
+  return text ? (
     <p role="status" className="mb-3 text-sm text-muted">
-      {msg}
+      {text}
     </p>
   ) : null;
 }

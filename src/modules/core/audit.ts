@@ -40,15 +40,3 @@ export async function emit(tx: Tx, ctx: Ctx, input: EmitInput) {
     payload: input.payload ?? {},
   });
 }
-
-/** Shallow diff for audit `changes` ({ field: [before, after] }). */
-export function diff(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, [unknown, unknown]> {
-  const out: Record<string, [unknown, unknown]> = {};
-  for (const k of Object.keys(after)) {
-    const a = before[k];
-    const b = after[k];
-    const same = a instanceof Date && b instanceof Date ? a.getTime() === b.getTime() : JSON.stringify(a) === JSON.stringify(b);
-    if (!same) out[k] = [a ?? null, b ?? null];
-  }
-  return out;
-}

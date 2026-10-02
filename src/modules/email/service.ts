@@ -9,7 +9,7 @@ import { actorString, type Ctx } from "@/modules/core/types";
 import { findLeadByThreadInternal, findRecentLeadByContactInternal, getLeadInternal, touchLeadInternal, upsertLeadInternal } from "@/modules/leads/service";
 import type { LeadSource, NormalizedLead } from "@/modules/leads/types";
 import { classificationRules, emailMessages } from "./schema";
-import { classifyEmail, type ClassifyResult } from "./classify";
+import { classifyEmail, ruleMatches, type ClassifyResult } from "./classify";
 import { bestText, isUsableText } from "./parsers/text";
 import { extractAddress } from "./parsers/indiamart";
 import type { ParseResult, ParsedLeadFields } from "./parsers/types";
@@ -132,17 +132,6 @@ export const listEmailsNeedingReview = defineService({
       bodyTruncated: (r.bodyText?.length ?? 0) > input.bodyChars,
     }));
     return { items, total, nextCursor: rows.length > input.limit ? String(offset + input.limit) : null };
-  },
-});
-
-export const getEmail = defineService({
-  name: "email.get",
-  input: z.object({ emailId: z.string().uuid() }),
-  permission: "emails.read",
-  handler: async (ctx, input, tx) => {
-    const [r] = await tx.select().from(emailMessages).where(and(eq(emailMessages.orgId, ctx.orgId), eq(emailMessages.id, input.emailId)));
-    if (!r) throw notFound("Email");
-    return r;
   },
 });
 
@@ -277,15 +266,18 @@ export const createClassificationRule = defineService({
     let applied = 0;
     if (applyToReviewQueue && rule.action === "ignore") {
       const queue = await tx.select().from(emailMessages).where(and(eq(emailMessages.orgId, ctx.orgId), inArray(emailMessages.classification, ["needs_review", "pending"])));
-      const { ruleMatches } = await import("./classify");
+      const cleared: string[] = [];
       for (const e of queue) {
         const m = { id: e.gmailMessageId, from: e.fromEmail ?? "", to: e.toEmails, subject: e.subject ?? "", text: e.bodyText, html: null, date: e.receivedAt };
-        if (ruleMatches(r!, m, e.bodyText ?? "")) {
-          await tx.update(emailMessages).set({ classification: "ignored", classificationReason: `Rule: ${rule.name}`, classifiedBy: `rule:${r!.id}`, classifiedAt: new Date() }).where(eq(emailMessages.id, e.id));
-          applied++;
-        }
+        if (ruleMatches(r!, m, e.bodyText ?? "")) cleared.push(e.id);
       }
-      if (applied) await tx.update(classificationRules).set({ hitCount: applied }).where(eq(classificationRules.id, r!.id));
+      if (cleared.length) {
+        applied = cleared.length;
+        await tx.update(emailMessages).set({ classification: "ignored", classificationReason: `Rule: ${rule.name}`, classifiedBy: `rule:${r!.id}`, classifiedAt: new Date() })
+          .where(and(eq(emailMessages.orgId, ctx.orgId), inArray(emailMessages.id, cleared)));
+        await tx.update(classificationRules).set({ hitCount: applied }).where(eq(classificationRules.id, r!.id));
+        await audit(tx, ctx, { action: "rule.apply_to_review_queue", entityType: "classification_rule", entityId: r!.id, changes: { ignored: applied, emailIds: cleared.slice(0, 100) } });
+      }
     }
     return { rule: r!, applied };
   },
@@ -344,6 +336,14 @@ export const getReconciliation = defineService({
 export function senderDomain(email: string | null): string | null {
   if (!email) return null;
   return extractAddress(email).split("@")[1] ?? null;
+}
+
+/** Which of these Gmail message ids are already stored (so the sync doesn't download them again). */
+export async function storedGmailIdsInternal(tx: Tx, orgId: string, ids: string[]): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const rows = await tx.select({ id: emailMessages.gmailMessageId }).from(emailMessages)
+    .where(and(eq(emailMessages.orgId, orgId), inArray(emailMessages.gmailMessageId, ids)));
+  return new Set(rows.map((r) => r.id));
 }
 
 /** Threading metadata of an ingested message (used by quotes to reply in the same Gmail thread). */

@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { AlertTriangle, LogOut } from "lucide-react";
 import { requireSession } from "@/lib/auth";
+import { appUrl } from "@/lib/env";
 import { listIntegrations } from "@/modules/core/service";
 import { getReconciliation } from "@/modules/email/service";
 import { BottomNav, Sidebar } from "@/components/shell/nav";
@@ -16,6 +18,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const reviewCount = rec.pendingReview + rec.olderBacklog;
   const problems = integrations.filter((i) => i.status !== "connected");
   const isAdmin = s.role === "owner" || s.role === "admin";
+  // A wrong APP_URL silently breaks Gmail OAuth, the Claude connector URL and email links.
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const configuredHost = new URL(appUrl()).host;
+  const appUrlMismatch = isAdmin && !!host && host !== configuredHost && !/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host);
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
@@ -44,6 +51,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </form>
           </div>
         </header>
+        {appUrlMismatch ? (
+          <div role="alert" className="border-b border-border bg-danger-soft px-4 py-2 text-sm text-danger">
+            <p className="mx-auto max-w-6xl break-words">
+              <strong>APP_URL is {appUrl()}</strong> but this site is <strong>https://{host}</strong>. Set APP_URL to https://{host} in Vercel → Settings → Environment Variables, then redeploy. Gmail and Claude connections need it.
+            </p>
+          </div>
+        ) : null}
         {problems.length > 0 ? (
           <div role="status" className="border-b border-border bg-warning-soft px-4 py-2 text-sm text-warning">
             <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1">

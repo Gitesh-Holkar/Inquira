@@ -1,8 +1,22 @@
 import { randomBytes } from "node:crypto";
 
+/** Header values come partly from inbound email (subject, Message-ID): never let CR/LF start a new header. */
+function oneLine(v: string): string {
+  return v.replace(/[\r\n]+/g, " ").trim();
+}
+
 function encodeHeader(v: string): string {
   // RFC 2047 encoded-word for non-ASCII (₹, –, names in other scripts)
-  return /^[\x20-\x7e]*$/.test(v) ? v : `=?UTF-8?B?${Buffer.from(v, "utf8").toString("base64")}?=`;
+  const s = oneLine(v);
+  return /^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${Buffer.from(s, "utf8").toString("base64")}?=`;
+}
+
+/** "Name <email>" with the display name quoted or encoded (commas, quotes and non-ASCII are safe). */
+export function formatAddress(email: string, name?: string | null): string {
+  const n = name ? oneLine(name) : "";
+  if (!n) return oneLine(email);
+  const display = /^[\x20-\x7e]*$/.test(n) ? `"${n.replace(/["\\]/g, "\\$&")}"` : encodeHeader(n);
+  return `${display} <${oneLine(email)}>`;
 }
 
 function b64lines(s: string): string {
@@ -25,11 +39,11 @@ export function buildMime(p: {
 }): string {
   const boundary = `inq_${randomBytes(12).toString("hex")}`;
   const headers = [
-    p.from ? `From: ${p.from}` : null,
-    p.to ? `To: ${p.to}` : null,
+    p.from ? `From: ${oneLine(p.from)}` : null,
+    p.to ? `To: ${oneLine(p.to)}` : null,
     `Subject: ${encodeHeader(p.subject)}`,
-    p.inReplyTo ? `In-Reply-To: ${p.inReplyTo}` : null,
-    p.references || p.inReplyTo ? `References: ${p.references ?? p.inReplyTo}` : null,
+    p.inReplyTo ? `In-Reply-To: ${oneLine(p.inReplyTo)}` : null,
+    p.references || p.inReplyTo ? `References: ${oneLine(p.references ?? p.inReplyTo ?? "")}` : null,
     "MIME-Version: 1.0",
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
   ].filter(Boolean);

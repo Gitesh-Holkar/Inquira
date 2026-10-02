@@ -38,6 +38,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   return (
     <>
       <PageHeader title="Settings" description={admin ? "Only owners and admins can change these." : "You can view settings; ask an admin to change them."} />
+      {/* Phones: these pages aren't in the bottom bar. */}
+      <p className="-mt-2 mb-4 flex gap-4 text-sm lg:hidden">
+        <Link href="/templates" className="text-primary underline-offset-4 hover:underline">Templates</Link>
+        <Link href="/indiamart" className="text-primary underline-offset-4 hover:underline">IndiaMART log</Link>
+      </p>
       {sp.gmail === "connected" ? (
         <Alert tone="success" className="mb-4" title={`Gmail connected${sp.account ? ` (${sp.account})` : ""}`}>
           The first sync reads the last 14 days. It runs within 10 minutes, or click Sync now.

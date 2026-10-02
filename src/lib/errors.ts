@@ -14,7 +14,6 @@ export class AppError extends Error {
 
 export const notFound = (what: string) => new AppError("NOT_FOUND", `${what} not found`);
 export const forbidden = (msg = "You don't have permission to do that") => new AppError("FORBIDDEN", msg);
-export const conflict = (msg: string) => new AppError("CONFLICT", msg);
 
 /** Safe message for users/tools; never leaks stack traces or SQL. */
 export function publicMessage(err: unknown): { code: AppErrorCode; message: string; details?: unknown } {

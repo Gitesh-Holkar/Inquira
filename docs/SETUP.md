@@ -84,19 +84,37 @@ To make the two secrets without installing anything, use the Vercel UI's **Gener
 
 ## 4. Your first sign-in
 
-The owner account (`SEED_OWNER_EMAIL`) already exists but has no password yet.
+There is **no sign-up button**, and you don't need one. The seed already created the owner account for `SEED_OWNER_EMAIL`, but it has no password yet. A normal sign-in fails until you set one.
 
 1. Open `https://YOUR-APP/login` → **Forgot password? / First time here?**
-2. Enter your email → **Email me a link**.
-3. Open the email from Supabase and click the link. Use the **same browser** you asked from; for security the link is tied to that browser.
+2. Enter the owner email (the `SEED_OWNER_EMAIL` address; Supabase → **Authentication → Users** lists it) → **Email me a link**.
+3. Open the email from Supabase and click the link **in the same browser** you asked from. By default the link is tied to that browser.
 4. Choose a password (at least 10 characters).
 5. You land on the dashboard.
+
+The sign-in page says what went wrong:
+- **"Email or password is incorrect. First time here?…"**: no password yet, or a typo. Do steps 1–4.
+- **"That email link must be opened in the same browser…"**: you opened the link on another device or browser. Ask again and open it where you asked. To make links work on any device, see below.
+- **"That email link has expired or was already used"**: links are single-use and expire after an hour. Ask for a new one.
+- **"Supabase's built-in email service sends only a few emails per hour"**: wait an hour, or use the dashboard link below.
+- **"… is signed in but isn't a member of any organisation"**: you signed in with a different email than the owner. Sign out and use the owner email, or add that account as a member (SQL below).
 
 If no email arrives:
 1. In Supabase, open **Authentication → Users**.
 2. Find your email → **⋯** → **Send password recovery**.
 
-That link works in any browser. Supabase's built-in mailer sends only a few emails per hour.
+That link works in any browser.
+
+**Optional: reset links that work on any device.** In Supabase → **Authentication → Emails → Templates → Reset password**, replace `{{ .ConfirmationURL }}` in the link with:
+```
+{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery
+```
+(Site URL must be your app URL, §1.) Do the same in the **Invite user** template with `type=invite`.
+
+To check who can sign in, run this in the SQL editor:
+```sql
+select m.email, m.role, o.name from app.memberships m join app.organizations o on o.id = m.org_id where m.deleted_at is null;
+```
 
 **Adding teammates later:**
 1. Supabase → Authentication → **Invite user**. They set a password the same way.
@@ -266,8 +284,10 @@ npm run dev                  # sign in as owner@example.com (dev sign-in button)
 
 | Symptom | Fix |
 |---|---|
-| "Email or password is incorrect" on first login | Use **Forgot password?** (§4). The seeded account has no password until you set one. |
-| Password-reset link opens the login page again | Add `https://YOUR-APP/auth/callback` to Supabase **Redirect URLs** (§1). |
+| "Email or password is incorrect" on first login | Use **Forgot password? / First time here?** (§4). The seeded account has no password until you set one. |
+| Password-reset link opens the login page again | Add `https://YOUR-APP/auth/callback` to Supabase **Redirect URLs** (§1). If the page says "same browser", open the link where you asked for it, or use the template change in §4. |
+| Red banner "APP_URL is … but this site is …" | Set `APP_URL` in Vercel to the address in the banner (no trailing slash) and redeploy. Gmail and Claude need it. |
+| Signed in, but sent back to the sign-in page with "isn't a member" | That email isn't in the organisation. Use the owner email, or add the account with the SQL in §4. |
 | Google says `redirect_uri_mismatch` | The redirect URI in Google Cloud must be exactly `https://YOUR-APP/api/integrations/gmail/callback` (no trailing slash). |
 | "Please tick all permissions" after Connect Gmail | On Google's consent screen, tick both boxes. |
 | Gmail connected but asks to reconnect after 7 days | Your OAuth app is still in **Testing**. Publish it to **Production** (§5a step 4). |

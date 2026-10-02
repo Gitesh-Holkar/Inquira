@@ -13,7 +13,11 @@ export async function getRulesInternal(tx: Tx, ctx: Ctx): Promise<BuyleadRules> 
   const [r] = await tx.select().from(buyleadRules).where(eq(buyleadRules.orgId, ctx.orgId));
   if (r) return r;
   const [created] = await tx.insert(buyleadRules).values({ orgId: ctx.orgId, createdBy: actorString(ctx.actor) }).onConflictDoNothing().returning();
-  return created ?? (await tx.select().from(buyleadRules).where(eq(buyleadRules.orgId, ctx.orgId)))[0]!;
+  if (created) {
+    await audit(tx, ctx, { action: "buylead.rules_create", entityType: "buylead_rules", entityId: created.id });
+    return created;
+  }
+  return (await tx.select().from(buyleadRules).where(eq(buyleadRules.orgId, ctx.orgId)))[0]!;
 }
 
 const termsSchema = z.array(z.object({
@@ -112,17 +116,20 @@ export const logBuyleadDecision = defineService({
   handler: async (ctx, input, tx) => {
     const r = await getRulesInternal(tx, ctx);
     const c = await todayCounts(tx, ctx.orgId);
-    // Enforce the daily cap server-side too: a "contacted" beyond the cap is still logged but flagged.
-    const overCap = input.decision === "contacted" && c.contacted >= r.dailyCap;
+    // Enforce the daily cap server-side too: a decision beyond the cap is still logged but flagged.
+    // In test mode the cap counts "would_contact"; a real click in test mode is flagged separately.
+    const counted = r.testMode ? "would_contact" : "contacted";
+    const overCap = input.decision === counted && c[counted] >= r.dailyCap;
+    const clickedInTestMode = r.testMode && input.decision === "contacted";
     const [row] = await tx.insert(buyleadDecisions).values({
       orgId: ctx.orgId, leadTitle: input.lead_title, product: input.product ?? null, location: input.location ?? null,
       quantity: input.quantity ?? null, decision: input.decision, reason: input.reason,
       decidedAt: input.timestamp ? new Date(input.timestamp) : new Date(), testMode: r.testMode,
-      meta: overCap ? { over_cap: true } : {}, createdBy: actorString(ctx.actor),
+      meta: { ...(overCap ? { over_cap: true } : {}), ...(clickedInTestMode ? { clicked_in_test_mode: true } : {}) }, createdBy: actorString(ctx.actor),
     }).returning();
-    await audit(tx, ctx, { action: "buylead.decision", entityType: "buylead_decision", entityId: row!.id, changes: { decision: input.decision, overCap } });
+    await audit(tx, ctx, { action: "buylead.decision", entityType: "buylead_decision", entityId: row!.id, changes: { decision: input.decision, overCap, clickedInTestMode } });
     await emit(tx, ctx, { type: "buylead.decision_logged", entityType: "buylead_decision", entityId: row!.id, payload: { decision: input.decision } });
-    const used = r.testMode ? c.would_contact + (input.decision === "would_contact" ? 1 : 0) : c.contacted + (input.decision === "contacted" ? 1 : 0);
+    const used = c[counted] + (input.decision === counted ? 1 : 0);
     return { id: row!.id, remaining_today: Math.max(0, r.dailyCap - used), over_cap: overCap };
   },
 });

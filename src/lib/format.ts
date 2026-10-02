@@ -18,12 +18,15 @@ export function formatAmount(value: number | string | null | undefined): string 
   return Number.isFinite(n) ? inrPlain.format(n) : "";
 }
 
-/** "18.00" → "18" ; "5.5" → "5.5" */
-export function formatPercent(value: number | string | null | undefined): string {
+/** "100.00" → "100" ; "5.50" → "5.5" (quantities such as MOQ kg; no grouping, at most 2 decimals). */
+export function formatNumber(value: number | string | null | undefined): string {
   if (value === null || value === undefined || value === "") return "";
   const n = Number(value);
   return Number.isFinite(n) ? String(Math.round(n * 100) / 100) : "";
 }
+
+/** GST rate: "18.00" → "18" ; "5.5" → "5.5" */
+export const formatPercent = formatNumber;
 
 // Numeric parts + our own month names: ICU versions disagree on "Sep" vs "Sept".
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

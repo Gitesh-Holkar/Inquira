@@ -7,8 +7,6 @@ import { cn } from "@/lib/utils";
 import { Button } from "./button";
 
 export const Dialog = D.Root;
-export const DialogTrigger = D.Trigger;
-export const DialogClose = D.Close;
 
 export function DialogContent({ title, description, children, className }: { title: string; description?: string; children: React.ReactNode; className?: string }) {
   return (

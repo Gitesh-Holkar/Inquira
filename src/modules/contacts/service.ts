@@ -1,11 +1,8 @@
 import { and, eq, isNull } from "drizzle-orm";
-import { z } from "zod";
 import type { Tx } from "@/db/client";
 import { normalizeEmail, toE164 } from "@/lib/phone";
 import { audit, emit } from "@/modules/core/audit";
-import { defineService } from "@/modules/core/service-kit";
 import { actorString, type Ctx } from "@/modules/core/types";
-import { notFound } from "@/lib/errors";
 import { contacts } from "./schema";
 
 /** Portal placeholder addresses that are not the buyer's real email. */
@@ -75,19 +72,3 @@ export async function resolveContactInternal(tx: Tx, ctx: Ctx, input: ContactInp
   await emit(tx, ctx, { type: "contact.created", entityType: "contact", entityId: c!.id });
   return { contactId: c!.id, created: true, matchedBy: null };
 }
-
-export async function getContactInternal(tx: Tx, orgId: string, id: string) {
-  const [c] = await tx.select().from(contacts).where(and(eq(contacts.orgId, orgId), eq(contacts.id, id)));
-  return c ?? null;
-}
-
-export const getContact = defineService({
-  name: "contacts.get",
-  input: z.object({ contactId: z.string().uuid() }),
-  permission: "leads.read",
-  handler: async (ctx, input, tx) => {
-    const c = await getContactInternal(tx, ctx.orgId, input.contactId);
-    if (!c) throw notFound("Contact");
-    return c;
-  },
-});

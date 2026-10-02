@@ -52,6 +52,7 @@ export default async function IndiaMartPage() {
                   <Badge tone={DECISION[d.decision].tone}>{DECISION[d.decision].label}</Badge>
                   {d.testMode ? <Badge>test</Badge> : null}
                   {(d.meta as { over_cap?: boolean }).over_cap ? <Badge tone="danger">over daily cap</Badge> : null}
+                  {(d.meta as { clicked_in_test_mode?: boolean }).clicked_in_test_mode ? <Badge tone="danger">clicked in test mode</Badge> : null}
                   <span className="text-xs text-muted">{formatDateTime(d.decidedAt)}</span>
                 </div>
                 <p className="mt-1 break-words font-medium">{d.leadTitle}</p>

@@ -14,12 +14,16 @@ export async function classifyAction(input: { emailId: string; classification: "
     const res = await submitEmailClassification(s.ctx, {
       emailId: input.emailId, classification: input.classification, confidence: "high", reason: "Reviewed by a team member", lead, leadId: input.leadId,
     });
-    let rule = null;
+    let applied = 0;
+    let ruleError: string | null = null;
     if (input.ignoreRule && input.classification === "ignored" && can(s.ctx, "rules.write")) {
       const r = input.ignoreRule;
-      rule = await createClassificationRule(s.ctx, { name: `Ignore ${r.pattern}`, matchType: r.matchType, pattern: r.pattern, action: "ignore", priority: 100, enabled: true, applyToReviewQueue: true });
+      // Separate step: the email above is already classified even if the rule is refused.
+      const rr = await runAction(() => createClassificationRule(s.ctx, { name: `Ignore ${r.pattern}`, matchType: r.matchType, pattern: r.pattern, action: "ignore", priority: 100, enabled: true, applyToReviewQueue: true }));
+      if (rr.ok) applied = rr.data.applied;
+      else ruleError = rr.error;
     }
-    return { leadId: res.leadId, applied: rule?.applied ?? 0 };
+    return { leadId: res.leadId, applied, ruleError };
   });
   revalidatePath("/review");
   revalidatePath("/leads");

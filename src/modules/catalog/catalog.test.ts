@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { closeDb, getDb } from "@/db/client";
 import { auditLogs, events } from "@/modules/core/schema";
 import { eq } from "drizzle-orm";
+import { todayIST } from "@/lib/format";
 import { createProduct, getCurrentRates, matchProduct, rateHistory, updateRates } from "./service";
 import { mcpCtx, resetDb, setupOrgWithUser } from "../../../tests/helpers/db";
 
@@ -13,8 +14,10 @@ describe("catalog service", () => {
     const { ctx } = await setupOrgWithUser("admin");
     const { grades } = await createProduct(ctx, { name: "Pea Protein Isolate", grades: ["Standard"] });
     const gradeId = grades[0]!.id;
-    await updateRates(ctx, { validFrom: "2026-09-01", items: [{ gradeId, pricePerKgInr: "340", gstPercent: "18", priceBasis: "Ex-factory" }] });
-    await updateRates(ctx, { validFrom: "2026-09-02", items: [{ gradeId, pricePerKgInr: "350", gstPercent: "18", priceBasis: "Ex-factory", moqKg: "100" }] });
+    await updateRates(ctx, { validFrom: todayIST(), items: [{ gradeId, pricePerKgInr: "340", gstPercent: "18", priceBasis: "Ex-factory" }] });
+    await updateRates(ctx, { validFrom: todayIST(), items: [{ gradeId, pricePerKgInr: "350", gstPercent: "18", priceBasis: "Ex-factory", moqKg: "100" }] });
+    // A back-dated rate would never become current, so it is refused rather than silently ignored.
+    await expect(updateRates(ctx, { validFrom: "2020-01-01", items: [{ gradeId, pricePerKgInr: "1", gstPercent: "18", priceBasis: "Ex-factory" }] })).rejects.toThrow(/can't be in the past/);
 
     const current = await getCurrentRates(ctx, {});
     expect(current[0]!.pricePerKgInr).toBe("350.00");

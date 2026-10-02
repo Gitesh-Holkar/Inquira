@@ -55,9 +55,13 @@ export function WhatsAppButton({ leadId, phone, compact, openRef }: { leadId: st
         <Textarea aria-label="Message" rows={6} value={pending && !text ? "Loading…" : text} onChange={(e) => setText(e.target.value)} disabled={pending && !text} />
         <div className="mt-3 flex justify-end gap-2">
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button asChild disabled={!text}>
-            <a href={whatsappUrl(phone, text)} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>Open WhatsApp</a>
-          </Button>
+          {text.trim() ? (
+            <Button asChild>
+              <a href={whatsappUrl(phone, text)} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>Open WhatsApp</a>
+            </Button>
+          ) : (
+            <Button disabled>Open WhatsApp</Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

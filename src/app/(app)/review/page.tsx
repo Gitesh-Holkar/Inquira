@@ -22,7 +22,7 @@ export default async function ReviewPage() {
             const fromEmail = (i.from ?? "").match(/<([^>]+)>/)?.[1] ?? i.from;
             const fromName = (i.from ?? "").includes("<") ? (i.from ?? "").replace(/<[^>]+>/, "").trim() : null;
             return (
-              <ReviewItem key={i.id} canRule={can(s.ctx, "rules.write") && can(s.ctx, "emails.classify")}
+              <ReviewItem key={i.id} canClassify={can(s.ctx, "emails.classify")} canRule={can(s.ctx, "rules.write") && can(s.ctx, "emails.classify")}
                 e={{
                   id: i.id, from: i.from, subject: i.subject, receivedAt: i.receivedAt.toISOString(), reason: i.reason, body: i.body,
                   domain: senderDomain(fromEmail), freeMail: FREE_MAIL_DOMAINS.has(senderDomain(fromEmail) ?? ""), fromName, fromEmail,

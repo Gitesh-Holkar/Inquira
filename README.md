@@ -14,7 +14,7 @@ Mobile-first, light/dark mode, keyboard shortcuts on desktop. Next.js 16 + Supab
 |---|---|
 | **Set it up** | [docs/SETUP.md](docs/SETUP.md) — Supabase, Vercel, Gmail OAuth, TradeIndia, Claude, cron |
 | **Status / handover** | [PROGRESS.md](PROGRESS.md) · open questions in [QUESTIONS.md](QUESTIONS.md) |
-| **How it works** | [ARCHITECTURE](docs/ARCHITECTURE.md) · [DECISIONS](docs/DECISIONS.md) · [SECURITY](docs/SECURITY.md) |
+| **How it works** | [ARCHITECTURE](docs/ARCHITECTURE.md) · [CODEMAP](docs/CODEMAP.md) (every file and function) · [DECISIONS](docs/DECISIONS.md) · [SECURITY](docs/SECURITY.md) |
 | **What & why** | [REQUIREMENTS](docs/REQUIREMENTS.md) · [BUSINESS](docs/BUSINESS.md) · [ROADMAP](docs/ROADMAP.md) |
 | **Integrations** | [EMAIL_FORMATS](docs/EMAIL_FORMATS.md) · [TRADEINDIA_API](docs/TRADEINDIA_API.md) · [COWORK_INDIAMART_TASK](docs/COWORK_INDIAMART_TASK.md) |
 | **Screenshots** | [docs/screenshots](docs/screenshots) (390px phone and 1440px desktop) |

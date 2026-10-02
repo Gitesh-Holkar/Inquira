@@ -14,6 +14,12 @@ export class GmailReauthRequired extends AppError {
   }
 }
 export class GmailHistoryExpired extends Error {}
+/** The message no longer exists (deleted or moved out of reach between listing and fetching). */
+export class GmailMessageGone extends AppError {
+  constructor(id: string) {
+    super("NOT_FOUND", `Gmail message ${id} no longer exists`);
+  }
+}
 
 export type GmailCredentials = { clientId: string; clientSecret: string; refreshToken: string };
 type Fetch = typeof fetch;
@@ -56,10 +62,16 @@ export class GmailClient {
     }
     if (res.status === 401 || res.status === 403) {
       const t = await res.text();
+      // Gmail reports per-user rate limits as 403 rateLimitExceeded: back off and retry like a 429.
+      if (res.status === 403 && /rateLimitExceeded|userRateLimitExceeded/i.test(t) && attempt < 3) {
+        await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
+        return this.req<T>(path, init, attempt + 1);
+      }
       if (/insufficient|scope|revoked|invalid_grant|unauthorized/i.test(t) || res.status === 401) throw new GmailReauthRequired();
       throw new AppError("INTEGRATION", `Gmail API ${res.status}: ${t.slice(0, 200)}`);
     }
     if (res.status === 404 && path.startsWith("/history")) throw new GmailHistoryExpired();
+    if (res.status === 404 && path.startsWith("/messages/")) throw new GmailMessageGone(decodeURIComponent(path.slice(10).split("?")[0]!));
     if ((res.status === 429 || res.status >= 500) && attempt < 3) {
       await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
       return this.req<T>(path, init, attempt + 1);
