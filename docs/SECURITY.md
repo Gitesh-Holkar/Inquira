@@ -26,6 +26,12 @@
 | Leaking internals in errors | `publicMessage()` returns friendly messages; stack traces and SQL are only logged on the server. |
 | Personal data in the repo | Fixtures are anonymised, with a grep check for real identifiers during Phase A. `.env*` files are gitignored. |
 
+## Sign-in
+
+Sign-in is always on (GOAL G-PLT-1). There is no constant, flag or environment variable that makes a visitor a signed-in user in a deployed build. Development sign-in (`AUTH_MODE=dev`) is refused in a production build and on Vercel. `tests/sign-in.test.ts` fails if a bypass appears.
+
+From 2 Oct to 16 Nov 2026 sign-in was switched off for testing. `docs/RUNBOOK.md` section 1 has the steps to revoke tokens issued in that period and to review changes.
+
 ## Secrets handling
 - **Where secrets live:** only in environment variables (Vercel / `.env.local`), and `.env.example` has placeholders only.
 - **`APP_ENCRYPTION_KEY`:**

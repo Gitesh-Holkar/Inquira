@@ -20,6 +20,7 @@ export async function approveAction(params: Record<string, string>) {
 
 /** Consent denied: RFC 6749 access_denied back to the client. */
 export async function denyAction(params: Record<string, string>) {
+  if (!(await getAppSession())) redirect("/login");
   const v = await validateAuthorizeRequest(params).catch(() => null);
   if (!v) redirect("/");
   const u = new URL(v.params.redirect_uri);

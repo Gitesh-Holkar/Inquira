@@ -4,6 +4,11 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 16 Nov 2026 — Sign-in is back on (M0)
+- **Sign-in is required again.** The testing switch from 2 Oct is removed, together with a second switch that could have enabled development sign-in on a production build.
+- A test now fails the build if any page, action or the Claude consent screen can be reached without signing in.
+- **Owner action needed:** revoke the tokens issued while sign-in was off and review what changed. Steps are in `docs/RUNBOOK.md` section 1.
+
 ### 16 Nov 2026 — Handover and documentation structure
 - The project's goal is now `docs/GOAL.md`, with a requirement ID for every item. `AGENTS.md` is the single rulebook; `CLAUDE.md` only imports it.
 - New documents: `docs/INDEX.md`, `docs/DATABASE.md`, `docs/INTEGRATIONS.md`, `docs/API.md`, `docs/TESTING.md`, and one file per decision in `docs/decisions/`.

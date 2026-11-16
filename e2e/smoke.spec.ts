@@ -125,6 +125,12 @@ test("dark mode renders", async ({ page }) => {
 test("signed-out users are sent to login; MCP needs auth", async ({ page, request }) => {
   await page.goto("/leads");
   await expect(page).toHaveURL(/\/login\?next=%2Fleads/);
+  // Sign-in is always on (GOAL G-PLT-1): no signed-in page renders for a visitor.
+  for (const p of ["/", "/review", "/rates", "/templates", "/indiamart", "/settings", "/leads/00000000-0000-4000-8000-000000000000", "/oauth/authorize?client_id=x"]) {
+    await page.goto(p);
+    await expect(page, p).toHaveURL(/\/login/);
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  }
   const r = await request.post("/api/mcp", { data: { jsonrpc: "2.0", id: 1, method: "tools/list" } });
   expect(r.status()).toBe(401);
   expect(r.headers()["www-authenticate"]).toContain("resource_metadata=");

@@ -255,6 +255,7 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `drizzle/` | Migrations (0000 init, 0001 RLS + grants + triggers, 0002 storage bucket). Never edit an applied one. |
 | `seed/products.json`, `seed/rates.json` | Catalogue and rates source data. |
 | `fixtures/emails/*.json` | Anonymised real email formats with `expected` parse results. |
+| `tests/sign-in.test.ts` | Sign-in is always on (GOAL G-PLT-1): fails if an unauthenticated request reaches a page, a server action, the OAuth consent action or a protected API route, in any environment. |
 | `tests/human-paths.test.ts` | Every service as a signed-in role under RLS (catches permission bugs system-context tests miss). |
 | `tests/rls.test.ts` | Org isolation and append-only rules at the database level. |
 | `tests/sync-and-quotes.test.ts` | Gmail/TradeIndia sync, dedupe, quotes, review queue (Google faked in `tests/helpers/fake-google.ts`, which throws on any send). |

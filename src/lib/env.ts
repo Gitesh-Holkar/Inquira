@@ -31,11 +31,15 @@ export function resetEnvCache() {
   cached = null;
 }
 
-/** Dev auth is for local development and tests only and is refused in production (ADR-011). */
+/**
+ * Development sign-in (ADR-011) is for local development and tests only. It is refused in every
+ * deployed build: a production build or any Vercel deployment. No other switch exists, and none may
+ * be added (GOAL G-PLT-1, AGENTS.md rule 5); tests/sign-in.test.ts fails if one appears.
+ */
 export function isDevAuth(): boolean {
   const e = env();
   if (e.AUTH_MODE !== "dev") return false;
-  if (e.NODE_ENV === "production" && process.env.INQUIRA_ALLOW_DEV_AUTH_IN_PROD_BUILD !== "1") return false;
+  if (e.NODE_ENV === "production") return false;
   if (e.VERCEL) return false;
   return true;
 }
