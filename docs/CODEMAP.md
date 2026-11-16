@@ -2,7 +2,7 @@
 
 Every file, exported function, page, route and background job in Inquira, and what it is for. Read this before searching the code; it tells you where a change belongs.
 
-**Keep it current:** when you add, rename, move or delete a function, file, route, page or job, update this file in the same commit (CLAUDE.md rule).
+**Keep it current:** when you add, rename, move or delete a function, file, route, page or job, update this file in the same commit (`AGENTS.md` section 7).
 
 How a request flows: **page or server action** (`src/app`) → **service** (`src/modules/<m>/service.ts`, built with `defineService`) → **database** (Drizzle, schema `app`, RLS). The MCP tools (Claude) and cron jobs call the same services. UI code never touches the database directly (ESLint enforces this).
 

@@ -38,7 +38,7 @@ To redo this yourself, see §9 (`npm run db:migrate` then `npm run db:seed`).
 **Keep the data private:**
 1. Open **Project Settings → Data API → Exposed schemas**.
 2. Leave it as the default `public, graphql_public`.
-3. **Do not add `app`.** Inquira's data lives in the private `app` schema on purpose (docs/DECISIONS.md ADR-004).
+3. **Do not add `app`.** Inquira's data lives in the private `app` schema on purpose (docs/decisions/ADR-004-private-app-schema.md).
 
 ✅ **Check:**
 1. Open **Table Editor**.
@@ -147,7 +147,7 @@ Gmail is connected with Google OAuth, not a password. First you create your own 
    - `https://www.googleapis.com/auth/gmail.readonly` — read mail and your signature
    - `https://www.googleapis.com/auth/gmail.compose` — create drafts
 
-   Inquira never sends email (see DECISIONS ADR-010).
+   Inquira never sends email (see docs/decisions/ADR-010-gmail-drafts-only.md).
 6. **Clients → Create client:**
    - Application type **Web application**, name `Inquira`.
    - **Authorised redirect URIs:** add both of these:

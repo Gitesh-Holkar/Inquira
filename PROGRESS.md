@@ -1,14 +1,53 @@
 # PROGRESS
 
 **Resume prompt** (use this if a session is interrupted):
-> Resume the Inquira build in the `inquira` repository only. Read CLAUDE.md, then PROGRESS.md, and continue from "Next step". Follow all rules in docs/ and CLAUDE.md.
+> Continue Inquira in this repository only. Read `AGENTS.md`, then this file and `QUESTIONS.md`, then `docs/INDEX.md`. Work on the first milestone below that is not done. The goal is `docs/GOAL.md`.
 
-**Current task:** Full code audit + fixes (done, 2 Oct 2026). See the session log below.
-**Next step:** Gitesh finishes setup (sign-in per docs/SETUP.md §4, then Gmail, TradeIndia, cron, Claude). A future session picks up from the ROADMAP or from open QUESTIONS. Start with docs/CODEMAP.md to find code.
+## Current state (16 Nov 2026)
+
+- **Goal:** `docs/GOAL.md` (requirement IDs `G-…`). **Rules:** `AGENTS.md`. **Where things are:** `docs/INDEX.md`, `docs/CODEMAP.md`.
+- **Working on:** M0 (safe and correct).
+- **Live site:** deployed on Vercel from this branch. Sign-in was switched off for testing in commit `4a2a5eb` and is being switched back on in M0.
+
+## Handover of 16 Nov 2026
+
+The owner ran a research and audit phase and handed over a wider goal:
+
+1. Inquira becomes an open-source lead desk that also runs on one laptop.
+2. STDM will have the IndiaMART CRM API (Push and Pull) and the TradeIndia Inquiry API. The sales mailbox is on Google Workspace.
+3. AI becomes three optional tiers (Basic on a free key with redacted input, Advanced on an API key, and the existing Claude connector). The app must work with all of them off.
+4. The app will send email through an outbound pipeline with hold rules and modes. "Drafts only" stays in force until that milestone is merged.
+5. An audit found bugs in untested paths (milestone M0).
+6. A new price list replaces the September one (milestone M3).
+7. `AGENTS.md` replaces `CLAUDE.md` as the single rulebook.
+
+Owner's instruction of the same day: **fewer features that are complete, not more that are partial** (now in `AGENTS.md` section 2).
+
+## Plan: milestones
+
+Work in order, one at a time. Stop at every **OWNER GATE**.
+
+| # | Milestone | GOAL requirements | Status |
+| --- | --- | --- | --- |
+| M0 | Safe and correct: sign-in back on, seven audit bugs, November email fixtures | G-PLT-1, G-SRC-3, G-SRC-4 | In progress |
+| M1 | Open-source foundation: licence (**OWNER GATE**), seed sets, README, CONTRIBUTING, secret scan | G-OSS-1 to G-OSS-4, P6 | Not started |
+| M2 | Local mode: adapters, local sign-in, Docker packaging, self-hosting guide | G-PLT-5, G-PLT-6 | Not started |
+| M3 | New price list: import command, diff (**OWNER GATE** before anything is written to a live database) | G-KB-6 | Not started |
+| M4 | IndiaMART API: Push, Pull, reconciliation | G-SRC-1, G-SRC-2, G-SRC-6 to G-SRC-8 | Not started |
+| M5 | AI layer: provider interface, tiers, redaction | G-AI-1 to G-AI-10, G-UND-3, G-UND-4 | Not started |
+| M6 | Knowledge base: commercial terms, rate validity, document library, sample policy, lead score | G-KB-2 to G-KB-5, G-UND-6 | Not started |
+| M7 | Outbound pipeline: hold rules, modes, sending (**OWNER GATE**: stays in `shadow`) | G-TPL-*, G-OUT-1 to G-OUT-7, G-OUT-9, G-OUT-10 | Not started |
+| M8 | Operations: follow-ups, time to first reply, members screen, backups | G-FUP-1, G-RPT-*, G-PLT-2, G-PLT-7 | Not started |
+| Later | Design seams only: WhatsApp Cloud API, conversation automation, orders, attendance | G-OUT-8, G-CNV-2, G-CNV-3, G-ORD-*, G-ATT-1 | — |
+
+## Notes for the owner
+
+- This session can only push to the branch `claude/adoring-franklin-51jsvk`, which is also the Vercel production branch. So each milestone is a series of commits on this branch, not a separate pull request. To get pull requests, create `main`, make it the default and the production branch, and say so.
+- Git history still contains the September price list and business notes. You decided to keep the repository public as it is; history is not rewritten.
 
 ---
 
-## Morning handover (29 Sep 2026)
+## History: first version handover (29 Sep 2026)
 
 ### 1. What's done and working
 The whole MVP from the brief (§7) is built, tested and pushed to branch `claude/adoring-franklin-51jsvk`:

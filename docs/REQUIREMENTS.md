@@ -1,5 +1,7 @@
 # MVP requirements
 
+> **History.** This file describes the first version built in September 2026. [`docs/GOAL.md`](GOAL.md) now governs wherever the two differ. In particular: software clicking on IndiaMART Buy Leads is rejected (GOAL R-1), and "drafts only" will be replaced by the outbound pipeline (GOAL G-OUT) when it is merged.
+
 Each requirement has acceptance criteria (AC). "✓" marks what is implemented and covered by a test or a Playwright check as of 29 Sep 2026. Items marked "◐" work but need a real account to verify end to end.
 
 ## In scope

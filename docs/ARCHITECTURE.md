@@ -156,31 +156,7 @@ Every source implements the same three steps: **fetch → normalize to `Normaliz
 
 ## MCP tool catalogue
 
-Endpoint: `POST /api/mcp`. It's stateless Streamable HTTP, and every call needs a Bearer token (OAuth or manual). Responses are compact JSON. Email content is wrapped as `<<<UNTRUSTED_EMAIL id=…>>> … <<<END_UNTRUSTED_EMAIL>>>`.
-
-| Tool | Input | Returns | Writes |
-|---|---|---|---|
-| `list_leads_needing_action` | `limit?, cursor?` | new and stale open leads (compact), `next_cursor` | — |
-| `get_lead` | `lead_id` | lead, notes, history, last 5 emails (untrusted), quotes | — |
-| `update_lead_status` | `lead_id, status, reason?` | new status | status + audit + event |
-| `add_lead_note` | `lead_id, note` | note id | note + audit + event |
-| `list_emails_needing_review` | `limit?, cursor?` | emails (untrusted bodies), hints, parsed fields | — |
-| `submit_email_classification` | `email_id, classification, confidence, reason, lead?, lead_id?` | status, lead id | classification. `inquiry`/`international` create a lead; `low` confidence stays in review |
-| `get_current_rates` | `query?` | `[{product, grade, grade_id, inr_kg, gst, basis, moq_kg, pack, since}]` | — |
-| `create_quote_draft` | `lead_id, grade_ids?, validity_days?` | quote id, status, Gmail draft URL | quotation + Gmail **draft** |
-| `get_classification_rules` | — | active rules | — |
-| `get_buylead_rules` | — | test mode, cap, remaining, product terms, exclusions, locations, qty range | — |
-| `log_buylead_decision` | `lead_title, product?, location?, quantity?, decision, reason, timestamp?` | remaining today | decision row |
-| `get_buylead_summary` | — | today's counts and remaining cap | — |
-
-MCP tokens **cannot**:
-- delete anything
-- change rates, templates, rules or settings
-- read credentials
-- send email
-- export in bulk
-
-See `MCP_PERMISSIONS` in `src/modules/core/permissions.ts`.
+The endpoint, authentication and the full tool list are in [`docs/API.md`](API.md). Tools are registered in `src/modules/mcp/server.ts`; each one calls a service and is audited.
 
 ## How to extend
 
