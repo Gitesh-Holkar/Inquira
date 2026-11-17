@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { requireSession } from "@/lib/auth";
+import { requireSession, type AppSession } from "@/lib/auth";
+import { accountKind } from "@/lib/accounts";
+import { listMembers } from "@/modules/core/members";
 import { appUrl } from "@/lib/env";
 import { can } from "@/modules/core/permissions";
 import type { Ctx } from "@/modules/core/types";
@@ -15,6 +17,7 @@ import { McpTokens } from "@/components/settings/tokens";
 import { RulesEditor } from "@/components/settings/rules";
 import { BuyleadRulesEditor } from "@/components/settings/buylead-rules";
 import { OrgForm } from "@/components/settings/org-form";
+import { Members } from "@/components/settings/members";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -25,6 +28,7 @@ const TABS = [
   ["rules", "Email rules"],
   ["buyleads", "IndiaMART rules"],
   ["org", "Organisation"],
+  ["members", "Members"],
 ] as const;
 
 type SP = { tab?: string; gmail?: string; gmail_error?: string; account?: string };
@@ -72,6 +76,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       {tab === "rules" ? <RulesTab ctx={s.ctx} canEdit={can(s.ctx, "rules.write")} /> : null}
       {tab === "buyleads" ? <BuyleadTab ctx={s.ctx} canEdit={can(s.ctx, "buylead.rules.write")} /> : null}
       {tab === "org" ? <OrgTab ctx={s.ctx} canEdit={can(s.ctx, "settings.write")} /> : null}
+      {tab === "members" ? <MembersTab s={s} /> : null}
     </>
   );
 }
@@ -198,6 +203,21 @@ async function OrgTab({ ctx, canEdit }: { ctx: Ctx; canEdit: boolean }) {
       </CardHeader>
       <CardContent>
         <OrgForm canEdit={canEdit} quoteValidityDays={s.quoteValidityDays} defaultPriceBasis={s.defaultPriceBasis} paymentTerms={s.paymentTerms ?? ""} />
+      </CardContent>
+    </Card>
+  );
+}
+
+async function MembersTab({ s }: { s: AppSession }) {
+  const members = await listMembers(s.ctx, {});
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Members</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Members me={s.user.id} myRole={s.role} canManage={can(s.ctx, "members.manage")} accountKind={accountKind()} loginUrl={`${appUrl()}/login`}
+          members={members.map((m) => ({ id: m.id, userId: m.userId, email: m.email, role: m.role, createdAt: m.createdAt.toISOString() }))} />
       </CardContent>
     </Card>
   );

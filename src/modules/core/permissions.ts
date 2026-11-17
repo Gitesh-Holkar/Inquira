@@ -14,19 +14,20 @@ export const PERMISSIONS = [
   "mcp_tokens.manage",
   "buylead.rules.read", "buylead.rules.write", "buylead.decisions.write", "buylead.decisions.read",
   "audit.read", "dashboard.read", "sync.run",
+  "members.manage", "documents.read", "documents.write",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 const READ: Permission[] = [
   "leads.read", "emails.read", "quotes.read", "catalog.read", "templates.read", "rules.read",
-  "settings.read", "integrations.read", "buylead.rules.read", "buylead.decisions.read", "audit.read", "dashboard.read",
+  "settings.read", "integrations.read", "buylead.rules.read", "buylead.decisions.read", "audit.read", "dashboard.read", "documents.read",
 ];
 const SALES: Permission[] = [
   ...READ, "leads.edit", "leads.update_status", "leads.create", "notes.write", "emails.classify", "quotes.create", "sync.run",
 ];
 const ADMIN: Permission[] = [
   ...SALES, "leads.delete", "rates.write", "catalog.write", "templates.write", "rules.write", "settings.write",
-  "integrations.manage", "mcp_tokens.manage", "buylead.rules.write", "buylead.decisions.write",
+  "integrations.manage", "mcp_tokens.manage", "buylead.rules.write", "buylead.decisions.write", "members.manage", "documents.write",
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {

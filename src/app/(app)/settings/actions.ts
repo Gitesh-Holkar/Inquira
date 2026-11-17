@@ -9,6 +9,7 @@ import { createMcpToken, revokeMcpToken } from "@/modules/mcp/service";
 import { createClassificationRule, updateClassificationRule } from "@/modules/email/service";
 import { updateBuyleadRules } from "@/modules/buyleads/service";
 import { authorize } from "@/modules/core/permissions";
+import { changeMemberRole, inviteMember, removeMember } from "@/modules/core/members";
 
 const done = <T,>(r: Awaited<ReturnType<typeof runAction<T>>>) => { revalidatePath("/settings"); revalidatePath("/", "layout"); return r; };
 
@@ -63,4 +64,23 @@ export async function saveBuyleadRulesAction(input: Parameters<typeof updateBuyl
 export async function saveOrgAction(input: { quoteValidityDays: number; defaultPriceBasis: string; paymentTerms: string }) {
   const s = await requireSession("settings.write");
   return done(await runAction(() => updateOrgSettings(s.ctx, input)));
+}
+
+export async function inviteMemberAction(input: { email: string; role: "owner" | "admin" | "sales" | "viewer" }) {
+  const s = await requireSession("members.manage");
+  const r = await runAction(() => inviteMember(s.ctx, input));
+  revalidatePath("/settings");
+  return r.ok ? { ok: true as const, data: { accountKind: r.data.accountKind } } : r;
+}
+export async function changeMemberRoleAction(memberId: string, role: "owner" | "admin" | "sales" | "viewer") {
+  const s = await requireSession("members.manage");
+  const r = await runAction(() => changeMemberRole(s.ctx, { memberId, role }));
+  revalidatePath("/settings");
+  return r.ok ? { ok: true as const } : r;
+}
+export async function removeMemberAction(memberId: string) {
+  const s = await requireSession("members.manage");
+  const r = await runAction(() => removeMember(s.ctx, { memberId }));
+  revalidatePath("/settings");
+  return r.ok ? { ok: true as const } : r;
 }

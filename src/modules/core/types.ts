@@ -24,5 +24,6 @@ export const EVENT_TYPES = [
   "contact.created", "email.received", "email.classified", "quote.drafted", "quote.failed",
   "rate.updated", "product.created", "product.updated", "product.removed", "product.restored", "integration.connected", "integration.error", "integration.disconnected",
   "sync.completed", "buylead.decision_logged", "template.updated", "rule.created", "mcp.token_created", "mcp.token_revoked",
+  "member.added", "member.updated", "member.removed", "document.added", "document.removed",
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];

@@ -14,6 +14,7 @@ import path from "node:path";
 import postgres from "postgres";
 import { closeDb } from "@/db/client";
 import { seed } from "@/server/seed";
+import { findOrCreateSupabaseUser } from "@/lib/accounts";
 
 /** Accepts "you@x.com", "<you@x.com>" or "Name <you@x.com>" (people paste all three). */
 export function parseOwnerEmail(raw: string | undefined): string | null {
@@ -28,20 +29,8 @@ const orgName = process.env.SEED_ORG_NAME || undefined;
 export const seedDir = path.resolve(process.env.SEED_DIR || "seed/stdm");
 
 export async function ensureSupabaseUser(emailAddr: string): Promise<string> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  const headers = { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
-  for (let page = 1; page <= 20; page++) {
-    const res = await fetch(`${url}/auth/v1/admin/users?page=${page}&per_page=200`, { headers });
-    if (!res.ok) throw new Error(`Supabase admin users list failed: ${res.status}`);
-    const body = (await res.json()) as { users: { id: string; email?: string }[] };
-    const hit = body.users.find((u) => u.email?.toLowerCase() === emailAddr);
-    if (hit) return hit.id;
-    if (body.users.length < 200) break;
-  }
-  const res = await fetch(`${url}/auth/v1/admin/users`, { method: "POST", headers, body: JSON.stringify({ email: emailAddr, email_confirm: true }) });
-  if (!res.ok) throw new Error(`Supabase create user failed: ${res.status} ${await res.text()}`);
-  return ((await res.json()) as { id: string }).id;
+  const r = await findOrCreateSupabaseUser({ url: process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY! }, emailAddr);
+  return r.id;
 }
 
 async function ensureLocalUser(emailAddr: string): Promise<string> {
