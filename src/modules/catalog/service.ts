@@ -380,6 +380,12 @@ export async function productInfoById(tx: Tx, orgId: string, id: string): Promis
   return p ? { name: p.name, removed: !!p.deletedAt } : null;
 }
 
+/** Every product's name and whether it was removed, for screens that show products by id (documents). */
+export async function productNamesInternal(tx: Tx, orgId: string): Promise<Map<string, { name: string; removed: boolean }>> {
+  const rows = await tx.select({ id: products.id, name: products.name, deletedAt: products.deletedAt }).from(products).where(eq(products.orgId, orgId));
+  return new Map(rows.map((r) => [r.id, { name: r.name, removed: !!r.deletedAt }]));
+}
+
 /** Names of removed products, so an import or a new product with the same name is explained instead of failing. */
 export async function removedProductNamesInternal(tx: Tx, orgId: string): Promise<string[]> {
   return (await tx.select({ name: products.name }).from(products).where(and(eq(products.orgId, orgId), isNotNull(products.deletedAt)))).map((r) => r.name);

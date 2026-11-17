@@ -44,6 +44,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <PageHeader title="Settings" description={admin ? "Only owners and admins can change these." : "You can view settings; ask an admin to change them."} />
       {/* Phones: these pages aren't in the bottom bar. */}
       <p className="-mt-2 mb-4 flex gap-4 text-sm lg:hidden">
+        <Link href="/documents" className="text-primary underline-offset-4 hover:underline">Documents</Link>
         <Link href="/templates" className="text-primary underline-offset-4 hover:underline">Templates</Link>
         <Link href="/indiamart" className="text-primary underline-offset-4 hover:underline">IndiaMART log</Link>
       </p>

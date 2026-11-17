@@ -18,7 +18,7 @@ Postgres with Drizzle ORM. Every table is in the private schema **`app`** (see [
 | --- | --- | --- |
 | `organizations` (soft delete) | One row per company | `name`, `slug` |
 | `org_settings` | Per-company settings, one row | `features` (json; reserved, nothing reads it yet), `quote_validity_days`, `timezone`, `home_country`, `default_price_basis`, `payment_terms` (printed on quotations; empty until entered), `price_list_map` (json: how the company's price list maps onto its catalogue, see `priceListMapSchema`) |
-| `memberships` (soft delete) | Who belongs to which company, with a role | `user_id`, `role` (`owner`, `admin`, `sales`, `viewer`), `email`, `display_name`; unique `(org_id, user_id)` |
+| `memberships` (soft delete) | Who belongs to which company, with a role. Managed on Settings → Members; a removed member's row stays, marked deleted | `user_id`, `role` (`owner`, `admin`, `sales`, `viewer`), `email`, `display_name`; unique `(org_id, user_id)` |
 | `audit_logs` | **Append-only.** One row per write | `actor`, `action`, `entity_type`, `entity_id`, `changes` (json) |
 | `events` | Domain event outbox | `type`, `entity_type`, `entity_id`, `payload`, `processed_at` |
 | `jobs` | Background work queue | `type`, `payload`, `status`, `run_after`, `attempts`, `max_attempts`, `locked_at`, `dedupe_key`; unique `(org_id, dedupe_key)` |
@@ -68,6 +68,12 @@ The current rate of a grade is the newest entry with `valid_from` ≤ today and 
 | `buylead_rules` | One row per company: matching rules | `product_terms`, `excluded_terms`, `allowed_countries`, `allowed_states`, `excluded_states`, `min_quantity_kg`, `max_quantity_kg`, `daily_cap` (suggestions per day), `test_mode` (always true since ADR-020; kept for old rows) |
 | `buylead_decisions` | Log of each Buy Lead decision | `lead_title`, `product`, `location`, `quantity`, `decision` (`would_contact` = suggested, `skipped`; `contacted` exists only in old rows and can no longer be written), `reason`, `decided_at`, `test_mode` (kept for old rows), `meta` |
 
+### Documents (`documents/schema.ts`)
+
+| Table | Purpose | Notable columns |
+| --- | --- | --- |
+| `documents` (soft delete) | Document library: one row per uploaded file (GOAL G-KB-4). The file is in storage under `storage_key` | `product_id` (empty = whole company), `type` (`coa`, `tds`, `msds`, `specification`, `brochure`, `certificate`), `title`, `file_name`, `content_type`, `size_bytes`, `sha256`, `storage_key` (unique), `batch`, `issue_date`, `expiry_date`, `notes`. Index `(org_id, product_id, type)`. RLS: members read, owners and admins write (`0006`) |
+
 ### Claude connector (`mcp/schema.ts`)
 
 | Table | Purpose | Notable columns |
@@ -115,8 +121,10 @@ Every list the app shows has an index on its filter: leads by `(org_id, status, 
 | --- | --- |
 | `0000_init.sql` | Schema `app`, enums, all 26 tables, foreign keys, indexes |
 | `0001_rls_policies.sql` | Grants, RLS on every table, policies, `updated_at` and append-only triggers |
-| `0002_storage_bucket.sql` | Private `documents` storage bucket (Supabase only; a no-op elsewhere). Nothing uses it until the document library (GOAL G-KB-4) is built |
+| `0002_storage_bucket.sql` | Private `documents` storage bucket (Supabase only; a no-op elsewhere). Used by the document library through the service role key (`documents/storage.ts`); no storage policies are needed |
 | `0003_org_payment_terms.sql` | `org_settings.payment_terms` (text, empty by default) |
 | `0004_org_price_list_map.sql` | `org_settings.price_list_map` (json, empty by default) |
+| `0005_documents.sql` | Enum `document_type` and table `documents` |
+| `0006_documents_rls.sql` | Row-level security, grants and the `updated_at` trigger for `documents` |
 
 Rules: generate with `npm run db:generate`; never edit an applied migration; a new table needs base columns, `org_id`, and a migration that enables RLS with policies, plus a case in `tests/rls.test.ts`. Apply with `npm run db:migrate` (TCP) or `npm run db:remote:apply` (HTTPS).

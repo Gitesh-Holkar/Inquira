@@ -184,5 +184,10 @@ describe("sign-in is always on (G-PLT-1)", () => {
     const gmail = await import("@/app/api/integrations/gmail/callback/route");
     const res = await gmail.GET(new Request("https://app.example/api/integrations/gmail/callback?code=abcdef&state=0123456789abc"));
     expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+    // Document downloads check the session themselves (the proxy lets /api through).
+    const docs = await import("@/app/api/documents/[id]/route");
+    const dl = await docs.GET(new Request("https://app.example/api/documents/00000000-0000-4000-8000-000000000000"), { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000000" }) });
+    expect(dl.status).toBe(303);
+    expect(new URL(dl.headers.get("location")!).pathname).toBe("/login");
   });
 });

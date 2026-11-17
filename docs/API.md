@@ -10,6 +10,7 @@ Route handlers, webhooks and MCP tools. Pages and server actions are listed in `
 | `/api/integrations/gmail/callback` | GET | Google, after consent | The signed-in owner or admin who started the flow; hashed single-use `state` | Finishes the Gmail connection and redirects to Settings. |
 | `/api/mcp` | POST, GET, DELETE | Claude and other MCP clients | `Authorization: Bearer <token>` (OAuth or manual). A missing or bad token returns 401 with `WWW-Authenticate: Bearer resource_metadata=…` | Stateless Streamable HTTP MCP server. Rate limited per IP. |
 | `/api/oauth/register` | POST | MCP clients | None (public, rate limited) | Dynamic Client Registration (RFC 7591). |
+| `/api/documents/[id]` | GET | A signed-in member's browser (Documents screen, lead page) | The session cookie; `documents.read`. Signed out → 303 to `/login`; no permission → 403; another company's or a removed document → 404 | The file as a download (`Content-Disposition: attachment`, `nosniff`, `no-store`). |
 | `/api/oauth/token` | POST | MCP clients | Client ID, PKCE verifier; client secret if one was issued | Authorisation-code and refresh-token grants. Errors use RFC 6749 codes. |
 | `/.well-known/oauth-protected-resource` | GET | MCP clients | None | RFC 9728 metadata. `resource` equals the MCP URL. |
 | `/.well-known/oauth-authorization-server` | GET | MCP clients | None | RFC 8414 metadata. |

@@ -5,3 +5,6 @@ process.env.APP_ENCRYPTION_KEY ??= Buffer.alloc(32, 7).toString("base64");
 process.env.CRON_SECRET ??= "test-cron-secret";
 process.env.APP_URL ??= "http://localhost:3000";
 process.env.DB_POOL_MAX ??= "3";
+// Uploaded documents go to a throwaway folder (src/modules/documents/storage.ts).
+process.env.FILE_STORAGE ??= "disk";
+process.env.FILE_STORAGE_DIR ??= `${process.env.TMPDIR ?? "/tmp"}/inquira-test-files`;

@@ -17,8 +17,9 @@ coverage/
 playwright-report/
 test-results/
 /blob-report/
-# local db
+# local db and local document files
 .pgdata/
+.data/
 .tmp/
 # misc
 .DS_Store

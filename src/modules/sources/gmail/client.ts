@@ -6,6 +6,9 @@ import { AppError } from "@/lib/errors";
  */
 export const GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/gmail.compose"];
 const API = "https://gmail.googleapis.com/gmail/v1/users/me";
+const UPLOAD_DRAFTS = "https://gmail.googleapis.com/upload/gmail/v1/users/me/drafts?uploadType=multipart";
+/** Gmail refuses JSON requests above about 5 MB; larger drafts (attachments) go through the upload endpoint (35 MB). */
+const JSON_DRAFT_LIMIT = 3_500_000;
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
 export class GmailReauthRequired extends AppError {
@@ -55,7 +58,7 @@ export class GmailClient {
 
   private async req<T>(path: string, init: RequestInit = {}, attempt = 0): Promise<T> {
     if (!this.accessToken) await this.refresh();
-    const res = await this.f(`${API}${path}`, { ...init, headers: { ...(init.headers ?? {}), Authorization: `Bearer ${this.accessToken}` } });
+    const res = await this.f(path.startsWith("https://") ? path : `${API}${path}`, { ...init, headers: { ...(init.headers ?? {}), Authorization: `Bearer ${this.accessToken}` } });
     if (res.status === 401 && attempt === 0) {
       this.accessToken = null;
       return this.req<T>(path, init, 1);
@@ -106,6 +109,11 @@ export class GmailClient {
 
   /** Creates a DRAFT only. A human reviews and clicks Send in Gmail. */
   createDraft(rawRfc822: string, threadId?: string | null) {
+    if (Buffer.byteLength(rawRfc822, "utf8") > JSON_DRAFT_LIMIT) {
+      const b = `inq_upload_${Date.now().toString(36)}`;
+      const body = [`--${b}`, "Content-Type: application/json; charset=UTF-8", "", JSON.stringify({ message: threadId ? { threadId } : {} }), `--${b}`, "Content-Type: message/rfc822", "", rawRfc822, `--${b}--`, ""].join("\r\n");
+      return this.req<{ id: string; message: { id: string; threadId: string } }>(UPLOAD_DRAFTS, { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${b}` }, body });
+    }
     const raw = Buffer.from(rawRfc822, "utf8").toString("base64url");
     return this.req<{ id: string; message: { id: string; threadId: string } }>("/drafts", {
       method: "POST",

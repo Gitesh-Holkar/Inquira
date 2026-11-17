@@ -31,7 +31,7 @@ export type FakeGoogle = {
   calls: { url: string; method: string; body?: string }[];
   messages: Map<string, GmailMessage>;
   historyAdds: string[];
-  drafts: { raw: string; threadId?: string }[];
+  drafts: { raw: string; threadId?: string; uploaded?: boolean }[];
   historyExpired: boolean;
   revoked: boolean;
 };
@@ -62,6 +62,14 @@ export function fakeGoogle(opts: { messages?: GmailMessage[]; signature?: string
     if (p === "/history") {
       if (state.historyExpired) return json({ error: { code: 404 } }, 404);
       return json({ historyId: "300", history: state.historyAdds.map((id) => ({ messagesAdded: [{ message: { id, threadId: `t-${id}` } }] })) });
+    }
+    if (p === "/upload/drafts" && method === "POST" && u.searchParams.get("uploadType") === "multipart") {
+      const b = /boundary=([^;]+)/.exec(String((init?.headers as Record<string, string>)["Content-Type"]))![1]!;
+      const parts = String(init?.body).split(`--${b}`).slice(1, -1).map((x) => x.replace(/^\r\n/, "").replace(/\r\n$/, ""));
+      const meta = JSON.parse(parts[0]!.split("\r\n\r\n").slice(1).join("\r\n\r\n")) as { message: { threadId?: string } };
+      const raw = parts[1]!.split("\r\n\r\n").slice(1).join("\r\n\r\n");
+      state.drafts.push({ raw, threadId: meta.message.threadId, uploaded: true });
+      return json({ id: `d${state.drafts.length}`, message: { id: `m${state.drafts.length}`, threadId: meta.message.threadId ?? `new-thread-${state.drafts.length}` } });
     }
     if (p === "/drafts" && method === "POST") {
       const body = JSON.parse(String(init?.body)) as { message: { raw: string; threadId?: string } };

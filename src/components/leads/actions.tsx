@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/primitives";
 import { whatsappUrl } from "@/lib/phone";
+import { formatDate } from "@/lib/format";
+import type { DocumentType } from "@/modules/documents/types";
 import { quoteAction, whatsappTextAction } from "@/app/(app)/leads/actions";
 
 export function CopyButton({ value, label, compact, icon }: { value: string; label: string; compact?: boolean; icon?: "email" }) {
@@ -68,27 +70,63 @@ export function WhatsAppButton({ leadId, phone, compact, openRef }: { leadId: st
   );
 }
 
-export function QuoteButton({ leadId, disabled, reason, compact, runRef }: { leadId: string; disabled?: boolean; reason?: string; compact?: boolean; runRef?: (run: () => void) => void }) {
+export type AttachableDocument = { type: DocumentType; label: string; fileName: string; batch: string | null; expiryDate: string | null };
+
+/**
+ * Creates the quotation draft. When valid documents exist for the lead's product (`documents`), it first
+ * asks which to attach; the server attaches the latest valid file of each chosen type, never an expired one.
+ */
+export function QuoteButton({ leadId, disabled, reason, compact, runRef, documents = [] }: {
+  leadId: string; disabled?: boolean; reason?: string; compact?: boolean; runRef?: (run: () => void) => void; documents?: AttachableDocument[];
+}) {
   const [pending, start] = useTransition();
+  const [choosing, setChoosing] = useState(false);
+  const [picked, setPicked] = useState<DocumentType[]>([]);
+  const create = (attach: DocumentType[]) => {
+    setChoosing(false);
+    start(async () => {
+      const t = toast.loading("Creating Gmail draft…");
+      const r = await quoteAction(leadId, undefined, attach);
+      toast.dismiss(t);
+      if (!r.ok) return void toast.error(r.error);
+      if (r.draftUrl) {
+        toast.success(r.attached?.length ? `Quotation draft created in Gmail with ${r.attached.join(", ")}` : "Quotation draft created in Gmail",
+          { action: { label: "Open draft", onClick: () => window.open(r.draftUrl!, "_blank", "noopener") }, duration: 10_000 });
+        if (r.warning) toast.warning(r.warning, { duration: 10_000 });
+      } else toast.warning(r.warning ?? "Quotation saved, but no Gmail draft was created.", { duration: 10_000 });
+    });
+  };
   const run = () => {
     if (disabled) {
       toast.info(reason ?? "Quotes are not available for this lead.");
       return;
     }
-    start(async () => {
-      const t = toast.loading("Creating Gmail draft…");
-      const r = await quoteAction(leadId);
-      toast.dismiss(t);
-      if (!r.ok) return void toast.error(r.error);
-      if (r.draftUrl) toast.success("Quotation draft created in Gmail", { action: { label: "Open draft", onClick: () => window.open(r.draftUrl!, "_blank", "noopener") }, duration: 10_000 });
-      else toast.warning(r.warning ?? "Quotation saved, but no Gmail draft was created.", { duration: 10_000 });
-    });
+    if (documents.length) setChoosing(true);
+    else create([]);
   };
   runRef?.(run);
   return (
-    <Button variant={compact ? "outline" : "default"} size={compact ? "icon" : "touch"} onClick={run} disabled={pending} aria-disabled={disabled}
-      aria-label="Create quote draft" title={disabled ? reason : "Create quote draft (q)"}>
-      <FileSignature />{compact ? null : <span>{pending ? "Creating…" : "Create quote draft"}</span>}
-    </Button>
+    <Dialog open={choosing} onOpenChange={setChoosing}>
+      <Button variant={compact ? "outline" : "default"} size={compact ? "icon" : "touch"} onClick={run} disabled={pending} aria-disabled={disabled}
+        aria-label="Create quote draft" title={disabled ? reason : "Create quote draft (q)"}>
+        <FileSignature />{compact ? null : <span>{pending ? "Creating…" : "Create quote draft"}</span>}
+      </Button>
+      <DialogContent title="Attach documents?" description="The latest valid file of each type you tick is attached to the Gmail draft. Expired files are never attached.">
+        <fieldset className="grid gap-2">
+          <legend className="sr-only">Documents to attach</legend>
+          {documents.map((d) => (
+            <label key={d.type} className="flex min-h-11 items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
+              <input type="checkbox" className="size-4" checked={picked.includes(d.type)}
+                onChange={(e) => setPicked((p) => (e.target.checked ? [...p, d.type] : p.filter((x) => x !== d.type)))} />
+              <span className="min-w-0 flex-1 break-words"><strong>{d.label}</strong> · {d.fileName}{d.batch ? ` · batch ${d.batch}` : ""}{d.expiryDate ? ` · valid until ${formatDate(d.expiryDate)}` : ""}</span>
+            </label>
+          ))}
+        </fieldset>
+        <div className="mt-3 flex flex-wrap justify-end gap-2">
+          <Button variant="outline" onClick={() => create([])}>Without attachments</Button>
+          <Button onClick={() => create(picked)} disabled={!picked.length}>Create draft with {picked.length || "no"} file{picked.length === 1 ? "" : "s"}</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

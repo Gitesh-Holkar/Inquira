@@ -4,6 +4,13 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 17 Nov 2026 — Members screen and document library
+- **Settings → Members:** add a teammate by email with a role (owner, admin, sales, viewer), change a role, or remove someone, without SQL. The screen tells you what to send the new person. Nobody can remove themselves, and a company always keeps an owner.
+- **Documents** (new menu item; on a phone under Settings): upload COA, TDS, MSDS, specifications, brochures and certificates per product (or for the whole company) with batch, issue and expiry dates; filter, download and remove. PDF, images, Word and Excel up to 4 MB; files are checked by their content.
+- **Quotations attach documents:** when valid documents exist for the lead's product, Create quote draft asks which to attach and adds the newest valid file of each type to the Gmail draft. An expired file is never attached. The lead page also links the valid documents for download.
+- Needs `SUPABASE_SERVICE_ROLE_KEY` on the host (already listed in `docs/SETUP.md` section 2); without it both screens say what to set.
+- Database: migrations 0005 and 0006 (the `documents` table and its access rules).
+
 ### 17 Nov 2026 — Owner's answers; remove a product
 - **Rates → Edit product → Remove product** for a discontinued product: it leaves rates, quotations, lead matching and Buy Lead suggestions, and keeps its history. **Removed products** at the bottom of the Rates screen restores it.
 - Lecithin rates are 18% GST as the price list says, without a "Confirm" mark (owner's answer). Pea Fiber (Insoluble) ₹185 confirmed.

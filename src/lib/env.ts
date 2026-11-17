@@ -9,6 +9,9 @@ const schema = z.object({
   APP_ENCRYPTION_KEY: z.string().optional(),
   CRON_SECRET: z.string().optional(),
   AUTH_MODE: z.enum(["supabase", "dev"]).optional(),
+  /** Where uploaded documents are kept: Supabase Storage or a folder on disk (src/modules/documents/storage.ts). */
+  FILE_STORAGE: z.enum(["supabase", "disk"]).optional(),
+  FILE_STORAGE_DIR: z.string().optional(),
   DB_POOL_MAX: z.coerce.number().int().positive().default(5),
   NODE_ENV: z.string().default("development"),
   VERCEL: z.string().optional(),

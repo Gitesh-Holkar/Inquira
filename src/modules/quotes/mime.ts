@@ -27,7 +27,18 @@ export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-/** Builds an RFC 2822 multipart/alternative message for Gmail drafts.create (never sent by us). */
+export type MimeAttachment = { fileName: string; contentType: string; data: Uint8Array };
+
+/** `filename="..."` for plain names, RFC 2231 `filename*=UTF-8''...` for anything else. */
+function fileParam(name: string, key: "name" | "filename"): string {
+  const n = oneLine(name).replace(/["\\]/g, "");
+  return /^[\x20-\x7e]*$/.test(n) ? `${key}="${n}"` : `${key}*=UTF-8''${encodeURIComponent(n)}`;
+}
+
+/**
+ * Builds an RFC 2822 message for Gmail drafts.create (never sent by us): multipart/alternative
+ * (text and HTML), wrapped in multipart/mixed when there are attachments.
+ */
 export function buildMime(p: {
   from?: string | null;
   to?: string | null;
@@ -36,8 +47,10 @@ export function buildMime(p: {
   html: string;
   inReplyTo?: string | null;
   references?: string | null;
+  attachments?: MimeAttachment[];
 }): string {
   const boundary = `inq_${randomBytes(12).toString("hex")}`;
+  const mixed = p.attachments?.length ? `inq_${randomBytes(12).toString("hex")}` : null;
   const headers = [
     p.from ? `From: ${oneLine(p.from)}` : null,
     p.to ? `To: ${oneLine(p.to)}` : null,
@@ -45,11 +58,9 @@ export function buildMime(p: {
     p.inReplyTo ? `In-Reply-To: ${oneLine(p.inReplyTo)}` : null,
     p.references || p.inReplyTo ? `References: ${oneLine(p.references ?? p.inReplyTo ?? "")}` : null,
     "MIME-Version: 1.0",
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    mixed ? `Content-Type: multipart/mixed; boundary="${mixed}"` : `Content-Type: multipart/alternative; boundary="${boundary}"`,
   ].filter(Boolean);
-  return [
-    ...headers,
-    "",
+  const alternative = [
     `--${boundary}`,
     'Content-Type: text/plain; charset="UTF-8"',
     "Content-Transfer-Encoding: base64",
@@ -61,8 +72,17 @@ export function buildMime(p: {
     "",
     b64lines(p.html),
     `--${boundary}--`,
+  ];
+  if (!mixed) return [...headers, "", ...alternative, ""].join("\r\n");
+  const files = p.attachments!.flatMap((a) => [
+    `--${mixed}`,
+    `Content-Type: ${oneLine(a.contentType)}; ${fileParam(a.fileName, "name")}`,
+    `Content-Disposition: attachment; ${fileParam(a.fileName, "filename")}`,
+    "Content-Transfer-Encoding: base64",
     "",
-  ].join("\r\n");
+    Buffer.from(a.data).toString("base64").replace(/(.{76})/g, "$1\r\n"),
+  ]);
+  return [...headers, "", `--${mixed}`, `Content-Type: multipart/alternative; boundary="${boundary}"`, "", ...alternative, ...files, `--${mixed}--`, ""].join("\r\n");
 }
 
 /** Plain body → simple HTML (escaped), then the Gmail signature HTML verbatim (it's the user's own). */

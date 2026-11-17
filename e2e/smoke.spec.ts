@@ -63,8 +63,11 @@ test("main flows", async ({ page }) => {
   await page.getByRole("button", { name: "Add note" }).click();
   await expect(page.getByText(note)).toBeVisible();
 
-  // Quote draft without Gmail → saved, with a clear warning
+  // Quote draft without Gmail → saved, with a clear warning (once a COA exists, it first asks what to attach)
   await page.getByRole("button", { name: "Create quote draft" }).first().click();
+  const attachDialog = page.getByRole("dialog", { name: "Attach documents?" });
+  const asked = await attachDialog.waitFor({ state: "visible", timeout: 3000 }).then(() => true, () => false);
+  if (asked) await attachDialog.getByRole("button", { name: "Without attachments" }).click();
   await expect(page.getByText(/Gmail is not connected|Draft not created/).first()).toBeVisible();
 
   // Review queue
@@ -179,7 +182,7 @@ test("signed-out users are sent to login; MCP needs auth", async ({ page, reques
   await page.goto("/leads");
   await expect(page).toHaveURL(/\/login\?next=%2Fleads/);
   // Sign-in is always on (GOAL G-PLT-1): no signed-in page renders for a visitor.
-  for (const p of ["/", "/review", "/rates", "/rates/import", "/templates", "/indiamart", "/settings", "/leads/00000000-0000-4000-8000-000000000000", "/oauth/authorize?client_id=x"]) {
+  for (const p of ["/", "/review", "/rates", "/rates/import", "/documents", "/templates", "/indiamart", "/settings", "/leads/00000000-0000-4000-8000-000000000000", "/oauth/authorize?client_id=x"]) {
     await page.goto(p);
     await expect(page, p).toHaveURL(/\/login/);
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
@@ -218,3 +221,66 @@ test("flagged rates can be confirmed without changing them", async ({ page }) =>
   await page.getByRole("button", { name: "Discard" }).click();
   await expect(page.getByRole("button", { name: /Save 1 change/ })).toBeHidden();
 });
+
+test("documents: add, download and attach to a quote; members: add, change role, remove", async ({ page }) => {
+  await signIn(page);
+  const proj = test.info().project.name;
+
+  // Documents (G-KB-4)
+  await page.goto("/documents");
+  await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
+  const title = `COA-e2e-${proj}`;
+  await expect(async () => {
+    await page.getByLabel("Product", { exact: true }).selectOption({ label: "Chickpea Protein Isolate" });
+    await page.getByLabel("Type", { exact: true }).selectOption("coa");
+    await page.getByLabel(/^File \(PDF/).setInputFiles({ name: `${title}.pdf`, mimeType: "application/pdf", buffer: Buffer.from(`%PDF-1.4\n${title}\n`) });
+    await page.getByLabel("Batch number").fill("B-42");
+    await page.getByLabel("Expiry date").fill("2030-12-31");
+    await page.getByRole("button", { name: "Add document" }).click();
+    await expect(page.getByText("Document added")).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
+  const item = page.getByRole("list", { name: "Documents" }).getByRole("listitem").filter({ hasText: title });
+  await expect(item).toContainText("Batch B-42");
+  await expect(item).toContainText(/Valid, \d+ days left/);
+  await noHorizontalScroll(page);
+  await shot(page, "12-documents");
+  const href = await item.getByRole("link", { name: `Download ${title}.pdf` }).getAttribute("href");
+  const file = await page.request.get(href!);
+  expect(file.status()).toBe(200);
+  expect(file.headers()["content-disposition"]).toContain(`${title}.pdf`);
+  expect((await file.body()).toString()).toContain(title);
+
+  // The lead for that product now offers the COA when creating a quote
+  await page.goto("/leads");
+  await expect(async () => {
+    if (!/\/leads\/[0-9a-f-]{36}/.test(page.url())) await page.getByRole("link", { name: /Chickpea Isolate Protein/ }).first().click();
+    await expect(page).toHaveURL(/\/leads\/[0-9a-f-]{36}/, { timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
+  const attach = page.getByRole("dialog", { name: "Attach documents?" });
+  await expect(async () => {
+    if (!(await attach.isVisible())) await page.getByRole("button", { name: "Create quote draft" }).first().click();
+    await expect(attach).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 30_000 });
+  await attach.getByRole("checkbox").first().check();
+  await attach.getByRole("button", { name: "Create draft with 1 file" }).click();
+  await expect(page.getByText(/Gmail is not connected|Draft not created/).first()).toBeVisible();
+
+  // Members (G-PLT-2)
+  await page.goto("/settings?tab=members");
+  const email = `teammate-${proj}@example.com`;
+  await expect(async () => {
+    await page.getByLabel("Email address").fill(email);
+    await page.getByLabel("Role", { exact: true }).selectOption("sales");
+    await page.getByRole("button", { name: "Add member" }).click();
+    await expect(page.getByText(`Next step for ${email}`)).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
+  await noHorizontalScroll(page);
+  await shot(page, "13-members");
+  await page.getByLabel(`Role of ${email}`).selectOption("viewer");
+  await expect(page.getByText(`${email} is now Viewer`)).toBeVisible();
+  await page.getByRole("button", { name: `Remove ${email}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Remove member" }).click();
+  await expect(page.getByText(`${email} removed`)).toBeVisible();
+  await expect(page.getByRole("list", { name: "Members" })).not.toContainText(email);
+});
+

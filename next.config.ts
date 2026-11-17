@@ -63,6 +63,8 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   reactStrictMode: true,
   serverExternalPackages: ["postgres"],
+  // Documents are uploaded through a server action: 4 MB files plus form overhead (src/modules/documents/types.ts).
+  experimental: { serverActions: { bodySizeLimit: "4.5mb" } },
   async rewrites() {
     // Serve RFC 9728 / 8414 discovery documents from route handlers.
     return [

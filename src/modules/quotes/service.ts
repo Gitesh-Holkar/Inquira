@@ -19,7 +19,10 @@ import { htmlToText } from "@/modules/email/parsers/text";
 import { gmailClientFor } from "@/modules/sources/gmail/service";
 import { gmailDraftUrl, gmailThreadUrl } from "@/modules/sources/gmail/client";
 import { quotations, type QuoteItemSnapshot } from "./schema";
-import { bodyToHtml, buildMime, formatAddress } from "./mime";
+import { bodyToHtml, buildMime, formatAddress, type MimeAttachment } from "./mime";
+import { documentFilesInternal, latestValidDocumentsInternal } from "@/modules/documents/service";
+import type { FileStore } from "@/modules/documents/storage";
+import { DOCUMENT_TYPES, DOCUMENT_TYPE_SHORT } from "@/modules/documents/types";
 
 export type Quotation = typeof quotations.$inferSelect;
 
@@ -79,17 +82,23 @@ async function pickItems(tx: Tx, ctx: Ctx, lead: Lead, gradeIds?: string[]) {
   return chosen.map(snapshot);
 }
 
+/** Total size of files attached to one draft; Gmail accepts drafts up to 35 MB through the upload endpoint. */
+const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+
 const createInput = z.object({
   leadId: z.string().uuid(),
+  /** Document types to attach: for each, the latest valid file for the lead's product. Expired files are never attached. */
+  attach: z.array(z.enum(DOCUMENT_TYPES)).max(DOCUMENT_TYPES.length).optional(),
   gradeIds: z.array(z.string().uuid()).max(10).optional(),
   templateId: z.string().uuid().optional(),
   validityDays: z.number().int().min(1).max(60).optional(),
 });
 
 /** Same function behind the UI button and the MCP tool. Creates a Gmail DRAFT only — never sends. */
-export async function createQuoteDraft(ctx: Ctx, raw: z.input<typeof createInput>, deps: { fetchImpl?: typeof fetch } = {}) {
+export async function createQuoteDraft(ctx: Ctx, raw: z.input<typeof createInput>, deps: { fetchImpl?: typeof fetch; store?: FileStore | null } = {}) {
   const input = parseInput(createInput, raw);
   authorize(ctx, "quotes.create");
+  if (input.attach?.length) authorize(ctx, "documents.read");
 
   const prep = await runTx(ctx, async (tx) => {
     const lead = await getLeadInternal(tx, ctx.orgId, input.leadId);
@@ -107,10 +116,14 @@ export async function createQuoteDraft(ctx: Ctx, raw: z.input<typeof createInput
       subject: rendered.subject, bodyText: rendered.body, toEmail: lead.email, gmailThreadId: lead.gmailThreadId, createdBy: actorString(ctx.actor),
     }).returning();
     await audit(tx, ctx, { action: "quote.render", entityType: "quotation", entityId: q!.id, changes: { leadId: lead.id, items: items.map((i) => ({ grade: `${i.productName} / ${i.gradeName}`, price: i.pricePerKgInr, priceEntryId: i.priceEntryId })), validityDate } });
-    return { lead, q: q!, rendered, original };
+    const docs = input.attach?.length && lead.productId ? await latestValidDocumentsInternal(tx, ctx.orgId, lead.productId, input.attach) : [];
+    return { lead, q: q!, rendered, original, docs };
   });
 
-  const { lead, q, rendered, original } = prep;
+  const { lead, q, rendered, original, docs } = prep;
+  const notes: string[] = [];
+  const missing = (input.attach ?? []).filter((t) => !docs.some((d) => d.type === t));
+  if (missing.length) notes.push(`No valid ${missing.map((t) => DOCUMENT_TYPE_SHORT[t]).join(", ")} for this product, so ${missing.length === 1 ? "it was" : "they were"} not attached.`);
   try {
     const { client, integ } = await gmailClientFor(ctx, deps.fetchImpl);
     const sendAs = await client.listSendAs();
@@ -118,7 +131,16 @@ export async function createQuoteDraft(ctx: Ctx, raw: z.input<typeof createInput
     const signatureHtml = primary?.signature?.trim() || null; // real Gmail signature; never written in code
     const text = signatureHtml ? `${rendered.body}\n\n-- \n${htmlToText(signatureHtml)}` : rendered.body;
     const threadSubject = original?.subject ? (/^re:/i.test(original.subject) ? original.subject : `Re: ${original.subject}`) : rendered.subject;
+    const files = await documentFilesInternal(docs, { store: deps.store });
+    const attachments: MimeAttachment[] = [];
+    let total = 0;
+    for (const f of files) {
+      total += f.data.byteLength;
+      if (total > MAX_ATTACHMENT_BYTES) { notes.push(`${f.document.fileName} was not attached: the files together are larger than 15 MB.`); continue; }
+      attachments.push({ fileName: f.document.fileName, contentType: f.document.contentType, data: f.data });
+    }
     const mime = buildMime({
+      attachments,
       from: primary ? formatAddress(primary.sendAsEmail, primary.displayName) : null,
       to: lead.email, subject: lead.gmailThreadId ? threadSubject : rendered.subject, text, html: bodyToHtml(rendered.body, signatureHtml),
       inReplyTo: lead.gmailThreadId ? original?.rfcMessageId : null,
@@ -130,9 +152,13 @@ export async function createQuoteDraft(ctx: Ctx, raw: z.input<typeof createInput
       const [updated] = await tx.update(quotations).set({ status: "draft_created", gmailDraftId: draft.id, gmailThreadId: draft.message.threadId, gmailDraftUrl: url, error: null })
         .where(eq(quotations.id, q.id)).returning();
       await markQuotedInternal(tx, ctx, lead.id);
-      await audit(tx, ctx, { action: "quote.draft", entityType: "quotation", entityId: q.id, changes: { gmailDraftId: draft.id, threaded: !!lead.gmailThreadId, signature: !!signatureHtml } });
+      await audit(tx, ctx, { action: "quote.draft", entityType: "quotation", entityId: q.id, changes: {
+        gmailDraftId: draft.id, threaded: !!lead.gmailThreadId, signature: !!signatureHtml,
+        attached: files.filter((f) => attachments.some((a) => a.fileName === f.document.fileName)).map((f) => ({ documentId: f.document.id, type: f.document.type, fileName: f.document.fileName })),
+      } });
       await emit(tx, ctx, { type: "quote.drafted", entityType: "quotation", entityId: q.id, payload: { leadId: lead.id, threaded: !!lead.gmailThreadId } });
-      return { quotation: updated!, draftUrl: url, warning: lead.email ? null : "The lead has no email address; add the recipient in Gmail before sending." };
+      if (!lead.email) notes.push("The lead has no email address; add the recipient in Gmail before sending.");
+      return { quotation: updated!, draftUrl: url, warning: notes.length ? notes.join(" ") : null, attached: attachments.map((a) => a.fileName) };
     });
   } catch (e) {
     const msg = publicMessage(e).message === "Something went wrong. Please try again." ? `Gmail error: ${(e as Error).message}`.slice(0, 300) : publicMessage(e).message;
@@ -140,7 +166,7 @@ export async function createQuoteDraft(ctx: Ctx, raw: z.input<typeof createInput
       const [updated] = await tx.update(quotations).set({ status: "draft_failed", error: msg }).where(eq(quotations.id, q.id)).returning();
       await audit(tx, ctx, { action: "quote.draft_failed", entityType: "quotation", entityId: q.id, changes: { error: msg } });
       await emit(tx, ctx, { type: "quote.failed", entityType: "quotation", entityId: q.id, payload: { leadId: lead.id, error: msg } });
-      return { quotation: updated!, draftUrl: null, warning: `Draft not created in Gmail: ${msg} The quotation text is saved; copy it from the lead page.` };
+      return { quotation: updated!, draftUrl: null, warning: `Draft not created in Gmail: ${msg} The quotation text is saved; copy it from the lead page.`, attached: [] as string[] };
     });
   }
 }

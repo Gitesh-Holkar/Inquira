@@ -5,6 +5,7 @@ import { runAction } from "@/lib/actions";
 import { addLeadNote, createManualLead, deleteLead, updateLead, updateLeadStatus } from "@/modules/leads/service";
 import { createQuoteDraft, whatsappForLead } from "@/modules/quotes/service";
 import type { LeadStatus } from "@/modules/leads/types";
+import type { DocumentType } from "@/modules/documents/types";
 
 export async function setStatusAction(leadId: string, status: LeadStatus, reason?: string) {
   const s = await requireSession();
@@ -21,13 +22,13 @@ export async function addNoteAction(leadId: string, body: string) {
   return r.ok ? { ok: true as const, message: r.message } : r;
 }
 
-export async function quoteAction(leadId: string, gradeIds?: string[]) {
+export async function quoteAction(leadId: string, gradeIds?: string[], attach?: DocumentType[]) {
   const s = await requireSession();
-  const r = await runAction(() => createQuoteDraft(s.ctx, { leadId, gradeIds: gradeIds?.length ? gradeIds : undefined }));
+  const r = await runAction(() => createQuoteDraft(s.ctx, { leadId, gradeIds: gradeIds?.length ? gradeIds : undefined, attach: attach?.length ? attach : undefined }));
   revalidatePath(`/leads/${leadId}`);
   revalidatePath("/leads");
   if (!r.ok) return r;
-  return { ok: true as const, draftUrl: r.data.draftUrl, warning: r.data.warning, status: r.data.quotation.status };
+  return { ok: true as const, draftUrl: r.data.draftUrl, warning: r.data.warning, status: r.data.quotation.status, attached: r.data.attached };
 }
 
 export async function whatsappTextAction(leadId: string) {

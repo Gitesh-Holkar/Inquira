@@ -60,8 +60,8 @@ Each item lists the question, what I assumed so the build could continue, and wh
 ## Q-011 — Password-reset emails
 - **Question:** Supabase's built-in mailer only sends a few emails per hour, which is fine for one owner. Before inviting a team, set up custom SMTP (Supabase → Authentication → Emails → SMTP). Do you have an SMTP provider?
 
-## Q-012 — Inviting teammates
-- **Question:** There's no members screen yet (SETUP §4 has the SQL). Should it be next on the roadmap?
+## Q-012 — Inviting teammates (done 17 Nov 2026)
+- Settings → Members adds, changes and removes people without SQL (`docs/SETUP.md` section 4).
 
 ## Q-013 — Scheduled resume
 - **What happened:** The 04:10 IST resume is scheduled (trigger `trig_01MkFUSSb63XEULCu98HgQZQ`). The build finished before it fired, so that run will just re-check and exit.
@@ -134,3 +134,13 @@ Each item lists the question, what I assumed so the build could continue, and wh
 ## Q-016 — Licence (deferred by the owner, 17 Nov 2026)
 - **Owner's answer:** no licence for now. Inquira is for the owner's own use and should run locally. Keep the open-source idea for later.
 - **Effect:** no `LICENSE` file is added; G-OSS-1 waits. Without a licence the code stays "all rights reserved" even though the repository is public. When the owner wants to publish, the choice is between AGPL-3.0-or-later and MIT (not legal advice).
+
+## Q-017 — Roles "QA" and "Accounts"
+- **Question:** The goal (G-PLT-2) lists six roles: owner, admin, sales, QA, accounts, viewer. Inquira has the first four. What should QA and Accounts be able to do? For example: QA adds and replaces COA/TDS documents but cannot change rates; Accounts sees quotations and rates but not settings.
+- **Assumed meanwhile:** no QA or Accounts role. Give such a person Viewer (look only) or Admin (can add documents).
+- **Where it matters:** `src/modules/core/permissions.ts`, the role list on Settings → Members.
+
+## Q-018 — Documents to upload
+- **Question:** Please add your COA, TDS and MSDS files under **Documents**, with batch and expiry date. Which products have them?
+- **Why:** quotations can attach them only after they are uploaded; an expired file is never attached.
+

@@ -35,6 +35,8 @@ export default defineConfig({
       CRON_SECRET: "e2e-cron-secret-0123456789",
       NEXT_PUBLIC_SUPABASE_URL: "",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "",
+      FILE_STORAGE: "disk",
+      FILE_STORAGE_DIR: `${process.env.TMPDIR ?? "/tmp"}/inquira-e2e-files`,
     },
   },
 });

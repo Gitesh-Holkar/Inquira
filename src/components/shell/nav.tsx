@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Inbox, LayoutDashboard, ListChecks, Settings, Tag, FileText, ShoppingCart } from "lucide-react";
+import { Inbox, LayoutDashboard, ListChecks, Settings, Tag, FileText, ShoppingCart, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
@@ -9,6 +9,7 @@ const ITEMS = [
   { href: "/leads", label: "Leads", icon: Inbox, mobile: true },
   { href: "/review", label: "Review", icon: ListChecks, mobile: true },
   { href: "/rates", label: "Rates", icon: Tag, mobile: true },
+  { href: "/documents", label: "Documents", icon: FolderOpen, mobile: false },
   { href: "/templates", label: "Templates", icon: FileText, mobile: false },
   { href: "/indiamart", label: "IndiaMART", icon: ShoppingCart, mobile: false },
   { href: "/settings", label: "Settings", icon: Settings, mobile: true },

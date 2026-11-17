@@ -53,7 +53,7 @@ These are the settings the app needs. Put them in Vercel (§3) and, for local us
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API Keys (Project URL) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | same page, the **anon / publishable** key |
-| `SUPABASE_SERVICE_ROLE_KEY` | same page, the **service_role / secret** key (keep it secret) |
+| `SUPABASE_SERVICE_ROLE_KEY` | same page, the **service_role / secret** key (keep it secret). Needed on Vercel for **Settings → Members** (adding people) and **Documents** (storing files). It stays on the server. |
 | `DATABASE_URL` | Supabase → **Connect** → **Transaction pooler** URI (port **6543**), with your DB password filled in |
 | `APP_URL` | Your app address with no trailing slash, e.g. `https://inquira-xyz.vercel.app` |
 | `APP_ENCRYPTION_KEY` | Run `npm run gen:keys` (or see below) — encrypts stored Gmail/TradeIndia credentials. **If you lose it, you must re-enter those credentials.** |
@@ -97,7 +97,7 @@ The sign-in page says what went wrong:
 - **"That email link must be opened in the same browser…"**: you opened the link on another device or browser. Ask again and open it where you asked. To make links work on any device, see below.
 - **"That email link has expired or was already used"**: links are single-use and expire after an hour. Ask for a new one.
 - **"Supabase's built-in email service sends only a few emails per hour"**: wait an hour, or use the dashboard link below.
-- **"… is signed in but isn't a member of any organisation"**: you signed in with a different email than the owner. Sign out and use the owner email, or add that account as a member (SQL below).
+- **"… is signed in but isn't a member of any organisation"**: you signed in with a different email than the owner. Sign out and use the owner email, or ask an owner to add that email under **Settings → Members**.
 
 If no email arrives:
 1. In Supabase, open **Authentication → Users**.
@@ -116,16 +116,16 @@ To check who can sign in, run this in the SQL editor:
 select m.email, m.role, o.name from app.memberships m join app.organizations o on o.id = m.org_id where m.deleted_at is null;
 ```
 
-**Adding teammates later:**
-1. Supabase → Authentication → **Invite user**. They set a password the same way.
-2. In the SQL editor, add them to the organisation with one of these roles: `owner`, `admin`, `sales` or `viewer`.
-   ```sql
-   insert into app.memberships (org_id, user_id, email, role, created_by)
-   select o.id, u.id, u.email, 'sales', 'human:setup'
-   from app.organizations o, auth.users u
-   where u.email = 'teammate@example.com';
-   ```
-   A members screen is on the roadmap.
+**Adding teammates:** **Settings → Members** → enter their email and a role → **Add member**. Then send them the line the screen shows: open the sign-in page, click **Forgot password? / First time here?**, enter their email and set a password from the email that arrives. Roles:
+
+| Role | Can |
+| --- | --- |
+| Owner | Everything, including adding or removing owners and admins |
+| Admin | Everything except owners and admins |
+| Sales | Leads, quotations, the review queue; view rates and documents |
+| Viewer | Look only |
+
+Removing someone (same screen) takes effect at their next click; what they did stays in the history. Nobody can remove themselves or change their own role, and the last owner always stays.
 
 ## 5. Connect Gmail
 
@@ -302,6 +302,8 @@ A product that is not in your catalogue is only added when Inquira knows its GST
 **Payment terms, price basis, quotation validity:** **Settings → Organisation**. Payment terms are printed on every quotation; leave the field empty to leave the line out. MOQ and pack size are part of each rate.
 
 From a terminal, `npm run rates:import -- <list.txt>` prints the same changes and writes only with `--confirm`.
+
+**COA, TDS, MSDS and other documents:** **Documents** (in the menu; on a phone under Settings) → **Add document**: choose the product (or "Whole company" for a brochure or factory certificate), the type, the file (PDF, image, Word or Excel, up to 4 MB), and the batch and expiry date. When you create a quotation for a lead of that product, Inquira asks which documents to attach and attaches the newest valid file of each type. An expired file is never attached; the Documents screen marks it in red.
 
 ## 11. Database changes (after an update)
 

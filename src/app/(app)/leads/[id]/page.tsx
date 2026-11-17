@@ -9,6 +9,7 @@ import { formatPhone } from "@/lib/phone";
 import { getLead } from "@/modules/leads/service";
 import { listEmailsForLead } from "@/modules/email/service";
 import { listQuotationsForLead } from "@/modules/quotes/service";
+import { documentsForProduct } from "@/modules/documents/service";
 import { listAudit } from "@/modules/core/service";
 import { listProducts } from "@/modules/catalog/service";
 import { can } from "@/modules/core/permissions";
@@ -44,6 +45,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
     listEmailsForLead(s.ctx, { leadId: id }), listQuotationsForLead(s.ctx, { leadId: id }), listAudit(s.ctx, { entityType: "lead", entityId: id, limit: 50 }), listProducts(s.ctx, {}),
   ]);
   const product = products.find((p) => p.id === lead.productId);
+  const docs = lead.productId && can(s.ctx, "documents.read") && product ? await documentsForProduct(s.ctx, { productId: lead.productId }) : [];
   const canWrite = can(s.ctx, "leads.update_status");
   const where = [lead.city, lead.state, lead.country].filter(Boolean).join(", ");
   const timeline = [
@@ -86,12 +88,21 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                 <dt className="text-muted">Phone</dt><dd className="tabular-nums">{lead.phone ? formatPhone(lead.phone) : "—"}</dd>
                 <dt className="text-muted">Email</dt><dd className="min-w-0 break-all">{lead.email ?? "—"}</dd>
                 <dt className="text-muted">Location</dt><dd>{where || "—"}</dd>
+                {docs.length ? (
+                  <>
+                    <dt className="text-muted">Documents</dt>
+                    <dd className="flex flex-wrap gap-x-3 gap-y-1">
+                      {docs.map((d) => <a key={d.id} href={`/api/documents/${d.id}`} className="text-primary underline-offset-4 hover:underline" title={d.fileName}>{d.label}{d.validity.status === "expiring" ? " (expires soon)" : ""}</a>)}
+                    </dd>
+                  </>
+                ) : null}
                 <dt className="text-muted">Product</dt><dd>{product ? <Link className="text-primary underline-offset-4 hover:underline" href={`/rates?q=${encodeURIComponent(product.name)}`}>{product.name}</Link> : <span className="text-muted">Not matched to catalog — use Edit</span>}</dd>
               </dl>
               <div className="flex flex-wrap gap-2">
                 {lead.phone ? <><WhatsAppButton leadId={lead.id} phone={lead.phone} /><CallButton phone={lead.phone} /><CopyButton value={formatPhone(lead.phone)} label="phone" /></> : null}
                 {lead.email ? <CopyButton value={lead.email} label="email" icon="email" /> : null}
-                {can(s.ctx, "quotes.create") ? <QuoteButton leadId={lead.id} disabled={lead.isInternational} reason="Quotes are disabled for international leads." /> : null}
+                {can(s.ctx, "quotes.create") ? <QuoteButton leadId={lead.id} disabled={lead.isInternational} reason="Quotes are disabled for international leads."
+                  documents={docs.map((d) => ({ type: d.type, label: d.label, fileName: d.fileName, batch: d.batch, expiryDate: d.expiryDate }))} /> : null}
               </div>
             </CardContent>
           </Card>

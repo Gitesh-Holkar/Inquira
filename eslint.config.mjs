@@ -2,7 +2,7 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
-const MODULES = ["core", "contacts", "leads", "sources", "email", "catalog", "templates", "quotes", "mcp", "buyleads", "dashboard"];
+const MODULES = ["core", "contacts", "leads", "sources", "email", "catalog", "templates", "quotes", "mcp", "buyleads", "dashboard", "documents"];
 
 export default defineConfig([
   ...nextVitals,

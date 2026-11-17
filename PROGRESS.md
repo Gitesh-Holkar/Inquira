@@ -56,16 +56,17 @@ Every service, screen and setting was checked against the rule in `AGENTS.md` se
 | Quotations had no payment terms and no MOQ on rates | Payment terms setting; MOQ set by the price list import |
 | A settings input for feature switches that nothing read | Removed from the service |
 | The price list import says "missing does not mean discontinued, say so", but nothing could mark a product discontinued | Rates → Edit product → Remove product; Removed products → Restore |
+| Members screen (G-PLT-2): adding a teammate needed SQL | Settings → Members (built 17 Nov 2026 at the owner's request, before M2; accounts adapter `src/lib/accounts.ts`) |
+| Document library (G-KB-4): the storage bucket existed, unused | Documents screen, download route, attachments on quotation drafts (built 17 Nov 2026 at the owner's request; file storage adapter with a disk implementation for M2) |
 
 **Not built, and not shown anywhere in the app** (so nothing on screen leads to a dead end). Checked against `docs/GOAL.md` on 17 Nov 2026 at the owner's request:
 
 | Item | In the goal? | Decision |
 | --- | --- | --- |
-| Members screen (invite, remove, change role). Today: SQL in `docs/SETUP.md` section 4 | Yes, G-PLT-2, Phase 3 | Build **after M2**: inviting works differently with Supabase sign-in and local sign-in, so it needs the M2 auth adapter first. The owner is the only user today. |
-| Document library (COA, TDS, MSDS with expiry; the `documents` storage bucket exists, unused) | Yes, G-KB-4, Phase 2 (M6) | Build **after M2**: files go to Supabase storage in the cloud and to disk locally, so it needs the M2 file-storage adapter first. Needs the owner's COA/TDS files. |
 | Assigning a lead to a person (`leads.assigned_to` exists, nothing uses it) | No | Not built. Revisit with the members screen if a team uses Inquira. |
 | Switching between companies for a user who belongs to two (the cookie is read, nothing sets it) | No (one company per install) | Not built. |
 | An end date on a rate | Yes, G-KB-3 (M6) | With the knowledge base. |
+| Roles QA and Accounts | Yes, G-PLT-2 | Waiting for the owner to say what they may do (`QUESTIONS.md` Q-017). |
 | A form for the price list mapping (today it is edited as text on the import screen) | M6, with commercial terms G-KB-2 |
 | Priority order of email rules (stored, no control on screen; rules apply in the order they were created) | When a second rule type needs it |
 | The `events` table records what happened but nothing consumes it yet | M7 (outbound pipeline) |

@@ -32,6 +32,7 @@ Each file has: Context, Problem, Options, Decision, Reasoning, Consequences, Sta
 | [ADR-024](ADR-024-no-n8n-or-make-backbone.md) | n8n or Make as the backbone (GOAL R-6) | Rejected | 16 Nov 2026 |
 | [ADR-025](ADR-025-price-list-import.md) | Price lists are imported from their own text, through one code path; quotation terms | Accepted | 17 Nov 2026 |
 | [ADR-026](ADR-026-build-stops-when-database-is-behind.md) | A hosted build stops when the database is behind the code | Accepted | 17 Nov 2026 |
+| [ADR-027](ADR-027-documents-and-accounts-through-the-server.md) | Documents and new sign-in accounts go through the server, with the service role key | Accepted | 17 Nov 2026 |
 
 ## To be written when the work reaches them
 

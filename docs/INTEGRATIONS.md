@@ -43,13 +43,14 @@ Details of what was probed and what is assumed: [`docs/TRADEINDIA_API.md`](TRADE
 
 | | |
 | --- | --- |
-| **Purpose** | Cloud mode's database (Postgres), sign-in (Auth), scheduler (`pg_cron` plus `pg_net`) and, later, file storage. |
+| **Purpose** | Cloud mode's database (Postgres), sign-in (Auth), scheduler (`pg_cron` plus `pg_net`) and file storage (the private bucket `documents`). |
 | **Code** | `src/db/client.ts` (database), `src/lib/supabase/server.ts` and `src/lib/auth.ts` (sign-in), `src/proxy.ts` (session refresh), `scripts/db-remote-apply.ts` and `scripts/db-remote-seed.ts` (Management API). |
-| **Auth** | `DATABASE_URL` (transaction pooler, port 6543), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (seed only). `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF` are only for the HTTPS migration scripts. |
+| **Auth** | `DATABASE_URL` (transaction pooler, port 6543), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (server only: the seed, Settings → Members to create sign-in accounts through the Auth admin API, and document files in Storage; never sent to a browser). `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF` are only for the HTTPS migration scripts. |
 | **Limits** | The built-in mailer sends only a few emails an hour, which matters for password-reset links. The free tier pauses inactive projects. |
 | **Errors** | Sign-in failures are explained on the sign-in page (`docs/SETUP.md` section 4). |
 | **Status** | In use: migrations 0000 to 0004 applied (0003 and 0004 on 17 Nov 2026) and the first company seeded. Agent sessions reach the Management API with a token the owner saved as a network secret for `api.supabase.com` (Database read and write, this project only); run the scripts with `NODE_USE_ENV_PROXY=1 SUPABASE_ACCESS_TOKEN=proxy-injected` (`docs/SETUP.md` section 11). |
-| **If replaced** | Local mode (GOAL G-PLT-5) replaces all three parts: its own Postgres, its own sign-in and a worker loop. The seams are `src/db/client.ts`, `src/lib/auth.ts` and the tick endpoint. |
+| **Endpoints used at runtime** | Auth admin: `GET /auth/v1/admin/users`, `POST /auth/v1/admin/users` (`email_confirm: true`, no password). Storage: `POST`/`GET /storage/v1/object/documents/<key>` (`x-upsert: false`), `DELETE /storage/v1/object/documents` (cleanup after a failed save). |
+| **If replaced** | Local mode (GOAL G-PLT-5) replaces all parts: its own Postgres, its own sign-in and a worker loop, files on disk. The seams are `src/db/client.ts`, `src/lib/auth.ts`, `src/lib/accounts.ts`, `src/modules/documents/storage.ts` and the tick endpoint. |
 
 ## Hosting (Vercel)
 
@@ -72,6 +73,5 @@ Inquira is the server here, not the client. See [`docs/API.md`](API.md) for the 
 | --- | --- | --- |
 | IndiaMART Push and Pull APIs | GOAL G-SRC-1, G-SRC-2 | M4 |
 | AI providers (Gemini, Anthropic, OpenAI-compatible) | GOAL G-AI-1 | M5 |
-| File storage (Supabase bucket or local disk) | GOAL G-KB-4, G-PLT-6 | M6 |
 | Gmail sending | GOAL G-OUT-6 | M7 |
 | WhatsApp Cloud API | GOAL G-OUT-8 | Later, after the owner approves the cost |

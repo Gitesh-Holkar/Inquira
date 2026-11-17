@@ -51,7 +51,7 @@ tests/, e2e/              Vitest integration tests; Playwright smoke tests
 
 | Module | Owns | Key service functions |
 |---|---|---|
-| `core` | organizations, org_settings, memberships, audit_logs, events, jobs, integrations, integration_secrets, sync_runs | org settings, integration state and encrypted secrets, backoff, sync runs, job queue, audit reads |
+| `core` | organizations, org_settings, memberships, audit_logs, events, jobs, integrations, integration_secrets, sync_runs | org settings, members (`members.ts`), integration state and encrypted secrets, backoff, sync runs, job queue, audit reads |
 | `contacts` | contacts | `resolveContactInternal` (email → phone dedupe, fill-only) |
 | `leads` | leads, lead_notes, lead_status_changes | `upsertLeadInternal` (idempotent + 48h merge), list/get, status, notes, edit, manual lead |
 | `email` | email_messages, classification_rules | parsers + `classifyEmail`, `ingestMessageInternal`, review queue, `submitEmailClassification`, rules, reconciliation |
@@ -62,6 +62,7 @@ tests/, e2e/              Vitest integration tests; Playwright smoke tests
 | `mcp` | mcp_tokens, oauth_clients, oauth_codes, oauth_refresh_tokens | tokens, OAuth AS, MCP server + tools |
 | `buyleads` | buylead_rules, buylead_decisions | rules (full + compact), log decision (cap enforced), summary |
 | `dashboard` | (no tables) | one-shot dashboard data |
+| `documents` | documents | upload (checked by content), list, download, latest valid per type, attachments for quotation drafts; file storage adapter `storage.ts` (Supabase bucket or disk) |
 
 **Common columns** (brief §6.3): every table has `id uuid`, `created_at`, `updated_at` (trigger), `created_by` (actor string `human:<uuid>` / `mcp:<token>` / `system:<job>`), and `org_id`. `deleted_at` exists where soft delete makes sense.
 
@@ -181,3 +182,13 @@ Put formatters in a new `exports` module: `format(quotation | order) → { filen
 
 ### React to events
 `events` is an outbox. A future worker reads rows with `processed_at is null` by `type` (e.g. `lead.created` → follow-up reminder), does its work, and sets `processed_at`. Add the handler to `JOB_HANDLERS` and schedule it from `tick()`.
+
+## Adapters for sign-in accounts and files
+
+Two seams keep cloud and local mode on the same code (GOAL G-PLT-6):
+
+- **Sign-in accounts** (`src/lib/accounts.ts`): `accountDirectory().findOrCreate(email)` for Settings → Members. Supabase Auth admin API in cloud mode, the local `auth.users` table in development sign-in. It never sets a password; the person sets their own.
+- **File storage** (`src/modules/documents/storage.ts`): `fileStore()` with `put`, `get`, `remove`. The private Supabase bucket `documents` in cloud mode, a folder (`FILE_STORAGE_DIR`) locally. Chosen by `FILE_STORAGE`, else by what is configured.
+
+Both are network calls, so services call them outside database transactions: `inviteMember` creates the account first and then the membership; `uploadDocument` stores the file first, then saves the row, and removes the file if the row cannot be saved.
+
