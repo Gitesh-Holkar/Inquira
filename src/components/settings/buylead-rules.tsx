@@ -14,7 +14,6 @@ export type BuyleadRulesView = {
   minQuantityKg: string | null;
   maxQuantityKg: string | null;
   dailyCap: number;
-  testMode: boolean;
 };
 
 const list = (s: string) =>
@@ -56,7 +55,6 @@ export function BuyleadRulesEditor({ rules, canEdit }: { rules: BuyleadRulesView
             minQuantityKg: num("minQty"),
             maxQuantityKg: num("maxQty"),
             dailyCap: Number(f.get("dailyCap") ?? 0),
-            testMode: f.get("testMode") === "on",
           });
           if (r.ok) {
             setErrors({});
@@ -68,21 +66,11 @@ export function BuyleadRulesEditor({ rules, canEdit }: { rules: BuyleadRulesView
         });
       }}
     >
-      <Alert
-        tone={rules.testMode ? "info" : "warning"}
-        title={
-          rules.testMode
-            ? "Test mode is ON — the Cowork task only logs “would contact” and never clicks."
-            : "Live mode — the Cowork task clicks “Contact Buyer Now” (uses IndiaMART credits)."
-        }
-      >
-        The ready-to-paste Cowork prompt is in docs/COWORK_INDIAMART_TASK.md. It reads these rules through MCP (get_buylead_rules).
+      <Alert tone="info" title="Claude suggests; a person buys.">
+        Claude reads these rules through the connector, tells you which Buy Leads match and logs each one under IndiaMART. Nothing in Inquira clicks, selects or buys on IndiaMART.
       </Alert>
-      <label className="flex items-center gap-2 text-sm font-medium">
-        <input type="checkbox" name="testMode" defaultChecked={rules.testMode} disabled={!canEdit} className="size-4" /> Test mode (read-only, no clicking)
-      </label>
       <div className="grid gap-3 sm:grid-cols-3">
-        <Field label="Daily click cap" htmlFor="bl-cap" error={errors.dailyCap} hint="Each click uses IndiaMART credits">
+        <Field label="Suggestions per day (limit)" htmlFor="bl-cap" error={errors.dailyCap} hint="Buying a Buy Lead uses IndiaMART credits">
           <Input id="bl-cap" name="dailyCap" type="number" min={0} max={200} defaultValue={rules.dailyCap} disabled={!canEdit} />
         </Field>
         <Field label="Min quantity (kg)" htmlFor="bl-min" error={errors.minQuantityKg}>

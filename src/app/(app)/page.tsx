@@ -97,10 +97,10 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm" data-testid="indiamart-card">
-              <strong>{d.indiamart.testMode ? d.indiamart.would_contact : d.indiamart.contacted}</strong> {d.indiamart.testMode ? "would be contacted (test mode)" : "contacted by Cowork"},{" "}
-              <strong>{d.indiamart.skipped}</strong> skipped, <strong>{d.indiamart.arrivedByEmail}</strong> arrived by email
+              <strong>{d.indiamart.would_contact}</strong> suggested,{" "}
+              <strong>{d.indiamart.skipped}</strong> skipped, <strong>{d.indiamart.arrivedByEmail}</strong> bought and arrived by email
             </p>
-            <p className="mt-1 text-xs text-muted">Daily cap {d.indiamart.dailyCap}{d.indiamart.testMode ? " · test mode is ON (no clicking)" : ""}</p>
+            <p className="mt-1 text-xs text-muted">Up to {d.indiamart.dailyCap} suggestions a day. A person buys on IndiaMART.</p>
             <Link href="/indiamart" className="mt-2 inline-block text-sm text-primary underline-offset-4 hover:underline">Decision log</Link>
           </CardContent>
         </Card>

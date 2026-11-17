@@ -168,7 +168,7 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
 
 /** "Confirm" badge on rates flagged during import (QUESTIONS.md Q-005), with a one-click "Mark correct". */
 function ConfirmFlag({ acked, canEdit, onToggle }: { acked: boolean; canEdit: boolean; onToggle: () => void }) {
-  if (!canEdit) return <Badge tone="warning" className="ml-2" title="Flagged when importing the rates file; see QUESTIONS.md">Confirm</Badge>;
+  if (!canEdit) return <Badge tone="warning" className="ml-2" title="Marked to be checked when this rate was imported. The reason is in the rate's history.">Confirm</Badge>;
   return (
     <span className="ml-2 inline-flex items-center gap-1">
       <Badge tone={acked ? "success" : "warning"} title="Flagged when importing the rates file; see QUESTIONS.md">{acked ? "Will confirm" : "Confirm"}</Badge>

@@ -19,7 +19,7 @@ Products are **commodities**. Rates change often, so every quotation must use th
 1. **TradeIndia.** A free inquiry API, plus notification emails. Website inquiries also arrive through TradeIndia, because the website is TradeIndia-built.
 2. **IndiaMART.** No API.
    - Direct enquiries arrive by email.
-   - A Claude Cowork browser task clicks **Contact Buyer Now** on matching Buy Leads (rules served by Inquira), and the buyer details then arrive by email.
+   - Buy Leads: Claude suggests which ones match the rules kept in Inquira; a person clicks **Contact Buyer Now** on IndiaMART, and the buyer details then arrive by email. No software buys Buy Leads (ADR-020).
 3. **Direct email** to the sales mailbox.
 4. **Phone.** Entered manually with **New lead**.
 

@@ -89,6 +89,17 @@ test("main flows", async ({ page }) => {
   await page.getByRole("button", { name: "Save rates" }).click();
   await expect(page.getByText(/Saved 1 rate/)).toBeVisible();
 
+  // Edit a product: add another name buyers use
+  const editDialog = page.getByRole("dialog", { name: "Edit product" });
+  await expect(async () => {
+    if (!(await editDialog.isVisible())) await page.getByRole("button", { name: "Edit product" }).click();
+    await expect(editDialog).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 30_000 });
+  await editDialog.getByLabel("Product", { exact: true }).selectOption({ label: "Mung Starch" });
+  await editDialog.getByLabel("Other names buyers use (comma separated)").fill(`moong starch, mung bean starch ${test.info().project.name}`);
+  await editDialog.getByRole("button", { name: "Save product" }).click();
+  await expect(page.getByText("Product saved")).toBeVisible();
+
   // Import a price list (G-KB-6): paste, read what would change, apply. A line with no known GST rate is left out.
   await page.getByRole("link", { name: "Import price list" }).click();
   await expect(page.getByRole("heading", { name: "Import price list" })).toBeVisible();

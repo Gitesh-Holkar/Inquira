@@ -38,8 +38,8 @@ Endpoint: `POST /api/mcp`. Responses are compact JSON. Email and lead text writt
 | `get_current_rates` | `query?` | Product, grade, grade ID, price per kg, GST, basis, MOQ, pack | — |
 | `create_quote_draft` | `lead_id`, `grade_ids?`, `validity_days?` | Quotation ID, status, Gmail draft link | Quotation and a Gmail **draft** |
 | `get_classification_rules` | — | Active email rules | — |
-| `get_buylead_rules` | — | Mode, daily cap, remaining, product terms, exclusions, locations, quantity range | — |
-| `log_buylead_decision` | `lead_title`, `product?`, `location?`, `quantity?`, `decision`, `reason`, `timestamp?` | Remaining today | Decision row |
-| `get_buylead_summary` | — | Today's counts and remaining cap | — |
+| `get_buylead_rules` | — | `mode` (always `suggest_only`), suggestions per day, remaining, product terms, exclusions, locations, quantity range | — |
+| `log_buylead_decision` | `lead_title`, `product?`, `location?`, `quantity?`, `decision` (`would_contact` = suggested, or `skipped`), `reason`, `timestamp?` | Remaining today | Decision row. It cannot record a purchase (ADR-020) |
+| `get_buylead_summary` | — | Today's suggested and skipped counts and remaining suggestions | — |
 
 MCP tokens cannot delete anything, change rates, templates, rules or settings, read credentials, send email, or export in bulk. The permission set is `MCP_PERMISSIONS` in `src/modules/core/permissions.ts`.

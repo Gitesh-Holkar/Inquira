@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth";
 import { runAction } from "@/lib/actions";
-import { createProduct, rateHistory, updateRates } from "@/modules/catalog/service";
+import { createProduct, rateHistory, updateProduct, updateRates } from "@/modules/catalog/service";
 import { planCounts, planSections, type PlanSection } from "@/modules/catalog/price-list";
 import { applyPriceListImport, planPriceListImport, savePriceListMap } from "@/modules/catalog/price-list-service";
 
@@ -63,4 +63,18 @@ export async function savePriceListMapAction(json: string) {
   const r = await runAction(() => savePriceListMap(s.ctx, { map }));
   revalidatePath("/rates/import");
   return r;
+}
+
+export type ProductEdit = { productId: string; name: string; category: string; aliases: string; grades: { id: string; name: string }[]; newGrades: string };
+
+/** Corrects a product's name, category, other names and grades (Rates → Edit product). */
+export async function updateProductAction(input: ProductEdit) {
+  const s = await requireSession("catalog.write");
+  const split = (v: string) => v.split(",").map((x) => x.trim()).filter(Boolean);
+  const r = await runAction(() => updateProduct(s.ctx, {
+    productId: input.productId, name: input.name, category: input.category || null,
+    aliases: split(input.aliases).map((a) => a.toLowerCase()), grades: input.grades, newGrades: split(input.newGrades),
+  }));
+  revalidatePath("/rates");
+  return r.ok ? { ok: true as const } : r;
 }

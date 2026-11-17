@@ -43,16 +43,14 @@ export const updateOrgSettings = defineService({
     defaultPriceBasis: z.string().trim().min(1).max(80).optional(),
     /** Printed on quotations. An empty value clears it, and the line is left out of quotations. */
     paymentTerms: z.string().trim().max(200).nullish(),
-    features: z.record(z.string(), z.boolean()).optional(),
   }),
   permission: "settings.write",
   handler: async (ctx, input, tx) => {
-    const before = await getOrgSettingsInternal(tx, ctx.orgId);
+    await getOrgSettingsInternal(tx, ctx.orgId); // not found → a clear error instead of an update that changes nothing
     const patch: Partial<typeof orgSettings.$inferInsert> = {};
     if (input.quoteValidityDays !== undefined) patch.quoteValidityDays = input.quoteValidityDays;
     if (input.defaultPriceBasis !== undefined) patch.defaultPriceBasis = input.defaultPriceBasis;
     if (input.paymentTerms !== undefined) patch.paymentTerms = input.paymentTerms || null;
-    if (input.features) patch.features = { ...before.features, ...input.features };
     const [after] = await tx.update(orgSettings).set(patch).where(eq(orgSettings.orgId, ctx.orgId)).returning();
     await audit(tx, ctx, { action: "settings.update", entityType: "org_settings", entityId: after!.id, changes: patch });
     return after!;

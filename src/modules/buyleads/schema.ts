@@ -4,7 +4,7 @@ import { organizations } from "@/modules/core/schema";
 
 export type BuyleadProductTerm = { productId: string | null; productName: string; terms: string[] };
 
-/** Rules served to the Claude Cowork IndiaMART task (brief §7.2b). One row per org. */
+/** Buy Lead matching rules an assistant reads to suggest which leads a person should buy (ADR-020). One row per org. */
 export const buyleadRules = app.table("buylead_rules", {
   ...baseColumns(),
   orgId: uuid().notNull().references(() => organizations.id),

@@ -1,12 +1,30 @@
 "use client";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Pencil } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ConfirmDialog, Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/primitives";
 import { LEAD_STATUSES, STATUS_LABELS, type LeadStatus } from "@/modules/leads/types";
-import { addNoteAction, setStatusAction, updateLeadAction } from "@/app/(app)/leads/actions";
+import { addNoteAction, deleteLeadAction, setStatusAction, updateLeadAction } from "@/app/(app)/leads/actions";
+
+/** For spam, tests and duplicates. A real enquiry that went nowhere should be marked Lost or Not relevant instead. */
+export function DeleteLeadButton({ leadId }: { leadId: string }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  return (
+    <ConfirmDialog danger title="Delete this lead?" confirmLabel="Delete lead"
+      description="It disappears from the inbox, the dashboard and Claude. Use this for spam, tests and duplicates; for a real enquiry that went nowhere, set the status to Lost or Not relevant instead."
+      trigger={<Button variant="outline" size="sm" disabled={pending}><Trash2 />Delete</Button>}
+      onConfirm={() => start(async () => {
+        const r = await deleteLeadAction(leadId);
+        if (!r.ok) return void toast.error(r.error);
+        toast.success("Lead deleted");
+        router.push("/leads");
+      })} />
+  );
+}
 
 export function StatusChanger({ leadId, status, disabled }: { leadId: string; status: LeadStatus; disabled?: boolean }) {
   const [value, setValue] = useState(status);

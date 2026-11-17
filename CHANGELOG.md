@@ -4,6 +4,12 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 17 Nov 2026 — Feature check: finish what was half-built
+- **Buy Leads are suggestions only.** Claude reads your rules and suggests which IndiaMART Buy Leads match; a person clicks on IndiaMART. The "test mode / live mode" switch is gone, the daily number is now "Suggestions per day", and the connector can no longer log a lead as contacted. `docs/COWORK_INDIAMART_TASK.md` is rewritten; **do not run the earlier prompt that clicked for you.**
+- **Rates → Edit product:** correct a product's name, category, the other names buyers use, rename a grade or add one. Adding a product with a name that already exists now says so.
+- **Lead page → Delete** (owners and admins), for spam, tests and duplicates.
+- Removed a settings input that nothing read (feature switches).
+
 ### 17 Nov 2026 — Price list import and quotation terms (M3, up to the owner's confirmation)
 - **Rates → Import price list.** Paste a price list, read what would change (new products, price changes, renames, anything that cannot be written and why), then apply. Old rates stay in history. A line with no known GST rate is left out instead of guessed.
 - **Quotations print the company's terms:** MOQ and pack size from the rate, and a new **Payment terms** setting (Settings → Organisation), for example "100% advance". An empty value drops its line.

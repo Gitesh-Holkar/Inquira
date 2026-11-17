@@ -55,7 +55,7 @@ How a request flows: **page or server action** (`src/app`) → **service** (`src
 | Function | What it does |
 |---|---|
 | `membershipsForUserInternal(tx, userId)` | A user's organisations and roles (used by sign-in). |
-| `getOrgSettingsInternal` / `getOrgSettings` / `updateOrgSettings` | Organisation settings (quote validity days, default price basis, payment terms, features). |
+| `getOrgSettingsInternal` / `getOrgSettings` / `updateOrgSettings` | Organisation settings (quote validity days, default price basis, payment terms). |
 | `setPriceListMapInternal` | Saves the company's price list mapping (validated by the catalog module) and audits that it changed. |
 | `getIntegrationInternal(tx, orgId, provider)` | The Gmail/TradeIndia integration row; creates it (audited) if missing. |
 | `readSecretsInternal` / `writeSecretsInternal` | Decrypt/encrypt integration secrets (AES-256-GCM). Server-only; audit logs field names, never values. Need a system transaction. |
@@ -115,7 +115,8 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 | `currentRatesInternal` / `getCurrentRates` | Current rate per grade (newest entry valid today). |
 | `rateHistory` | All price entries for a grade. |
 | `updateRates` / `insertRatesInternal` | Append new price rows (never overwrite); refuses back-dated `valid_from`. The internal form is shared with the price list import. |
-| `listProducts`, `createProduct` / `createProductInternal` | Products and grades. |
+| `listProducts`, `createProduct` / `createProductInternal` | Products and grades. A duplicate name is refused with a plain message. |
+| `updateProduct` | Corrects a product: name, category, other names (aliases), grade names, extra grades. Grades are renamed or added, never removed; rates and their history are untouched. |
 | `matchProduct`, `normalizeProductText`, `productMatcherCatalog` | Free text ("soy isolate protein") → catalogue product. |
 | `productNameById`, `countProducts` | Small lookups. |
 | `types.ts`: `updateRatesInput`, `rateUpdateItem`, `moneyString`, `percentString`, `CurrentRate` | Rate input validation. |
@@ -140,12 +141,12 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 |---|---|
 | `listTemplates`, `saveTemplate`, `getTemplateInternal`, `getDefaultTemplateInternal`, `ensureDefaultTemplatesInternal`, `SAMPLE_VARS` | Template storage, defaults, and preview sample values. |
 
-### buyleads (`buyleads/service.ts`) — IndiaMART Buy Leads via Claude Cowork
+### buyleads (`buyleads/service.ts`) — IndiaMART Buy Lead suggestions (a person buys; ADR-020)
 | Function | What it does |
 |---|---|
-| `getBuyleadRules` / `getRulesInternal`, `updateBuyleadRules`, `rulesInput` | Rules shown in Settings (products + terms, exclusions, states, quantity range, daily cap, test mode). |
-| `getBuyleadRulesCompact` | Token-light rules for the Cowork task (MCP `get_buylead_rules`), incl. `remaining_today`. |
-| `logBuyleadDecision` | Cowork logs each lead (contacted / would_contact / skipped); flags over-cap and clicks in test mode. |
+| `getBuyleadRules` / `getRulesInternal`, `updateBuyleadRules`, `rulesInput` | Rules shown in Settings (products + terms, exclusions, states, quantity range, suggestions per day). |
+| `getBuyleadRulesCompact` | Token-light rules for an assistant (MCP `get_buylead_rules`), incl. `remaining_today` suggestions. |
+| `logBuyleadDecision` | Logs each Buy Lead an assistant looked at: `would_contact` (suggested) or `skipped`; flags suggestions over the daily limit. Cannot record a purchase. |
 | `getBuyleadSummary`, `listBuyleadDecisions`, `todayDecisionCountsInternal` | IndiaMART page and dashboard card. |
 | `seedRulesFromCatalogInternal` | First-time match terms from the catalogue. |
 
@@ -188,9 +189,9 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 |---|---|---|
 | `/` Dashboard | `(app)/page.tsx` | — |
 | `/leads` Inbox (+ International tab) | `(app)/leads/page.tsx` | `components/leads/inbox-list.tsx` (keyboard j/k/e/w/q/?), `new-lead.tsx` |
-| `/leads/[id]` Lead detail | `(app)/leads/[id]/page.tsx` | `(app)/leads/actions.ts`: `setStatusAction`, `addNoteAction`, `quoteAction`, `whatsappTextAction`, `updateLeadAction`, `createLeadAction`; components `leads/actions.tsx` (Copy/Call/WhatsApp/Quote buttons), `leads/detail-client.tsx` (status, notes, edit) |
+| `/leads/[id]` Lead detail | `(app)/leads/[id]/page.tsx` | `(app)/leads/actions.ts`: `setStatusAction`, `addNoteAction`, `quoteAction`, `whatsappTextAction`, `updateLeadAction`, `createLeadAction`, `deleteLeadAction` (owners and admins; `DeleteLeadButton` in `detail-client.tsx`); components `leads/actions.tsx` (Copy/Call/WhatsApp/Quote buttons), `leads/detail-client.tsx` (status, notes, edit) |
 | `/review` Review queue | `(app)/review/page.tsx` | `(app)/review/actions.ts`: `classifyAction`; `components/review/review-item.tsx` |
-| `/rates` Rates | `(app)/rates/page.tsx` | `(app)/rates/actions.ts`: `saveRatesAction`, `rateHistoryAction`, `addProductAction`; `components/rates/rates-editor.tsx`, `add-product.tsx` |
+| `/rates` Rates | `(app)/rates/page.tsx` | `(app)/rates/actions.ts`: `saveRatesAction`, `rateHistoryAction`, `addProductAction`, `updateProductAction`; `components/rates/rates-editor.tsx`, `add-product.tsx`, `edit-product.tsx` |
 | `/rates/import` Import price list | `(app)/rates/import/page.tsx` | `(app)/rates/actions.ts`: `planPriceListAction` (reads only), `applyPriceListAction`, `savePriceListMapAction`; `components/rates/price-list-import.tsx` (list, folded mapping editor, preview) |
 | `/templates` | `(app)/templates/page.tsx` | `(app)/templates/actions.ts`: `saveTemplateAction`; `components/templates/editor.tsx` |
 | `/indiamart` Buy-lead log | `(app)/indiamart/page.tsx` | — |

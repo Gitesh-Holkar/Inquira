@@ -168,7 +168,7 @@ async function BuyleadTab({ ctx, canEdit }: { ctx: Ctx; canEdit: boolean }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>IndiaMART Buy Lead rules (Claude Cowork)</CardTitle>
+        <CardTitle>IndiaMART Buy Lead rules</CardTitle>
       </CardHeader>
       <CardContent>
         <BuyleadRulesEditor
@@ -182,7 +182,6 @@ async function BuyleadTab({ ctx, canEdit }: { ctx: Ctx; canEdit: boolean }) {
             minQuantityKg: r.minQuantityKg,
             maxQuantityKg: r.maxQuantityKg,
             dailyCap: r.dailyCap,
-            testMode: r.testMode,
           }}
         />
       </CardContent>

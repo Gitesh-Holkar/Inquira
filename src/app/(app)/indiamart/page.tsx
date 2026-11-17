@@ -9,8 +9,8 @@ import { Badge, Card, CardContent, EmptyState, PageHeader } from "@/components/u
 export const metadata: Metadata = { title: "IndiaMART" };
 
 const DECISION = {
-  contacted: { label: "Contacted", tone: "success" },
-  would_contact: { label: "Would contact (test)", tone: "info" },
+  contacted: { label: "Bought (old entry)", tone: "success" },
+  would_contact: { label: "Suggested", tone: "info" },
   skipped: { label: "Skipped", tone: "neutral" },
 } as const;
 
@@ -23,24 +23,22 @@ export default async function IndiaMartPage() {
         title="IndiaMART Buy Leads"
         description={
           <>
-            Decisions logged by the Claude Cowork task (daily, ~11 AM IST). Buyer details then arrive by email and become leads.{" "}
+            Buy Leads that Claude looked at for you: which ones it suggests and which it skipped, by your rules. You choose and click on IndiaMART; the buyer&apos;s details then arrive by email and become leads.{" "}
             <Link href="/settings?tab=buyleads" className="text-primary underline-offset-4 hover:underline">Edit rules</Link>
           </>
         }
       />
       <Card className="mb-4">
         <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-2 py-3 text-sm">
-          <span>Today: <strong>{summary.contacted}</strong> contacted</span>
-          <span><strong>{summary.would_contact}</strong> would contact (test)</span>
+          <span>Today: <strong>{summary.would_contact}</strong> suggested</span>
           <span><strong>{summary.skipped}</strong> skipped</span>
-          <span>Remaining today: <strong>{summary.remaining_today}</strong> of {summary.daily_cap}</span>
-          {summary.test_mode ? <Badge tone="info">Test mode ON</Badge> : <Badge tone="warning">Live mode</Badge>}
+          <span>Suggestions left today: <strong>{summary.remaining_today}</strong> of {summary.daily_cap}</span>
         </CardContent>
       </Card>
       {decisions.length === 0 ? (
         <Card>
-          <EmptyState icon={<ShoppingCart />} title="No decisions logged yet">
-            Set up the Cowork task with the prompt in docs/COWORK_INDIAMART_TASK.md. Start in test mode to check matching before any credits are spent.
+          <EmptyState icon={<ShoppingCart />} title="Nothing logged yet">
+            Connect Claude (Settings → Claude connector), then ask it to go through today&apos;s Buy Leads with you. It suggests; you click on IndiaMART.
           </EmptyState>
         </Card>
       ) : (
@@ -50,9 +48,7 @@ export default async function IndiaMartPage() {
               <Card className="p-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={DECISION[d.decision].tone}>{DECISION[d.decision].label}</Badge>
-                  {d.testMode ? <Badge>test</Badge> : null}
-                  {(d.meta as { over_cap?: boolean }).over_cap ? <Badge tone="danger">over daily cap</Badge> : null}
-                  {(d.meta as { clicked_in_test_mode?: boolean }).clicked_in_test_mode ? <Badge tone="danger">clicked in test mode</Badge> : null}
+                  {(d.meta as { over_cap?: boolean }).over_cap ? <Badge tone="danger">over the daily limit</Badge> : null}
                   <span className="text-xs text-muted">{formatDateTime(d.decidedAt)}</span>
                 </div>
                 <p className="mt-1 break-words font-medium">{d.leadTitle}</p>

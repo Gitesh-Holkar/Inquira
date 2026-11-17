@@ -9,7 +9,7 @@ import { asc, eq } from "drizzle-orm";
 import { closeDb, getDb } from "@/db/client";
 import { auditLogs, orgSettings } from "@/modules/core/schema";
 import { priceEntries, productGrades, products } from "@/modules/catalog/schema";
-import { createProduct, getCurrentRates, updateRates } from "@/modules/catalog/service";
+import { createProduct, getCurrentRates, listProducts, rateHistory, updateProduct, updateRates } from "@/modules/catalog/service";
 import { planCounts } from "@/modules/catalog/price-list";
 import { applyPriceListImport, planPriceListImport, savePriceListMap } from "@/modules/catalog/price-list-service";
 import { seed } from "@/server/seed";
@@ -112,6 +112,51 @@ describe("price list import (G-KB-6)", () => {
     await expect(savePriceListMap(ctx, { map: { categories: { Proteins: { gst_percent: "eighteen" } } } })).rejects.toMatchObject({ code: "VALIDATION" });
     const [s] = await getDb().select().from(orgSettings).where(eq(orgSettings.orgId, org.id));
     expect(s!.priceListMap).toEqual(MAP);
+  });
+});
+
+describe("editing a product (G-KB-1)", () => {
+  beforeEach(resetDb);
+  afterAll(closeDb);
+
+  it("an owner renames a product and its grades, adds names and a grade; rates and history stay; it is audited", async () => {
+    const { org, ctx, user, protein, fiber } = await company();
+    const gradeId = fiber.grades[0]!.id;
+    const r = await updateProduct(ctx, { productId: fiber.product.id, name: "Sample Fibre", category: "Fibers", aliases: ["Sample Fiber", "sample fiber", "fibre"], grades: [{ id: gradeId, name: "Soluble" }], newGrades: ["Insoluble"] });
+    expect(r).toEqual({ ok: true, changed: true });
+    const [p] = (await listProducts(ctx, {})).filter((x) => x.id === fiber.product.id);
+    expect(p).toMatchObject({ name: "Sample Fibre", category: "Fibers", aliases: ["sample fiber", "fibre"] });
+    const rates = (await getCurrentRates(ctx, {})).filter((x) => x.productId === fiber.product.id);
+    expect(rates.map((x) => [x.gradeName, x.pricePerKgInr])).toEqual([["Soluble", "275.00"], ["Insoluble", null]]);
+    expect(await rateHistory(ctx, { gradeId })).toHaveLength(1); // the rename kept the price history
+    const [a] = await getDb().select().from(auditLogs).where(eq(auditLogs.action, "product.update"));
+    expect(a).toMatchObject({ actor: `human:${user.id}`, orgId: org.id });
+    expect(a!.changes).toMatchObject({ name: ["Sample Fiber", "Sample Fibre"], gradesRenamed: [["Standard", "Soluble"]], gradesAdded: ["Insoluble"] });
+
+    // Names stay unique, with a message a person can act on.
+    await expect(updateProduct(ctx, { productId: fiber.product.id, name: "Sample Protein Isolate", aliases: [] })).rejects.toMatchObject({ code: "VALIDATION", message: "A product with this name already exists" });
+    await expect(createProduct(ctx, { name: "Sample Protein Isolate" })).rejects.toMatchObject({ code: "VALIDATION" });
+    await expect(updateProduct(ctx, { productId: fiber.product.id, name: "Sample Fibre", aliases: [], grades: [{ id: gradeId, name: "insoluble" }] })).rejects.toMatchObject({ code: "VALIDATION" });
+    // A grade of another product cannot be renamed through this one.
+    await expect(updateProduct(ctx, { productId: fiber.product.id, name: "Sample Fibre", aliases: [], grades: [{ id: protein.grades[0]!.id, name: "X" }] })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("two grades can swap names in one save", async () => {
+    const { ctx } = await setupOrgWithUser("owner");
+    const p = await createProduct(ctx, { name: "Sample Starch", grades: ["Native", "Waxy"] });
+    await updateProduct(ctx, { productId: p.product.id, name: "Sample Starch", aliases: [], grades: [{ id: p.grades[0]!.id, name: "Waxy" }, { id: p.grades[1]!.id, name: "Native" }] });
+    expect((await getCurrentRates(ctx, {})).map((r) => [r.gradeId, r.gradeName])).toEqual([[p.grades[0]!.id, "Waxy"], [p.grades[1]!.id, "Native"]]);
+  });
+
+  it("sales and viewers cannot edit a product; another company's product is not found", async () => {
+    const { org, fiber } = await company();
+    for (const role of ["sales", "viewer"] as const) {
+      const u = await createUser();
+      await addMember(org.id, u, role);
+      await expect(updateProduct(human(org.id, u, role), { productId: fiber.product.id, name: "Changed", aliases: [] })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    }
+    const other = await setupOrgWithUser("owner");
+    await expect(updateProduct(other.ctx, { productId: fiber.product.id, name: "Changed", aliases: [] })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });
 

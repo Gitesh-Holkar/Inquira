@@ -13,7 +13,7 @@ import { disconnectGmail, saveGmailClient, startGmailConnect, syncGmail } from "
 import { saveTradeIndiaCredentials } from "@/modules/sources/tradeindia/service";
 import { tick } from "@/modules/sources/jobs";
 import { getDashboard } from "@/modules/dashboard/service";
-import { addLeadNote, createManualLead, listLeads, updateLead, updateLeadStatus } from "@/modules/leads/service";
+import { addLeadNote, createManualLead, deleteLead, getLead, listLeads, updateLead, updateLeadStatus } from "@/modules/leads/service";
 import { createProduct, getCurrentRates, listProducts } from "@/modules/catalog/service";
 import { planPriceListImport } from "@/modules/catalog/price-list-service";
 import { listTemplates } from "@/modules/templates/service";
@@ -22,7 +22,7 @@ import { createClassificationRule, getReconciliation, ingestMessageInternal, lis
 import { listMcpTokens } from "@/modules/mcp/service";
 import { buildMime, formatAddress } from "@/modules/quotes/mime";
 import { fakeGoogle, fixture, toGmailMessage } from "./helpers/fake-google";
-import { addMember, createUser, resetDb, setupOrgWithUser, systemCtx } from "./helpers/db";
+import { addMember, createUser, mcpCtx, resetDb, setupOrgWithUser, systemCtx } from "./helpers/db";
 import type { Ctx, Role } from "@/modules/core/types";
 
 const human = (orgId: string, user: { id: string; email: string }, role: Role): Ctx => ({ orgId, actor: { kind: "human", userId: user.id, email: user.email, role } });
@@ -117,6 +117,20 @@ describe("lead fixes", () => {
   beforeEach(resetDb);
   afterAll(closeDb);
 
+  it("an owner can delete a lead (spam, tests); it leaves every list and is audited; sales cannot", async () => {
+    const { org, ctx: owner, user } = await setupOrgWithUser("owner");
+    const s = await createUser();
+    await addMember(org.id, s, "sales");
+    const { leadId } = await createManualLead(owner, { contactName: "Test Buyer", phone: "+919000000321", productText: "Test product" });
+    await expect(deleteLead(human(org.id, s, "sales"), { leadId })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await deleteLead(owner, { leadId });
+    expect((await listLeads(owner, {})).items).toHaveLength(0);
+    await expect(getLead(owner, { leadId })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect((await getDashboard(owner, {})).newTodayTotal).toBe(0);
+    const [a] = await getDb().select().from(auditLogs).where(and(eq(auditLogs.orgId, org.id), eq(auditLogs.action, "lead.delete")));
+    expect(a).toMatchObject({ actor: `human:${user.id}`, entityId: leadId });
+  });
+
   it("rejects an invalid phone on a manual lead instead of silently dropping it", async () => {
     const { ctx } = await setupOrgWithUser("sales");
     await expect(createManualLead(ctx, { contactName: "Asha", phone: "12" })).rejects.toThrow(/phone number/);
@@ -154,16 +168,20 @@ describe("rules, buy leads and audit", () => {
     expect(rows[0]!.changes).toMatchObject({ ignored: 1 });
   });
 
-  it("counts the daily cap with would_contact in test mode and flags a click in test mode", async () => {
-    const { ctx } = await setupOrgWithUser("admin");
-    await updateBuyleadRules(ctx, { productTerms: [], excludedTerms: [], allowedCountries: ["India"], allowedStates: [], excludedStates: [], minQuantityKg: null, maxQuantityKg: null, dailyCap: 1, testMode: true });
+  it("Buy Leads are suggestions only: the daily limit counts suggestions, and nothing can be logged as bought (ADR-020)", async () => {
+    const { org, ctx } = await setupOrgWithUser("admin");
+    await updateBuyleadRules(ctx, { productTerms: [], excludedTerms: [], allowedCountries: ["India"], allowedStates: [], excludedStates: [], minQuantityKg: null, maxQuantityKg: null, dailyCap: 1 });
     const first = await logBuyleadDecision(ctx, { lead_title: "Pea protein 1 ton", decision: "would_contact", reason: "match" });
     expect(first).toMatchObject({ remaining_today: 0, over_cap: false });
     const second = await logBuyleadDecision(ctx, { lead_title: "Pea protein 2 ton", decision: "would_contact", reason: "match" });
     expect(second.over_cap).toBe(true);
-    await logBuyleadDecision(ctx, { lead_title: "Clicked anyway", decision: "contacted", reason: "match" });
+    // No actor, human or assistant, can record that software bought a Buy Lead.
+    for (const actor of [ctx, mcpCtx(org.id), systemCtx(org.id)]) {
+      await expect(logBuyleadDecision(actor, { lead_title: "Clicked anyway", decision: "contacted" as never, reason: "match" })).rejects.toMatchObject({ code: "VALIDATION" });
+    }
     const decisions = await listBuyleadDecisions(ctx, {});
-    expect(decisions.find((d) => d.leadTitle === "Clicked anyway")!.meta).toMatchObject({ clicked_in_test_mode: true });
+    expect(decisions.map((d) => d.decision)).toEqual(["would_contact", "would_contact"]);
+    expect(await getBuyleadSummary(ctx, {})).toMatchObject({ mode: "suggest_only", would_contact: 2, contacted: 0, remaining_today: 0 });
   });
 });
 

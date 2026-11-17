@@ -28,7 +28,7 @@ export const getDashboard = defineService({
       international: stats.international,
       reconciliation: rec,
       integrations: [health(gmail), health(ti)],
-      indiamart: { ...dc, arrivedByEmail: arrived, dailyCap: rules.dailyCap, testMode: rules.testMode },
+      indiamart: { ...dc, arrivedByEmail: arrived, dailyCap: rules.dailyCap },
     };
   },
 });

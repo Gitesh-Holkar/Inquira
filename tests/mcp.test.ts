@@ -80,9 +80,11 @@ describe("MCP server", () => {
     expect(bad.isError).toBe(true);
 
     const rules = await call(token, "get_buylead_rules");
-    expect(rules.data).toMatchObject({ test_mode: true, daily_cap: 10, remaining_today: 10 });
+    expect(rules.data).toMatchObject({ mode: "suggest_only", daily_cap: 10, remaining_today: 10 });
     const d = await call(token, "log_buylead_decision", { lead_title: "Pea protein 500kg Pune", decision: "would_contact", reason: "matches pea protein, MH" });
     expect(d.data.remaining_today).toBe(9);
+    // ADR-020: the connector suggests; it has no way to record that software bought a Buy Lead.
+    expect((await call(token, "log_buylead_decision", { lead_title: "Pea protein 500kg Pune", decision: "contacted", reason: "clicked" })).isError).toBe(true);
     expect((await call(token, "get_buylead_summary")).data).toMatchObject({ would_contact: 1, remaining_today: 9 });
 
     const audits = await getDb().select().from(auditLogs).where(eq(auditLogs.actor, "mcp:claude-desktop"));

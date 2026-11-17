@@ -41,6 +41,35 @@ Work in order, one at a time. Stop at every **OWNER GATE**.
 | M8 | Operations: follow-ups, time to first reply, members screen, backups | G-FUP-1, G-RPT-*, G-PLT-2, G-PLT-7 | Not started |
 | Later | Design seams only: WhatsApp Cloud API, conversation automation, orders, attendance | G-OUT-8, G-CNV-2, G-CNV-3, G-ORD-*, G-ATT-1 | — |
 
+## Feature check of 17 Nov 2026 ("complete before more")
+
+Every service, screen and setting was checked against the rule in `AGENTS.md` section 2.
+
+**Finished in this check**
+
+| Was half-built | Now |
+| --- | --- |
+| Buy Lead screens and guide described software clicking on IndiaMART, which GOAL R-1 and ADR-020 reject | Suggestions only: wording, service, connector tools and guide changed; nothing can log a purchase |
+| Products could be added but never corrected | Rates → Edit product (name, category, other names, grades) |
+| A lead could be deleted by a service but not from a screen | Delete on the lead page for owners and admins |
+| Price list: no way to load a new one | Rates → Import price list, with its mapping editor |
+| Quotations had no payment terms and no MOQ on rates | Payment terms setting; MOQ set by the price list import |
+| A settings input for feature switches that nothing read | Removed from the service |
+
+**Not built, and not shown anywhere in the app** (so nothing on screen leads to a dead end)
+
+| Item | Where it is planned |
+| --- | --- |
+| Members screen (invite, change role). Today: SQL in `docs/SETUP.md` section 4 | M8, G-PLT-2 |
+| Assigning a lead to a person (`leads.assigned_to` exists, nothing uses it) | M8, with the members screen |
+| Switching between companies for a user who belongs to two (the cookie is read, nothing sets it) | M8 |
+| Removing or discontinuing a product, and an end date on a rate | M6, G-KB-3 |
+| Document library (the `documents` storage bucket exists, unused) | M6, G-KB-4 |
+| A form for the price list mapping (today it is edited as text on the import screen) | M6, with commercial terms G-KB-2 |
+| Priority order of email rules (stored, no control on screen; rules apply in the order they were created) | When a second rule type needs it |
+| The `events` table records what happened but nothing consumes it yet | M7 (outbound pipeline) |
+| `npm run seed:website` reads the first company's website address from code | M1, P6 |
+
 ## Notes for the owner
 
 - This session can only push to the branch `claude/adoring-franklin-51jsvk`, which is also the Vercel production branch. So each milestone is a series of commits on this branch, not a separate pull request. To get pull requests, create `main`, make it the default and the production branch, and say so.

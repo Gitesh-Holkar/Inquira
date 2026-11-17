@@ -17,7 +17,7 @@ Postgres with Drizzle ORM. Every table is in the private schema **`app`** (see [
 | Table | Purpose | Notable columns |
 | --- | --- | --- |
 | `organizations` (soft delete) | One row per company | `name`, `slug` |
-| `org_settings` | Per-company settings, one row | `features` (json), `quote_validity_days`, `timezone`, `home_country`, `default_price_basis`, `payment_terms` (printed on quotations; empty until entered), `price_list_map` (json: how the company's price list maps onto its catalogue, see `priceListMapSchema`) |
+| `org_settings` | Per-company settings, one row | `features` (json; reserved, nothing reads it yet), `quote_validity_days`, `timezone`, `home_country`, `default_price_basis`, `payment_terms` (printed on quotations; empty until entered), `price_list_map` (json: how the company's price list maps onto its catalogue, see `priceListMapSchema`) |
 | `memberships` (soft delete) | Who belongs to which company, with a role | `user_id`, `role` (`owner`, `admin`, `sales`, `viewer`), `email`, `display_name`; unique `(org_id, user_id)` |
 | `audit_logs` | **Append-only.** One row per write | `actor`, `action`, `entity_type`, `entity_id`, `changes` (json) |
 | `events` | Domain event outbox | `type`, `entity_type`, `entity_id`, `payload`, `processed_at` |
@@ -65,8 +65,8 @@ The current rate of a grade is the newest entry with `valid_from` ≤ today and 
 
 | Table | Purpose | Notable columns |
 | --- | --- | --- |
-| `buylead_rules` | One row per company: matching rules | `product_terms`, `excluded_terms`, `allowed_countries`, `allowed_states`, `excluded_states`, `min_quantity_kg`, `max_quantity_kg`, `daily_cap`, `test_mode` |
-| `buylead_decisions` | Log of each Buy Lead decision | `lead_title`, `product`, `location`, `quantity`, `decision` (`contacted`, `skipped`, `would_contact`), `reason`, `decided_at`, `test_mode`, `meta` |
+| `buylead_rules` | One row per company: matching rules | `product_terms`, `excluded_terms`, `allowed_countries`, `allowed_states`, `excluded_states`, `min_quantity_kg`, `max_quantity_kg`, `daily_cap` (suggestions per day), `test_mode` (always true since ADR-020; kept for old rows) |
+| `buylead_decisions` | Log of each Buy Lead decision | `lead_title`, `product`, `location`, `quantity`, `decision` (`would_contact` = suggested, `skipped`; `contacted` exists only in old rows and can no longer be written), `reason`, `decided_at`, `test_mode` (kept for old rows), `meta` |
 
 ### Claude connector (`mcp/schema.ts`)
 

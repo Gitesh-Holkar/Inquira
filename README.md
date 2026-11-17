@@ -2,7 +2,7 @@
 
 Lead management for B2B ingredient suppliers.
 
-- **Captures** inquiries from TradeIndia (API + email), IndiaMART (email, plus Buy Leads unlocked by a Claude Cowork task) and direct email.
+- **Captures** inquiries from TradeIndia (API + email), IndiaMART (email, plus Buy Leads a person buys with Claude's suggestions) and direct email.
 - **De-duplicates** buyers and inquiries, so the same TradeIndia inquiry arriving by API and by email becomes one lead.
 - **Keeps** an append-only rate book in ₹ with GST shown separately.
 - **Turns** a lead into a quotation **Gmail draft** in the same thread, with your real signature. A human always clicks Send.

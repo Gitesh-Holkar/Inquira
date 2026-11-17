@@ -202,11 +202,72 @@ export async function createProductInternal(tx: Tx, ctx: Ctx, input: z.output<ty
   return { product: p!, grades };
 }
 
+/** A product name is unique in a company (also among removed products), so say so instead of failing on the index. */
+async function assertNameFree(tx: Tx, orgId: string, name: string) {
+  const [clash] = await tx.select({ id: products.id }).from(products).where(and(eq(products.orgId, orgId), eq(products.name, name)));
+  if (clash) throw new AppError("VALIDATION", "A product with this name already exists", { fieldErrors: { name: ["Already used by another product"] } });
+}
+
 export const createProduct = defineService({
   name: "catalog.createProduct",
   input: createProductInput,
   permission: "catalog.write",
-  handler: (ctx, input, tx) => createProductInternal(tx, ctx, input),
+  handler: async (ctx, input, tx) => {
+    await assertNameFree(tx, ctx.orgId, input.name);
+    return createProductInternal(tx, ctx, input);
+  },
+});
+
+const updateProductInput = z.object({
+  productId: z.string().uuid(),
+  name: z.string().trim().min(2).max(120),
+  category: z.string().trim().max(80).nullish(),
+  /** Other names buyers use; lead matching and the price list import read them. */
+  aliases: z.array(z.string().trim().toLowerCase().min(1).max(120)).max(30),
+  /** Existing grades with the name each should have. Grades are renamed, never removed: their rates are history. */
+  grades: z.array(z.object({ id: z.string().uuid(), name: z.string().trim().min(1).max(60) })).max(40).default([]),
+  newGrades: z.array(z.string().trim().min(1).max(60)).max(20).default([]),
+});
+
+/**
+ * Corrects a product: name, category, other names, grade names, and extra grades. Rates are not
+ * touched (they hang on the grade's id), so a rename keeps the whole price history.
+ */
+export const updateProduct = defineService({
+  name: "catalog.updateProduct",
+  input: updateProductInput,
+  permission: "catalog.write",
+  handler: async (ctx, input, tx) => {
+    const [p] = await tx.select().from(products).where(and(eq(products.orgId, ctx.orgId), eq(products.id, input.productId), isNull(products.deletedAt)));
+    if (!p) throw notFound("Product");
+    const existing = await tx.select().from(productGrades)
+      .where(and(eq(productGrades.orgId, ctx.orgId), eq(productGrades.productId, p.id), isNull(productGrades.deletedAt))).orderBy(asc(productGrades.sortOrder));
+    const wanted = new Map(input.grades.map((g) => [g.id, g.name]));
+    for (const id of wanted.keys()) if (!existing.some((g) => g.id === id)) throw notFound("Grade");
+    const finalNames = [...existing.map((g) => wanted.get(g.id) ?? g.name), ...input.newGrades].map((n) => n.toLowerCase());
+    if (new Set(finalNames).size !== finalNames.length) throw new AppError("VALIDATION", "Two grades of this product would have the same name", { fieldErrors: { grades: ["Give each grade a different name"] } });
+    if (input.name !== p.name) await assertNameFree(tx, ctx.orgId, input.name);
+
+    const aliases = [...new Set(input.aliases)];
+    await tx.update(products).set({ name: input.name, category: input.category || null, aliases }).where(eq(products.id, p.id));
+    const renames = existing.filter((g) => wanted.has(g.id) && wanted.get(g.id) !== g.name);
+    // Two steps, so that swapping two names never trips the unique index half-way.
+    for (const g of renames) await tx.update(productGrades).set({ name: `~${g.id}` }).where(eq(productGrades.id, g.id));
+    for (const g of renames) await tx.update(productGrades).set({ name: wanted.get(g.id)! }).where(eq(productGrades.id, g.id));
+    if (input.newGrades.length) {
+      await tx.insert(productGrades).values(input.newGrades.map((name, i) => ({ orgId: ctx.orgId, productId: p.id, name, sortOrder: existing.length + i, createdBy: actorString(ctx.actor) })));
+    }
+    const changes = {
+      ...(input.name !== p.name ? { name: [p.name, input.name] } : {}),
+      ...((input.category || null) !== p.category ? { category: [p.category, input.category || null] } : {}),
+      ...(JSON.stringify(aliases) !== JSON.stringify(p.aliases) ? { aliases: [p.aliases, aliases] } : {}),
+      ...(renames.length ? { gradesRenamed: renames.map((g) => [g.name, wanted.get(g.id)!]) } : {}),
+      ...(input.newGrades.length ? { gradesAdded: input.newGrades } : {}),
+    };
+    await audit(tx, ctx, { action: "product.update", entityType: "product", entityId: p.id, changes });
+    await emit(tx, ctx, { type: "product.updated", entityType: "product", entityId: p.id, payload: { name: input.name } });
+    return { ok: true, changed: Object.keys(changes).length > 0 };
+  },
 });
 
 // ---------- product matching (used by leads, buy-lead rules, quotes) ----------

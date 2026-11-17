@@ -17,7 +17,7 @@ import { Alert, Badge, Card, CardContent, CardHeader, CardTitle } from "@/compon
 import { Button } from "@/components/ui/button";
 import { EMAIL_CLASS_LABEL, SourceBadge, StatusBadge } from "@/components/status";
 import { CallButton, CopyButton, QuoteButton, WhatsAppButton } from "@/components/leads/actions";
-import { EditLeadButton, NoteForm, StatusChanger } from "@/components/leads/detail-client";
+import { DeleteLeadButton, EditLeadButton, NoteForm, StatusChanger } from "@/components/leads/detail-client";
 
 export const metadata: Metadata = { title: "Lead" };
 
@@ -64,10 +64,13 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           <h1 className="mt-2 break-words text-xl font-semibold sm:text-2xl">{lead.productText ?? "Product not stated"}{lead.quantityText ? <span className="font-normal text-muted"> · {lead.quantityText}</span> : null}</h1>
           <p className="text-sm text-muted" title={formatDateTime(lead.receivedAt)}>Received {formatDateTime(lead.receivedAt)} ({formatRelative(lead.receivedAt)}) · ref {lead.sourceRef.startsWith("gmail:") ? "email" : lead.sourceRef}</p>
         </div>
-        {can(s.ctx, "leads.edit") ? (
-          <EditLeadButton leadId={lead.id} products={products.map((p) => ({ id: p.id, name: p.name }))}
-            lead={{ contactName: lead.contactName, companyName: lead.companyName, phone: lead.phone, email: lead.email, city: lead.city, state: lead.state, country: lead.country, productText: lead.productText, quantityText: lead.quantityText, productId: lead.productId, isInternational: lead.isInternational }} />
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {can(s.ctx, "leads.edit") ? (
+            <EditLeadButton leadId={lead.id} products={products.map((p) => ({ id: p.id, name: p.name }))}
+              lead={{ contactName: lead.contactName, companyName: lead.companyName, phone: lead.phone, email: lead.email, city: lead.city, state: lead.state, country: lead.country, productText: lead.productText, quantityText: lead.quantityText, productId: lead.productId, isInternational: lead.isInternational }} />
+          ) : null}
+          {can(s.ctx, "leads.delete") ? <DeleteLeadButton leadId={lead.id} /> : null}
+        </div>
       </div>
 
       {lead.isInternational ? <Alert tone="warning" className="mb-4" title="International inquiry — quotation drafts are disabled">It stays here (never deleted) until USD pricing is supported.</Alert> : null}

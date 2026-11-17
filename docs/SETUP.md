@@ -210,7 +210,7 @@ This uses OAuth (DCR + PKCE). You can revoke it any time in **Settings → Claud
 
 Tools include `list_leads_needing_action`, `get_lead`, `update_lead_status`, `add_lead_note`, `list_emails_needing_review`, `submit_email_classification`, `get_current_rates`, `create_quote_draft`, `get_classification_rules` and the three buy-lead tools. See [ARCHITECTURE.md](ARCHITECTURE.md#mcp-tool-catalogue).
 
-For the daily IndiaMART task in Claude Cowork, see [COWORK_INDIAMART_TASK.md](COWORK_INDIAMART_TASK.md).
+To have Claude suggest which IndiaMART Buy Leads to buy (you do the clicking), see [COWORK_INDIAMART_TASK.md](COWORK_INDIAMART_TASK.md).
 
 ## 8. Schedule the 10-minute sync
 
@@ -294,6 +294,8 @@ The folded section **How Inquira reads your list (mapping)** on the same screen 
 A product that is not in your catalogue is only added when Inquira knows its GST rate (from the heading it sits under, in the mapping). Otherwise it is listed under "Will NOT be written": add it with **Add product**, enter its rate once on the Rates screen, and it will match from then on.
 
 **One price:** change it directly on the **Rates** screen.
+
+**A product's name, its other names or its grades:** **Rates → Edit product**. Other names are what buyers call the product; they help match enquiries and price list lines to it. A grade can be renamed or added, not removed, because its rates are history.
 
 **Payment terms, price basis, quotation validity:** **Settings → Organisation**. Payment terms are printed on every quotation; leave the field empty to leave the line out. MOQ and pack size are part of each rate.
 

@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth";
 import { runAction } from "@/lib/actions";
-import { addLeadNote, createManualLead, updateLead, updateLeadStatus } from "@/modules/leads/service";
+import { addLeadNote, createManualLead, deleteLead, updateLead, updateLeadStatus } from "@/modules/leads/service";
 import { createQuoteDraft, whatsappForLead } from "@/modules/quotes/service";
 import type { LeadStatus } from "@/modules/leads/types";
 
@@ -49,4 +49,13 @@ export async function createLeadAction(fields: Record<string, string>) {
   const r = await runAction(() => createManualLead(s.ctx, fields as never), "Lead created");
   revalidatePath("/leads");
   return r.ok ? { ok: true as const, leadId: r.data.leadId } : r;
+}
+
+/** Removes a lead from every list (owners and admins). The row and its history are kept, marked deleted. */
+export async function deleteLeadAction(leadId: string) {
+  const s = await requireSession("leads.delete");
+  const r = await runAction(() => deleteLead(s.ctx, { leadId }), "Lead deleted");
+  revalidatePath("/leads");
+  revalidatePath("/");
+  return r.ok ? { ok: true as const, message: r.message } : r;
 }

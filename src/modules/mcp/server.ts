@@ -158,20 +158,20 @@ export function buildMcpServer(ctx: Ctx) {
   }, run("get_classification_rules", () => getClassificationRulesCompact(ctx, {})));
 
   server.registerTool("get_buylead_rules", {
-    description: "IndiaMART Buy Lead matching rules for the Cowork task: products+terms, exclusions, locations, quantity range, daily cap, test mode, remaining today.",
+    description: "IndiaMART Buy Lead matching rules: products+terms, exclusions, locations, quantity range, daily limit of suggestions, remaining today. Suggest only: a person chooses and clicks on IndiaMART; never click, select or buy there.",
     inputSchema: {}, annotations: ro,
   }, run("get_buylead_rules", () => getBuyleadRulesCompact(ctx, {})));
 
   server.registerTool("log_buylead_decision", {
-    description: "Log one IndiaMART Buy Lead decision. Use would_contact in test mode.",
+    description: "Log one IndiaMART Buy Lead you looked at: would_contact = you suggest the team buys it, skipped = it does not match. Logging never buys anything.",
     inputSchema: {
       lead_title: z.string().min(1).max(300), product: z.string().max(200).optional(), location: z.string().max(200).optional(), quantity: z.string().max(100).optional(),
-      decision: z.enum(["contacted", "skipped", "would_contact"]), reason: z.string().min(1).max(500), timestamp: z.string().optional(),
+      decision: z.enum(["skipped", "would_contact"]), reason: z.string().min(1).max(500), timestamp: z.string().optional(),
     }, annotations: rw,
   }, run("log_buylead_decision", (a) => logBuyleadDecision(ctx, a as never)));
 
   server.registerTool("get_buylead_summary", {
-    description: "Today's Buy Lead decisions (IST) and remaining daily cap.",
+    description: "Today's Buy Lead suggestions and skips (IST) and how many suggestions remain today.",
     inputSchema: {}, annotations: ro,
   }, run("get_buylead_summary", () => getBuyleadSummary(ctx, {})));
 
