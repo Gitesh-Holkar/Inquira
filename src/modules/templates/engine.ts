@@ -12,6 +12,7 @@ export const PLACEHOLDERS = {
   gst_percent: "GST %, e.g. 18",
   moq: "Minimum order quantity (kg)",
   pack_size: "Pack size, e.g. 20 Kg",
+  payment_terms: "Payment terms from Settings → Organisation, e.g. 100% advance",
   validity_date: "Quote valid until, e.g. 2 Oct 2026",
   quantity: "Quantity the buyer asked for",
   city: "Buyer's city",
@@ -59,6 +60,7 @@ export const DEFAULT_ITEM_BLOCK = `{{product}} ({{grade}})
 - Price: Rs. {{price_per_kg}}/kg ({{price_basis}})
 - Pack Size: {{pack_size}}
 - GST: {{gst_percent}}% extra
-- MOQ: {{moq}} kg`;
+- MOQ: {{moq}} kg
+- Payment: {{payment_terms}}`;
 
 export const DEFAULT_WHATSAPP_BODY = `Hello {{contact_name}}, thank you for your inquiry for {{product}}{{quantity}}. Our current rate is Rs. {{price_per_kg}}/kg ({{price_basis}}), GST {{gst_percent}}% extra. Valid until {{validity_date}}. Shall I share the COA and specification?`;

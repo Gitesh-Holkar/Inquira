@@ -22,6 +22,20 @@
       "when": 1790633374112,
       "tag": "0002_storage_bucket",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794875962737,
+      "tag": "0003_org_payment_terms",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794894972300,
+      "tag": "0004_org_price_list_map",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "source": "Rates file (authoritative prices) merged with the live stdmfood.com catalogue crawled on 2026-09-29 (protein-derivatives, modified-starch-derivatives, dextrins-fibers, sitemap: 50 product pages). Re-run with `npm run seed:website`.",
+  "source": "Rates file (authoritative prices) merged with the live stdmfood.com catalogue crawled on 2026-09-29 (protein-derivatives, modified-starch-derivatives, dextrins-fibers, sitemap: 50 product pages). Re-run with `npm run seed:website`. Products new on the price list of 16 Nov 2026 were added from that list (source: price_list_2026_11).",
   "products": [
     {
       "name": "Brown Rice Protein Isolate",
@@ -513,7 +513,9 @@
       "grades": [
         "Standard"
       ],
-      "aliases": [],
+      "aliases": [
+        "pea starch powder"
+      ],
       "source": "rates_file",
       "website_urls": [
         "https://www.stdmfood.com/pea-starch-7194232.html"
@@ -961,7 +963,7 @@
       "gst_percent": 5,
       "pack_size": "25 Kg",
       "grades": [
-        "Standard",
+        "Soluble",
         "Insoluble"
       ],
       "aliases": [
@@ -981,9 +983,13 @@
       "gst_percent": 5,
       "pack_size": "25 Kg",
       "grades": [
+        "Standard",
         "Insoluble"
       ],
-      "aliases": [],
+      "aliases": [
+        "oats fiber",
+        "oat fibre"
+      ],
       "source": "rates_file",
       "website_urls": [],
       "website_names": []
@@ -1063,7 +1069,7 @@
       "gst_percent": 5,
       "pack_size": "25 Kg",
       "grades": [
-        "Standard",
+        "Soluble",
         "Insoluble"
       ],
       "aliases": [],
@@ -1076,12 +1082,16 @@
     {
       "name": "Lupine Protein Isolate",
       "category": "Protein Derivatives",
-      "gst_percent": null,
-      "pack_size": null,
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
       "grades": [
         "Standard"
       ],
-      "aliases": [],
+      "aliases": [
+        "lupin isolate protein",
+        "lupin protein isolate",
+        "lupin protein"
+      ],
       "website_urls": [
         "https://www.stdmfood.com/lupine-protein-isolate-12650628.html"
       ],
@@ -1152,6 +1162,101 @@
       "website_names": [],
       "source": "website",
       "notes": "On stdmfood.com but not in the rates file: no price imported."
+    },
+    {
+      "name": "Pea Protein Concentrate",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "80%"
+      ],
+      "aliases": [
+        "pea protein concentrate 80%"
+      ],
+      "source": "price_list_2026_11"
+    },
+    {
+      "name": "Whey Protein Concentrate",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "80%"
+      ],
+      "aliases": [
+        "whey protein concentrate 80%",
+        "wpc 80"
+      ],
+      "source": "price_list_2026_11"
+    },
+    {
+      "name": "Hydrolysed Pea Protein",
+      "category": "Hydrolysed Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "source": "price_list_2026_11"
+    },
+    {
+      "name": "Hydrolysed Brown Rice Protein",
+      "category": "Hydrolysed Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "source": "price_list_2026_11"
+    },
+    {
+      "name": "Hydrolysed Peanut Protein",
+      "category": "Hydrolysed Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "source": "price_list_2026_11"
+    },
+    {
+      "name": "Mung Starch",
+      "category": "Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "source": "price_list_2026_11"
+    },
+    {
+      "name": "Resistant Dextrin",
+      "category": "Flour/ Fiber/ Dextrin",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [],
+      "source": "price_list_2026_11"
+    },
+    {
+      "name": "Inulin Powder",
+      "category": "Saccharides",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "inulin"
+      ],
+      "source": "price_list_2026_11"
     }
   ],
   "brand": {

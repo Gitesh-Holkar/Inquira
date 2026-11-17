@@ -198,7 +198,7 @@ async function OrgTab({ ctx, canEdit }: { ctx: Ctx; canEdit: boolean }) {
         <CardTitle>{s.orgName}</CardTitle>
       </CardHeader>
       <CardContent>
-        <OrgForm canEdit={canEdit} quoteValidityDays={s.quoteValidityDays} defaultPriceBasis={s.defaultPriceBasis} />
+        <OrgForm canEdit={canEdit} quoteValidityDays={s.quoteValidityDays} defaultPriceBasis={s.defaultPriceBasis} paymentTerms={s.paymentTerms ?? ""} />
       </CardContent>
     </Card>
   );

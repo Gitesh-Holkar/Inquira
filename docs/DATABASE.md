@@ -17,7 +17,7 @@ Postgres with Drizzle ORM. Every table is in the private schema **`app`** (see [
 | Table | Purpose | Notable columns |
 | --- | --- | --- |
 | `organizations` (soft delete) | One row per company | `name`, `slug` |
-| `org_settings` | Per-company settings, one row | `features` (json), `quote_validity_days`, `timezone`, `home_country`, `default_price_basis` |
+| `org_settings` | Per-company settings, one row | `features` (json), `quote_validity_days`, `timezone`, `home_country`, `default_price_basis`, `payment_terms` (printed on quotations; empty until entered), `price_list_map` (json: how the company's price list maps onto its catalogue, see `priceListMapSchema`) |
 | `memberships` (soft delete) | Who belongs to which company, with a role | `user_id`, `role` (`owner`, `admin`, `sales`, `viewer`), `email`, `display_name`; unique `(org_id, user_id)` |
 | `audit_logs` | **Append-only.** One row per write | `actor`, `action`, `entity_type`, `entity_id`, `changes` (json) |
 | `events` | Domain event outbox | `type`, `entity_type`, `entity_id`, `payload`, `processed_at` |
@@ -116,5 +116,7 @@ Every list the app shows has an index on its filter: leads by `(org_id, status, 
 | `0000_init.sql` | Schema `app`, enums, all 26 tables, foreign keys, indexes |
 | `0001_rls_policies.sql` | Grants, RLS on every table, policies, `updated_at` and append-only triggers |
 | `0002_storage_bucket.sql` | Private `documents` storage bucket (Supabase only; a no-op elsewhere). Nothing uses it until the document library (GOAL G-KB-4) is built |
+| `0003_org_payment_terms.sql` | `org_settings.payment_terms` (text, empty by default) |
+| `0004_org_price_list_map.sql` | `org_settings.price_list_map` (json, empty by default) |
 
 Rules: generate with `npm run db:generate`; never edit an applied migration; a new table needs base columns, `org_id`, and a migration that enables RLS with policies, plus a case in `tests/rls.test.ts`. Apply with `npm run db:migrate` (TCP) or `npm run db:remote:apply` (HTTPS).

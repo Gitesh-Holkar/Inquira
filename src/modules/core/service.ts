@@ -41,6 +41,8 @@ export const updateOrgSettings = defineService({
   input: z.object({
     quoteValidityDays: z.number().int().min(1).max(60).optional(),
     defaultPriceBasis: z.string().trim().min(1).max(80).optional(),
+    /** Printed on quotations. An empty value clears it, and the line is left out of quotations. */
+    paymentTerms: z.string().trim().max(200).nullish(),
     features: z.record(z.string(), z.boolean()).optional(),
   }),
   permission: "settings.write",
@@ -49,12 +51,22 @@ export const updateOrgSettings = defineService({
     const patch: Partial<typeof orgSettings.$inferInsert> = {};
     if (input.quoteValidityDays !== undefined) patch.quoteValidityDays = input.quoteValidityDays;
     if (input.defaultPriceBasis !== undefined) patch.defaultPriceBasis = input.defaultPriceBasis;
+    if (input.paymentTerms !== undefined) patch.paymentTerms = input.paymentTerms || null;
     if (input.features) patch.features = { ...before.features, ...input.features };
     const [after] = await tx.update(orgSettings).set(patch).where(eq(orgSettings.orgId, ctx.orgId)).returning();
     await audit(tx, ctx, { action: "settings.update", entityType: "org_settings", entityId: after!.id, changes: patch });
     return after!;
   },
 });
+
+/**
+ * Stores the company's price list mapping. The caller (catalog module) validates its shape; this
+ * only saves it and audits that it changed, without copying the whole mapping into the audit row.
+ */
+export async function setPriceListMapInternal(tx: Tx, ctx: Ctx, map: unknown, summary: Record<string, unknown>) {
+  const [after] = await tx.update(orgSettings).set({ priceListMap: map }).where(eq(orgSettings.orgId, ctx.orgId)).returning();
+  await audit(tx, ctx, { action: "settings.price_list_map", entityType: "org_settings", entityId: after!.id, changes: summary });
+}
 
 // ---------- integrations (non-secret state + encrypted secrets) ----------
 

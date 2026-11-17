@@ -1,6 +1,6 @@
 /**
  * Crawls the organisation's TradeIndia-built catalogue site and prints products that are
- * missing from seed/products.json (by URL). Read-only: it never writes to the database.
+ * missing from the seed folder's products.json (by URL). Read-only: it never writes to the database.
  *   WEBSITE_URL=https://www.stdmfood.com npm run seed:website
  */
 import { readFileSync } from "node:fs";
@@ -21,7 +21,7 @@ for (const p of pages) {
     if (title && title.length < 120 && !found.has(url)) found.set(url, title);
   }
 }
-const seed = JSON.parse(readFileSync("seed/products.json", "utf8")) as { products: { name: string; website_urls?: string[] }[] };
+const seed = JSON.parse(readFileSync(`${process.env.SEED_DIR || "seed/stdm"}/products.json`, "utf8")) as { products: { name: string; website_urls?: string[] }[] };
 const known = new Set(seed.products.flatMap((p) => p.website_urls ?? []));
 const missing = [...found].filter(([u]) => !known.has(u));
 const gone = [...known].filter((u) => !found.has(u));

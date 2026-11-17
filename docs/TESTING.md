@@ -18,6 +18,7 @@ Integration tests need the local Postgres: `npm run db:local:up` (the test setup
 | --- | --- | --- |
 | Unit tests | `src/**/*.test.ts`, next to the code | Pure functions: parsers, product matching, formats, phone numbers, lead rules |
 | Integration tests | `tests/*.test.ts` | Services against a real Postgres: sync, de-duplication, quotations, MCP and OAuth, row-level security |
+| Price list import | `src/modules/catalog/price-list.test.ts`, `tests/price-list-import.test.ts` | Reading and matching (pure); the import as an owner under row-level security, refused for sales and viewers; every folder in `seed/` loads and its own list then shows nothing left to change. |
 | Signed-in paths | `tests/human-paths.test.ts` | Every service called as an owner, a salesperson and a viewer **under row-level security**. System-context tests bypass RLS and hide permission bugs, so new services are tested here |
 | Row-level security | `tests/rls.test.ts` | Company A cannot read or change company B; append-only tables; every table has RLS |
 | End to end | `e2e/smoke.spec.ts` | Critical journeys in a browser at 1440 px and 390 px; screenshots go to `docs/screenshots/` |

@@ -1,0 +1,51 @@
+{
+  "_about": "How this company's price list maps onto its catalogue. Read by `npm run rates:import` and by the seed. Prices are never written here: they come from the list itself.",
+  "terms": { "price_basis": "Ex-factory", "moq_kg": 100 },
+  "categories": {
+    "Proteins": { "gst_percent": 18, "pack_size": "20 Kg" },
+    "Hydrolysed Proteins": { "gst_percent": 18, "pack_size": "20 Kg" },
+    "Flours": { "gst_percent": 5, "pack_size": "25 Kg", "catalog_category": "Flour/ Fiber/ Dextrin" },
+    "Starches": { "gst_percent": 5, "pack_size": "25 Kg" },
+    "E Number Modified Starches": { "gst_percent": 5, "pack_size": "25 Kg" },
+    "Soluble Fiber/Dextrin": { "gst_percent": 5, "pack_size": "25 Kg", "catalog_category": "Flour/ Fiber/ Dextrin" },
+    "Insoluble Fiber": { "gst_percent": 5, "pack_size": "25 Kg", "catalog_category": "Flour/ Fiber/ Dextrin" },
+    "Saccharides": { "gst_percent": 5, "pack_size": "25 Kg" },
+    "Lecithin": {
+      "gst_percent": 18,
+      "pack_size": "25 Kg",
+      "needs_confirmation": "GST to confirm: the price list's GST section puts Lecithin at 18%, the owner's note of 16 Nov 2026 says only proteins are 18%. Kept at 18% as printed on the list"
+    }
+  },
+  "product_overrides": {
+    "Soya Flour": { "pack_size": "25/50 Kg" }
+  },
+  "lines": {
+    "lupin isolate protein": { "product": "Lupine Protein Isolate", "grade": "Standard", "aliases": ["lupin isolate protein", "lupin protein isolate", "lupin protein"] },
+    "pea protein concentrate (80%)": { "product": "Pea Protein Concentrate", "grade": "80%", "aliases": ["pea protein concentrate 80%"] },
+    "whey protein concentrate (80%)": { "product": "Whey Protein Concentrate", "grade": "80%", "aliases": ["whey protein concentrate 80%", "wpc 80"] },
+    "pea starch powder": { "product": "Pea Starch", "grade": "Standard", "aliases": ["pea starch powder"] },
+    "e1402 alkaline starch": { "product": "E1402 Alkaline Treated Starch", "grade": "Standard" },
+    "e1420 acetylated starch {default}": { "product": "E1420 Acetylated Starch", "grade": "Standard" },
+    "e1440 hydroxy propyl starch": { "product": "E1440 Hydroxypropyl Starch", "grade": "Standard" },
+    "oats fiber": { "product": "Oat Fiber", "grade": "Standard", "aliases": ["oats fiber", "oat fibre"] },
+    "rice fiber soluble": { "product": "Rice Fiber", "grade": "Soluble", "was_grade": "Standard" },
+    "wheat fiber soluble": { "product": "Wheat Fiber", "grade": "Soluble", "was_grade": "Standard" },
+    "xylo oligosaccharide (xos) powder": { "product": "Xylo Oligosaccharide Powder (XOS)", "grade": "Standard" },
+    "galacto oligosaccharides (gos) powder": { "product": "Galacto Oligosaccharides Powder (GOS)", "grade": "Standard" },
+    "isomalto oligosaccharide (imo) powder": { "product": "Isomalto Oligosaccharide Powder (IMO)", "grade": "Standard" },
+    "inulin powder": { "product": "Inulin Powder", "grade": "Standard", "aliases": ["inulin"] },
+    "soya phosphatidyl choline powder 30%": { "product": "Soya Phosphatidylcholine", "grade": "30%" }
+  },
+  "footer": [
+    "GST Rates",
+    "18%",
+    "Protein Derivatives – 20 Kg",
+    "Lecithin Derivatives – 25 Kg",
+    "5%",
+    "Starch Derivatives – 25 Kg",
+    "Saccharides Derivatives – 25 Kg",
+    "Soya Flour – 25/50 Kg",
+    "Peanut Flour – 25 Kg",
+    "Dextrin/Fiber – 25Kg"
+  ]
+}

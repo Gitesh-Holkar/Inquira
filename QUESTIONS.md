@@ -2,20 +2,13 @@
 
 Each item lists the question, what I assumed so the build could continue, and where it matters in the code.
 
-## Q-001 — Do rates include GST?
-- **Question:** The rates file (`PRODUCT_PRICE_LIST.docx`) doesn't say whether prices include GST.
-- **Assumed:** Prices **exclude** GST. STDM's own sent quotations quote the same numbers as "GST: 18% extra" / "5% GST extra". All 70 rates are imported with `gst_treatment = exclusive`.
-- **Where it matters:**
-  - `seed/rates.json` (`assumptions`)
-  - `src/modules/catalog` (price entries)
-  - the quote templates, which show "GST x% extra"
-- **To change:** If this is wrong, update the rates in *Rates → Update rates*. History is kept.
+## Q-001 — Do rates include GST? (answered 16 Nov 2026)
+- **Your answer:** every rate is ex-factory; proteins carry 18% GST and the rest 5%. So GST is charged on top of the listed rate, as assumed.
+- **In the app:** each rate stores its GST %, and quotations print "GST x% extra". One point is still open: lecithin (Q-015).
 
-## Q-002 — MOQ per product?
-- **Question:** The rates file has no MOQ. Sent quotations usually say "MOQ: 100 kg".
-- **Assumed:** `moq_kg` is left empty on every price entry, and the `{{moq}}` placeholder renders empty. I did not invent 100 kg.
-- **Where it matters:** `price_entries.moq_kg` and the quote template.
-- **To change:** Set it on the *Update rates* screen.
+## Q-002 — MOQ per product? (answered 16 Nov 2026)
+- **Your answer:** MOQ is 100 kg for every product; payment terms are 100% advance.
+- **In the app:** the November price list import sets MOQ 100 kg on every rate; payment terms are a setting (Settings → Organisation → Payment terms) printed on every quotation. Both take effect on the live site after Q-015.
 
 ## Q-003 — Website vs rates file naming (resolved: website crawled)
 - **What happened:** Once the network was opened, I crawled stdmfood.com's 50 product pages and merged them into `seed/products.json`.
@@ -39,11 +32,11 @@ Each item lists the question, what I assumed so the build could continue, and wh
 - **How the build works around it:** The overnight build container can't see environment variables added after it started. So it develops and tests against a local Postgres that mimics Supabase (`npm run db:local:up`), and it applies migrations to the real project from a fresh session with `npm run db:remote:apply` (Management API over HTTPS).
 - **From your machine:** `npm run db:migrate` works directly (see SETUP.md).
 
-## Q-005 — Rates flagged `needs_confirmation`
-1. **Spirulina Protein Powder "(White)":** what does "White" mean?
-2. **Soya Isoflavones (₹1200):** it's listed under Lecithin (18%), but it isn't a lecithin. Confirm the GST % and pack size.
-3. **"Oats Fiber - Oat Fiber Insoluble – 195":** imported as one Insoluble grade. Is there a separate Oats Fiber rate?
-4. **Soya Flour (₹95):** is the pack size 25 kg or 50 kg?
+## Q-005 — Rates flagged `needs_confirmation` (closed by the November list, except lecithin)
+1. **Spirulina Protein Powder "(White)":** kept exactly as your list prints it. No answer needed.
+2. **Soya Isoflavones (₹1200):** still listed under Lecithin; it follows the lecithin GST question (Q-015).
+3. **Oats Fiber:** the November list has both lines, so this is settled: Oat Fiber ₹400 and Oat Fiber (Insoluble) ₹195.
+4. **Soya Flour pack size:** kept as your list's GST section prints it, "25/50 Kg". Say so if quotations should say "25 Kg" only.
 
 ## Q-006 — Salesperson name in notifications
 - **Question:** IndiaMART and TradeIndia greet a named salesperson. Should drafts be addressed from a specific person?
@@ -78,3 +71,61 @@ Each item lists the question, what I assumed so the build could continue, and wh
 - **Why:** The parser for this layout was built from a description. `fixtures/emails/indiamart-enquiry-helpdesk.json` is marked `reconstructed`; the part after the requirement list is assumed to match the usual enquiry email.
 - **Assumed meanwhile:** The buyer block (name, company, "Click to call", email, address) has the same shape as in `buyershelp+enq@` emails. If it differs, the lead is still created but with fewer fields.
 - **Where it matters:** `parseEnquiry` in `src/modules/email/parsers/indiamart.ts`.
+
+## Q-015 — OWNER GATE: confirm the November price list (16 Nov 2026) before it goes live
+Nothing below has been written to the live database. The live site still shows the September rates.
+
+**What the new list changes** (80 lines read, none unreadable; produced by the import itself against a copy of your September data):
+
+- **New products (8):** Pea Protein Concentrate (80%) ₹340, Whey Protein Concentrate (80%) ₹2500, Hydrolysed Pea Protein ₹1600, Hydrolysed Brown Rice Protein ₹1800, Hydrolysed Peanut Protein ₹1800, Mung Starch ₹105, Resistant Dextrin ₹350, Inulin Powder ₹450.
+- **First rate for products already in the catalogue (2):** Lupine Protein Isolate ₹550 (your list says "Lupin Isolate Protein"), Oat Fiber ₹400 (your list says "Oats Fiber").
+- **Price changes (14):**
+
+  | Product | September | November |
+  | --- | --- | --- |
+  | Peanut Flour | ₹150 | ₹125 |
+  | Potato Starch (Native) | ₹50 | ₹60 |
+  | Potato Starch (Waxy) | ₹60 | ₹95 |
+  | Corn Fiber | ₹225 | ₹325 |
+  | Pea Fiber | ₹325 | ₹380 |
+  | Pea Fiber (Insoluble) | ₹325 | ₹185 |
+  | Potato Dextrin | ₹275 | ₹375 |
+  | Potato Fiber (Soluble) | ₹265 | ₹375 |
+  | Rice Dextrin | ₹275 | ₹375 |
+  | Rice Fiber (Soluble) | ₹275 | ₹375 |
+  | Wheat Dextrin | ₹275 | ₹350 |
+  | Wheat Fiber (Soluble) | ₹285 | ₹350 |
+  | Fructo Oligosaccharides (FOS) | ₹300 | ₹250 |
+  | Galacto Oligosaccharides Powder (GOS) | ₹1200 | ₹1000 |
+
+- **Renamed to match the list (2):** the grade of Rice Fiber and of Wheat Fiber that was called "Standard" becomes "Soluble".
+- **Same price, terms added (56):** MOQ 100 kg on every rate.
+- **Not on the new list:** nothing. Every product that had a rate in September is on the November list.
+- **Terms on every rate:** ex-factory; MOQ 100 kg; proteins and hydrolysed proteins 18% GST in 20 Kg packs; starches, modified starches, fibres, dextrins, flours and saccharides 5% GST in 25 Kg packs (Soya Flour "25/50 Kg").
+
+**Questions**
+1. **Lecithin GST (the one that matters).** Your message says only proteins are 18% and the rest 5%. The GST section of the same price list puts "Lecithin Derivatives – 25 Kg" under 18%. I kept the 13 lecithin rates at **18%**, as printed, and marked them "Confirm" so nobody quotes them unchecked. Which is right: 18% or 5%? (Soya Isoflavones sits under Lecithin and follows the same answer unless you say otherwise.)
+2. **Pea Fiber (Insoluble) drops from ₹325 to ₹185** while every other fibre went up. Is ₹185 correct?
+3. **"E1420 Acetylated Starch – 105 Rs/Kg (Default)":** read as the existing single grade at the same price. Say so if "(Default)" means something else.
+4. Two places on the list have items typed without a line break ("Saccharides:Xylo…" and "…350 Rs/KgInulin Powder – 450"). They were read as separate items: XOS ₹700, IMO ₹350, Inulin ₹450.
+
+**How it goes live**
+
+1. **One database step (2 minutes, needed before the new version can deploy).** The Supabase access token in the agent environment has expired, so I could not do this for you. Open Supabase → **SQL Editor** → **New query**, paste the block below, press **Run**. It only adds two empty columns to the settings table; no data changes.
+
+   ```sql
+   begin;
+   -- 0003_org_payment_terms
+   ALTER TABLE "app"."org_settings" ADD COLUMN "payment_terms" text;
+   insert into drizzle.__drizzle_migrations (hash, created_at) values ('884d595b1548f4308e2a4a16f4ca995b87fecbc7156e94893fc5b065c20c8f06', 1794875962737);
+   -- 0004_org_price_list_map
+   ALTER TABLE "app"."org_settings" ADD COLUMN "price_list_map" jsonb;
+   insert into drizzle.__drizzle_migrations (hash, created_at) values ('f2730e67e6a660c6d470bed6e848824e101c6690c2dc7d914ecbdda8a4b2d31c', 1794894972300);
+   commit;
+   ```
+
+   Then open Vercel → **Deployments** → the newest (failed) one → **Redeploy**. Until this is done Vercel shows new deployments as failed on purpose and the site keeps running on the previous version (`docs/SETUP.md` section 11).
+2. **Settings → Organisation:** type `100% advance` in **Payment terms** and save.
+3. **Rates → Import price list:**
+   - Open **How Inquira reads your list (mapping)**, paste the whole text of [`seed/stdm/price-list-map.json`](seed/stdm/price-list-map.json) and press **Save mapping**. (If your answer to the lecithin question is 5%, tell me first and I will change that file.)
+   - Paste your price list, press **Show changes**, check that it shows what is listed above, press **Apply**. Old rates stay in the history.

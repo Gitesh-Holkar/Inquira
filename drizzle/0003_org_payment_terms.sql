@@ -1,0 +1,1 @@
+ALTER TABLE "app"."org_settings" ADD COLUMN "payment_terms" text;

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/primitives";
 import { saveOrgAction } from "@/app/(app)/settings/actions";
 
-export function OrgForm({ quoteValidityDays, defaultPriceBasis, canEdit }: { quoteValidityDays: number; defaultPriceBasis: string; canEdit: boolean }) {
+export function OrgForm({ quoteValidityDays, defaultPriceBasis, paymentTerms, canEdit }: { quoteValidityDays: number; defaultPriceBasis: string; paymentTerms: string; canEdit: boolean }) {
   const [pending, start] = useTransition();
   return (
     <form
@@ -14,7 +14,7 @@ export function OrgForm({ quoteValidityDays, defaultPriceBasis, canEdit }: { quo
         e.preventDefault();
         const f = new FormData(e.currentTarget);
         start(async () => {
-          const r = await saveOrgAction({ quoteValidityDays: Number(f.get("days")), defaultPriceBasis: String(f.get("basis") ?? "") });
+          const r = await saveOrgAction({ quoteValidityDays: Number(f.get("days")), defaultPriceBasis: String(f.get("basis") ?? ""), paymentTerms: String(f.get("payment") ?? "") });
           if (r.ok) toast.success("Saved");
           else toast.error(r.error);
         });
@@ -25,6 +25,9 @@ export function OrgForm({ quoteValidityDays, defaultPriceBasis, canEdit }: { quo
       </Field>
       <Field label="Default price basis" htmlFor="org-basis">
         <Input id="org-basis" name="basis" defaultValue={defaultPriceBasis} disabled={!canEdit} />
+      </Field>
+      <Field label="Payment terms" htmlFor="org-payment" hint="Printed on every quotation, for example “100% advance”. Leave empty to leave the line out.">
+        <Input id="org-payment" name="payment" defaultValue={paymentTerms} maxLength={200} disabled={!canEdit} />
       </Field>
       {canEdit ? (
         <div>

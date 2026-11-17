@@ -1,0 +1,97 @@
+Proteins:
+Brown Rice Isolate Protein - 400 Rs/Kg
+Chickpea Isolate Protein – 485 Rs/Kg
+Hemp Seed Protein Powder - 525 Rs/Kg
+Lentil Isolate Protein - 515 Rs/Kg
+Lupin Isolate Protein – 550 Rs/Kg
+Mung Isolate Protein - 485/kgs
+Oats Isolate Protein - 520 Rs/Kg
+Pea Isolate Protein - 350/kg
+Pea Protein Concentrate (80%) – 340 Rs/Kg
+Peanut Isolate Protein - 485 Rs/Kg
+Potato Protein Isolate – 495 Rs/Kg
+Pumpkin Seed Protein Powder - 525 Rs/Kg
+Quinoa Isolate Protein - 535/kgs
+Soya Isolate Protein – 320 Rs/Kg
+Spirulina Protein Powder – 445 Rs/Kg (White)
+Wheat Protein Powder - 475 Rs/Kg
+Whey Protein Concentrate (80%) – 2500 Rs/Kg
+Flours:
+Peanut Flour - 125/kgs
+Soya Flour - 95 Rs/Kg
+Hydrolysed Proteins:
+Hydrolysed Pea Protein – 1600 Rs/Kg
+Hydrolysed Brown Rice Protein – 1800 Rs/Kg
+Hydrolysed Peanut Protein – 1800 Rs/Kg
+Starches:
+High Amylose Starch (Potato) – 225 Rs/Kg
+Mung Starch – 105 Rs/Kg
+Pea Starch Powder - 75 Rs/Kg
+Potato Starch (Native) - 60 Rs/Kg
+Potato Starch (Waxy) - 95 Rs/Kg
+Resistant Starch - 95 Rs/Kg
+Rice Starch - 95 Rs/Kg
+Sweet Potato Starch - 105 Rs/Kg
+Tapioca Starch Powder - 60 Rs/Kg
+Wheat Starch – 85 Rs/kg
+E Number Modified Starches:
+E1401 Acid Treated Starch - 90 Rs/Kg
+E1402 Alkaline Starch - 90 Rs/Kg
+E1404 Oxidized Starch – 90 Rs/Kg
+E1405 Enzyme Treated Starch - 95 Rs/Kg
+E1410 Mono Starch Phosphate – 95 Rs/Kg
+E1412 Distarch Phosphate – 95 Rs/Kg
+E1413 Phosphated Distarch Phosphate - 105/kg
+E1414 Acetylated Distarch Phosphate – 100 Rs/Kg
+E1420 Acetylated Starch – 105 Rs/Kg (Default)
+E1422 Acetylated Distarch Adipate - 105 Rs/Kg
+E1440 Hydroxy Propyl Starch - 115 Rs/Kg
+E1442 Hydroxypropyl Distarch Phosphate - 115 Rs/Kg
+E1442 Hydroxypropyl Distarch Phosphate - 275 Rs/Kg {Cold Water Soluble}
+E1450 Sodium Octenyl Succinate Starch - 275 Rs/Kg
+Soluble Fiber/Dextrin:
+Corn Fiber – 325 Rs/Kg
+Oats Fiber – 400 Rs/Kg
+Pea Fiber – 380 Rs/Kg
+Potato Dextrin – 375 Rs/Kg
+Potato Fiber Soluble – 375 Rs/Kg
+Resistant Dextrin – 350 Rs/Kg
+Rice Dextrin - 375/kgs
+Rice Fiber Soluble – 375 Rs/Kg
+Wheat Dextrin – 350 Rs/Kg
+Wheat Fiber Soluble – 350 Rs/Kg
+Insoluble Fiber:
+Oat Fiber Insoluble – 195 Rs/Kg
+Pea Fiber Insoluble – 185 Rs/Kg
+Potato Fiber Insoluble – 195 Rs/Kg
+Rice Fiber Insoluble – 140 Rs/Kg
+Soya Fibre Insoluble - 125 Rs/Kg
+Wheat Fiber Insoluble – 150 Rs/Kg
+Saccharides:Xylo Oligosaccharide (XOS) Powder - 700 Rs/Kg
+Fructo Oligosaccharides (FOS) - 250 Rs/Kg
+Galacto Oligosaccharides (GOS) Powder - 1000 Rs/Kg
+Isomalto Oligosaccharide (IMO) Powder – 350 Rs/KgInulin Powder – 450 Rs/Kg
+Lecithin:
+Rapeseed Lecithin Powder - 600 Rs/Kg
+Soya Isoflavones – 1200 Rs/Kg
+Soya Lecithin Powder - 450/kg
+Hydrogenated Soya Lecithin Powder - 500 Rs/kg
+Soya Phosphatidyl Choline Powder 30% - 550/kgs
+Soya Phosphatidylcholine 50% - 850 Rs/Kg
+Soya Phosphatidylserine 20% - 3800 Rs/Kg
+Soya Phosphatidylserine 50% - 8500 Rs/Kg
+Sunflower lecithin powder - 550/kg
+Hydrogenated Sunflower Lecithin Powder - 600 Rs/Kg
+Sunflower Phosphatidylcholine 30% - 650 Rs/Kg
+Sunflower Phosphatidylserine Powder 20% - 4500 Rs/Kg
+Sunflower Phosphatidylserine Powder 50% - 10200 Rs/Kg
+GST Rates
+18%
+Protein Derivatives – 20 Kg
+Lecithin Derivatives – 25 Kg
+5%
+Starch Derivatives – 25 Kg
+Saccharides Derivatives – 25 Kg
+Soya Flour – 25/50 Kg
+Peanut Flour – 25 Kg
+Dextrin/Fiber – 25Kg

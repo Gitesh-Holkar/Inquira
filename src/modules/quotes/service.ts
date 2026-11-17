@@ -37,26 +37,31 @@ function snapshot(r: CurrentRate): QuoteItemSnapshot {
   };
 }
 
-function itemVars(i: QuoteItemSnapshot): TemplateVars {
+function itemVars(i: QuoteItemSnapshot, paymentTerms: string | null): TemplateVars {
   return {
     product: i.productName, grade: i.gradeName, price_per_kg: formatAmount(i.pricePerKgInr), price_basis: i.priceBasis,
     gst_percent: formatPercent(i.gstPercent), moq: i.moqKg ? formatNumber(i.moqKg) : "", pack_size: i.packSize ?? "",
+    payment_terms: paymentTerms ?? "",
   };
 }
 
-export function renderQuote(lead: Lead, items: QuoteItemSnapshot[], tpl: { subject: string | null; body: string }, validityDate: string, orgName: string) {
+/**
+ * Pure rendering of a quotation's subject and body from a template, the price snapshot and the
+ * company's terms. Lines whose value is empty (no MOQ, no payment terms) are left out, never printed blank.
+ */
+export function renderQuote(lead: Lead, items: QuoteItemSnapshot[], tpl: { subject: string | null; body: string }, validityDate: string, org: { name: string; paymentTerms: string | null }) {
   const first = items[0]!;
   const blocks = items.map((it, idx) => {
-    const b = render(DEFAULT_ITEM_BLOCK, itemVars(it));
+    const b = render(DEFAULT_ITEM_BLOCK, itemVars(it, org.paymentTerms));
     const noGrade = it.gradeName === "Standard" ? b.replace(` (${it.gradeName})`, "") : b;
     return items.length > 1 ? `${idx + 1}. ${noGrade}` : noGrade;
   });
   const vars: TemplateVars = {
-    ...itemVars(first),
+    ...itemVars(first, org.paymentTerms),
     product: [...new Set(items.map((i) => i.productName))].join(", "),
     contact_name: greetingName(lead), company_name: lead.companyName ?? "", city: lead.city ?? "",
     quantity: lead.quantityText ? ` (${lead.quantityText})` : "", validity_date: formatDate(validityDate),
-    items_block: blocks.join("\n\n"), org_name: orgName,
+    items_block: blocks.join("\n\n"), org_name: org.name,
   };
   return { subject: render(tpl.subject ?? "Quotation – {{product}}", vars), body: render(tpl.body, vars), vars };
 }
@@ -94,7 +99,7 @@ export async function createQuoteDraft(ctx: Ctx, raw: z.input<typeof createInput
     const validityDate = addDays(todayIST(), input.validityDays ?? settings.quoteValidityDays);
     const tpl = input.templateId ? await getTemplateInternal(tx, ctx.orgId, input.templateId) : await getDefaultTemplateInternal(tx, ctx.orgId, "quote_email");
     if (!tpl) throw new AppError("VALIDATION", "No quotation template found. Create one under Templates.");
-    const rendered = renderQuote(lead, items, tpl, validityDate, settings.orgName);
+    const rendered = renderQuote(lead, items, tpl, validityDate, { name: settings.orgName, paymentTerms: settings.paymentTerms });
     const original = lead.gmailMessageId ? await getMessageMetaInternal(tx, ctx.orgId, lead.gmailMessageId) : null;
     const [q] = await tx.insert(quotations).values({
       orgId: ctx.orgId, leadId: lead.id, templateId: tpl.id, status: "rendered", items, validityDate,
@@ -164,7 +169,7 @@ export const whatsappForLead = defineService({
       grade: first?.gradeName ?? "", price_per_kg: first ? formatAmount(first.pricePerKgInr) : "", price_basis: first?.priceBasis ?? "",
       gst_percent: first ? formatPercent(first.gstPercent) : "", moq: first?.moqKg ? formatNumber(first.moqKg) : "", pack_size: first?.packSize ?? "",
       validity_date: formatDate(addDays(todayIST(), settings.quoteValidityDays)), quantity: lead.quantityText ? ` (${lead.quantityText})` : "",
-      city: lead.city ?? "", org_name: settings.orgName,
+      city: lead.city ?? "", org_name: settings.orgName, payment_terms: settings.paymentTerms ?? "",
     };
     let text = render(tpl?.body ?? "Hello {{contact_name}}, thank you for your inquiry for {{product}}.", vars);
     if (!first) text = text.replace(/Our current rate is[^.]*\.[^.]*\.?/i, "").replace(/Valid until[^.]*\./i, "").replace(/\s{2,}/g, " ").trim();

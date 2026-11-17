@@ -89,6 +89,35 @@ test("main flows", async ({ page }) => {
   await page.getByRole("button", { name: "Save rates" }).click();
   await expect(page.getByText(/Saved 1 rate/)).toBeVisible();
 
+  // Import a price list (G-KB-6): paste, read what would change, apply. A line with no known GST rate is left out.
+  await page.getByRole("link", { name: "Import price list" }).click();
+  await expect(page.getByRole("heading", { name: "Import price list" })).toBeVisible();
+  const mobile = test.info().project.name === "mobile";
+  const preview = page.getByTestId("price-list-preview");
+  // The mapping (which heading has which GST % and pack size) is saved for this company and can be changed here.
+  await page.getByText("How Inquira reads your list (mapping)").click();
+  await expect(page.getByLabel("Mapping")).toHaveValue(/"Proteins"/);
+  await expect(async () => {
+    await page.getByLabel("Mapping").fill("not a mapping");
+    await page.getByRole("button", { name: "Save mapping" }).click();
+    await expect(page.getByText(/could not be read/)).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
+  await page.reload(); // the saved mapping is untouched
+  await expect(async () => {
+    await page.getByLabel("Price list").fill(`Not A Known Product - 5 Rs/Kg\nStarches:\nMung Starch - ${mobile ? 112 : 111} Rs/Kg`);
+    await page.getByRole("button", { name: "Show changes" }).click();
+    await expect(preview).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
+  await expect(preview).toContainText("2 lines read: 1 to save, 0 unchanged, 1 with a problem");
+  await expect(preview.getByRole("region", { name: "Price changes" })).toContainText(mobile ? "Mung Starch: ₹111 → ₹112" : "Mung Starch: ₹105 → ₹111");
+  await expect(preview.getByRole("region", { name: "Will NOT be written" })).toContainText("Not A Known Product");
+  await noHorizontalScroll(page);
+  await shot(page, "06b-import-price-list");
+  await page.getByRole("button", { name: "Apply 1 change" }).click();
+  await page.getByRole("button", { name: "Save rates" }).click();
+  await expect(page.getByText("Saved 1 rate")).toBeVisible();
+  await expect(page).toHaveURL(/\/rates$/);
+
   // Templates live preview
   await page.goto("/templates");
   await expect(page.getByTestId("quote_email-preview")).toContainText("Rs. 350.00/kg");
@@ -126,7 +155,7 @@ test("signed-out users are sent to login; MCP needs auth", async ({ page, reques
   await page.goto("/leads");
   await expect(page).toHaveURL(/\/login\?next=%2Fleads/);
   // Sign-in is always on (GOAL G-PLT-1): no signed-in page renders for a visitor.
-  for (const p of ["/", "/review", "/rates", "/templates", "/indiamart", "/settings", "/leads/00000000-0000-4000-8000-000000000000", "/oauth/authorize?client_id=x"]) {
+  for (const p of ["/", "/review", "/rates", "/rates/import", "/templates", "/indiamart", "/settings", "/leads/00000000-0000-4000-8000-000000000000", "/oauth/authorize?client_id=x"]) {
     await page.goto(p);
     await expect(page, p).toHaveURL(/\/login/);
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();

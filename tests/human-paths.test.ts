@@ -15,6 +15,7 @@ import { tick } from "@/modules/sources/jobs";
 import { getDashboard } from "@/modules/dashboard/service";
 import { addLeadNote, createManualLead, listLeads, updateLead, updateLeadStatus } from "@/modules/leads/service";
 import { createProduct, getCurrentRates, listProducts } from "@/modules/catalog/service";
+import { planPriceListImport } from "@/modules/catalog/price-list-service";
 import { listTemplates } from "@/modules/templates/service";
 import { getBuyleadRules, getBuyleadSummary, listBuyleadDecisions, logBuyleadDecision, updateBuyleadRules } from "@/modules/buyleads/service";
 import { createClassificationRule, getReconciliation, ingestMessageInternal, listClassificationRules, listEmailsNeedingReview, submitEmailClassification } from "@/modules/email/service";
@@ -82,6 +83,7 @@ describe("signed-in users (RLS) can use every screen", () => {
         listIntegrations(ctx, {}), getReconciliation(ctx, {}), getDashboard(ctx, {}), listLeads(ctx, {}), listProducts(ctx, {}),
         getCurrentRates(ctx, {}), listTemplates(ctx, {}), getBuyleadRules(ctx, {}), getBuyleadSummary(ctx, {}), listBuyleadDecisions(ctx, {}),
         listClassificationRules(ctx, {}), listEmailsNeedingReview(ctx, {}), listSyncRuns(ctx, {}), getOrgSettings(ctx, {}), listAudit(ctx, {}),
+        planPriceListImport(ctx, { text: "Sample Item - 10 Rs/Kg" }), // writes are covered in tests/price-list-import.test.ts
       ])).resolves.toBeTruthy();
     }
     await expect(listMcpTokens(owner, {})).resolves.toEqual([]);

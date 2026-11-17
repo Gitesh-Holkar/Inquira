@@ -85,6 +85,7 @@ export const SAMPLE_VARS: TemplateVars = {
   gst_percent: "18",
   moq: "100",
   pack_size: "20 Kg",
+  payment_terms: "100% advance",
   validity_date: "2 Oct 2026",
   quantity: " (500 kg)",
   city: "Pune",

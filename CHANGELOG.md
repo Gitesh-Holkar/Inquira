@@ -4,6 +4,14 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 17 Nov 2026 — Price list import and quotation terms (M3, up to the owner's confirmation)
+- **Rates → Import price list.** Paste a price list, read what would change (new products, price changes, renames, anything that cannot be written and why), then apply. Old rates stay in history. A line with no known GST rate is left out instead of guessed.
+- **Quotations print the company's terms:** MOQ and pack size from the rate, and a new **Payment terms** setting (Settings → Organisation), for example "100% advance". An empty value drops its line.
+- `npm run rates:import -- <list.txt>` shows the same changes from a file and writes only with `--confirm`.
+- Seeding reads one folder (`SEED_DIR`, default `seed/stdm`): company name and terms, catalogue, and the newest price list. `seed/rates.json` is replaced by the price list itself.
+- **A deployment now stops, instead of breaking the site, when the database needs a change first.** Vercel shows it as failed with "Inquira build stopped: the database is missing … migration(s)", and the previous version keeps running (`docs/SETUP.md` section 11).
+- **Not live yet:** this update needs two database additions (migrations 0003 and 0004), so the live site stays on the previous version until they are applied. The November 2026 list (14 price changes, 10 new rates) then waits for the owner's confirmation on the import screen (`QUESTIONS.md` Q-015).
+
 ### 17 Nov 2026 — Audit fixes (M0)
 - **IndiaMART emails:** enquiries from `buyershelpdesk@indiamart.com` now get their product and requirements; Buy Lead emails with several details on one line no longer run the values together; Buy Lead emails in the HTML-only layout now get the buyer's city, state and product; the daily "BuyLeads allocated" notice is ignored and no longer lands in the review queue.
 - **TradeIndia emails:** the placeholders "New Buyer" and "numbermasking-inquiry-…" are no longer stored as a buyer's name or company.

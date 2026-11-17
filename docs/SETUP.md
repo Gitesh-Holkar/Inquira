@@ -280,10 +280,40 @@ npm run dev                  # sign in as owner@example.com (dev sign-in button)
 - `npm test` (starts the local Postgres automatically)
 - `npm run test:e2e` (Playwright)
 
-## 10. Troubleshooting
+## 10. When your prices or terms change
+
+**A new price list**
+
+1. Open **Rates → Import price list**.
+2. Copy the text of your price list (from Word, Excel or an email) and paste it. One item per line, as you already write it: `Pea Isolate Protein - 350 Rs/Kg`. Headings such as `Proteins:` can stay.
+3. Press **Show changes**. Read the list: new products, price changes, renames, and anything that will not be saved and why. Nothing is saved at this point.
+4. Press **Apply**. The new rates start today; the old ones stay in each rate's history.
+
+The folded section **How Inquira reads your list (mapping)** on the same screen holds which heading has which GST % and pack size, the MOQ and price basis for every rate, and which name on your list is which product. It is prepared with your price list; paste it there once and save. Change it when a GST rate or pack size changes.
+
+A product that is not in your catalogue is only added when Inquira knows its GST rate (from the heading it sits under, in the mapping). Otherwise it is listed under "Will NOT be written": add it with **Add product**, enter its rate once on the Rates screen, and it will match from then on.
+
+**One price:** change it directly on the **Rates** screen.
+
+**Payment terms, price basis, quotation validity:** **Settings → Organisation**. Payment terms are printed on every quotation; leave the field empty to leave the line out. MOQ and pack size are part of each rate.
+
+From a terminal, `npm run rates:import -- <list.txt>` prints the same changes and writes only with `--confirm`.
+
+## 11. Database changes (after an update)
+
+Some updates add a column or a table to the database. Until the database has it, Vercel refuses to build the new version and shows the deployment as **failed** with the message "Inquira build stopped: the database is missing … migration(s)". Your site keeps running on the previous version; nothing is broken.
+
+To apply the change, use one of these:
+
+- **No tools needed:** Supabase → **SQL Editor** → **New query** → paste the SQL block that came with the update → **Run**. Then Vercel → **Deployments** → open the failed one → **Redeploy**. The block is produced with `npm run db:manual-sql -- <migration names>`; running it twice does nothing the second time.
+- **From a computer with this repository and `.env.local`:** `npm run db:migrate`.
+- **From an agent session:** `npm run db:remote:apply`, which needs a valid `SUPABASE_ACCESS_TOKEN` in the session's environment (Supabase → Account → Access Tokens).
+
+## 12. Troubleshooting
 
 | Symptom | Fix |
 |---|---|
+| Vercel deployment failed with "Inquira build stopped: the database is missing … migration(s)" | The update needs a database change first. Follow §11; the site keeps running on the previous version meanwhile. |
 | "Email or password is incorrect" on first login | Use **Forgot password? / First time here?** (§4). The seeded account has no password until you set one. |
 | Password-reset link opens the login page again | Add `https://YOUR-APP/auth/callback` to Supabase **Redirect URLs** (§1). If the page says "same browser", open the link where you asked for it, or use the template change in §4. |
 | Red banner "APP_URL is … but this site is …" | Set `APP_URL` in Vercel to the address in the banner (no trailing slash) and redeploy. Gmail and Claude need it. |

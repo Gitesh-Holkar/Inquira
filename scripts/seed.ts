@@ -1,6 +1,8 @@
 /**
  * Seeds the organisation, owner account, catalog, rates, templates and rules. Idempotent.
  *   SEED_OWNER_EMAIL=you@company.com npm run db:seed
+ * Company data comes from one folder, SEED_DIR (default below). SEED_ORG_NAME overrides the name in
+ * that folder's settings.json.
  * Owner account:
  *   - With NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY: created (or found) in Supabase Auth.
  *     Set a password via "Forgot password" on the login page (see docs/SETUP.md §4).
@@ -8,6 +10,7 @@
  *   - SEED_OWNER_USER_ID skips account creation and just uses that id.
  */
 import { randomUUID } from "node:crypto";
+import path from "node:path";
 import postgres from "postgres";
 import { closeDb } from "@/db/client";
 import { seed } from "@/server/seed";
@@ -20,7 +23,9 @@ export function parseOwnerEmail(raw: string | undefined): string | null {
 export const maskEmail = (e: string) => e.replace(/^(.).*(@.*)$/, "$1***$2");
 
 const email = parseOwnerEmail(process.env.SEED_OWNER_EMAIL ?? "owner@example.com") ?? "";
-const orgName = process.env.SEED_ORG_NAME ?? "STDM Food & Beverages Pvt. Ltd.";
+const orgName = process.env.SEED_ORG_NAME || undefined;
+/** The first company's data. Milestone M1 adds a fictional `seed/example` and makes that the default. */
+export const seedDir = path.resolve(process.env.SEED_DIR || "seed/stdm");
 
 export async function ensureSupabaseUser(emailAddr: string): Promise<string> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -62,7 +67,7 @@ if (isMain) {
     const useSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) && process.env.SEED_LOCAL_AUTH !== "1";
     const ownerUserId = process.env.SEED_OWNER_USER_ID ?? (useSupabase ? await ensureSupabaseUser(email) : await ensureLocalUser(email));
     console.log(`Owner: ${maskEmail(email)} (${useSupabase ? "Supabase Auth" : "local"} user ${ownerUserId})`);
-    await seed({ orgName, ownerUserId, ownerEmail: email, log: (s) => console.log(s) });
+    await seed({ orgName, ownerUserId, ownerEmail: email, seedDir, log: (s) => console.log(s) });
     if (useSupabase) console.log("Next: open the app, click 'Forgot password?' and enter your email to set your password.");
   } finally {
     await closeDb();

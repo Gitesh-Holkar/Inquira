@@ -5,7 +5,7 @@ import { leads } from "@/modules/leads/schema";
 import { emailMessages } from "@/modules/email/schema";
 import { quotations } from "@/modules/quotes/schema";
 import { integrations, syncRuns } from "@/modules/core/schema";
-import { getIntegrationInternal, updateIntegrationInternal, writeSecretsInternal } from "@/modules/core/service";
+import { getIntegrationInternal, updateIntegrationInternal, updateOrgSettings, writeSecretsInternal } from "@/modules/core/service";
 import { syncGmail } from "@/modules/sources/gmail/service";
 import { syncTradeIndia } from "@/modules/sources/tradeindia/service";
 import { createQuoteDraft, whatsappForLead } from "@/modules/quotes/service";
@@ -203,8 +203,11 @@ describe("Quote drafts", () => {
     const chick = (await getDb().select().from(leads)).find((l) => l.sourceRef === "900000001")!;
     expect(chick.productId).not.toBeNull();
 
+    // The company's quotation terms: payment terms are a setting, MOQ and pack size come from the rate.
+    await updateOrgSettings(ctx, { paymentTerms: "100% advance" });
     const res = await createQuoteDraft(ctx, { leadId: chick.id }, { fetchImpl: g2.fetch });
     expect(res.quotation.status).toBe("draft_created");
+    expect(res.quotation.bodyText).toContain("- Pack Size: 20 Kg\n- GST: 18% extra\n- MOQ: 100 kg\n- Payment: 100% advance");
     expect(res.draftUrl).toContain("mail.google.com");
     expect(res.quotation.items[0]).toMatchObject({ productName: "Chickpea Protein Isolate", pricePerKgInr: "485.00", gstPercent: "18.00", moqKg: "100.00" });
     expect(res.quotation.bodyText).toContain("Price: Rs. 485.00/kg (Ex-factory)");
@@ -245,6 +248,9 @@ describe("Quote drafts", () => {
     const res = await createQuoteDraft(ctx, { leadId: l!.id });
     expect(res.quotation.status).toBe("draft_failed");
     expect(res.warning).toMatch(/Gmail is not connected/);
+    // No payment terms entered: the line is left out, never printed empty or invented.
+    expect(res.quotation.bodyText).toContain("- MOQ: 100 kg");
+    expect(res.quotation.bodyText).not.toMatch(/Payment/);
     const wa = await whatsappForLead(ctx, { leadId: l!.id });
     expect(wa.url).toMatch(/^https:\/\/wa\.me\/919000000001\?text=Hello%20Asha/);
     expect(wa.text).toContain("Rs. 485.00/kg");

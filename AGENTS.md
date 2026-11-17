@@ -67,6 +67,7 @@ Do not read every document by default. Do not re-read unchanged documents in the
 ## 5. Database rules
 
 - Every schema change has a migration generated with `npm run db:generate`. Never edit an applied migration.
+- A hosted build stops while the live database is missing a migration (`next.config.ts`, ADR-026). When you add one, tell the owner how it gets applied (`docs/SETUP.md` section 11) in your report.
 - New tables: base columns (`...baseColumns()`), `orgId`, and a migration enabling row-level security with policies (copy `drizzle/0001_rls_policies.sql`). Extend `tests/rls.test.ts`.
 - Consider existing data before changing a column. Prefer additive changes.
 - Keep `docs/DATABASE.md` in step with the schema.
@@ -126,8 +127,10 @@ npm run db:local:up         # local Postgres 16 on :54322 that mimics Supabase
 npm run db:generate         # after schema.ts changes → new SQL in drizzle/
 npm run db:migrate          # apply migrations over TCP (DATABASE_URL)
 npm run db:remote:apply     # apply over HTTPS via Supabase Management API
-npm run db:seed             # idempotent seed: org, owner, catalogue, rates, templates, rules
+npm run db:manual-sql -- <migration>   # print paste-ready SQL for the database's SQL editor
+npm run db:seed             # idempotent seed from SEED_DIR: org, owner, catalogue, rates, templates, rules
 npm run db:remote:seed      # seed a Supabase project over HTTPS only
+npm run rates:import -- <list.txt>   # show what a price list would change; add --confirm to write
 npm run demo:data           # load fixture emails into a LOCAL db for demos
 npm run gen:keys            # APP_ENCRYPTION_KEY + CRON_SECRET
 ```

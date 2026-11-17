@@ -101,61 +101,67 @@ export const rateHistory = defineService({
   },
 });
 
+/**
+ * Adds new price rows (never overwrites) and audits each one. Shared by the Rates screen and the
+ * price list import. Fails if a grade is not in this company or `validFrom` is in the past.
+ */
+export async function insertRatesInternal(tx: Tx, ctx: Ctx, input: z.output<typeof updateRatesInput>) {
+  const validFrom = input.validFrom ?? todayIST();
+  // A back-dated entry would never become current (a newer valid_from already exists), so it would be
+  // saved but silently ignored by quotes. History is append-only; corrections start today.
+  if (validFrom < todayIST()) {
+    throw new AppError("VALIDATION", "“Valid from” can't be in the past. Use today's date; the old rate stays in history.", { fieldErrors: { validFrom: ["Use today or a later date"] } });
+  }
+  const gradeIds = [...new Set(input.items.map((i) => i.gradeId))];
+  const grades = await tx
+    .select({ id: productGrades.id, name: productGrades.name, productName: products.name })
+    .from(productGrades)
+    .innerJoin(products, eq(products.id, productGrades.productId))
+    .where(and(eq(productGrades.orgId, ctx.orgId), inArray(productGrades.id, gradeIds), isNull(productGrades.deletedAt)));
+  const byId = new Map(grades.map((g) => [g.id, g]));
+  for (const id of gradeIds) if (!byId.has(id)) throw notFound(`Grade ${id}`);
+
+  const before = new Map((await currentRatesInternal(tx, ctx.orgId)).map((r) => [r.gradeId, r]));
+  const inserted = await tx
+    .insert(priceEntries)
+    .values(input.items.map((i) => ({
+      orgId: ctx.orgId,
+      gradeId: i.gradeId,
+      pricePerKgInr: i.pricePerKgInr,
+      gstPercent: i.gstPercent,
+      priceBasis: i.priceBasis,
+      moqKg: i.moqKg,
+      packSize: i.packSize,
+      needsConfirmation: i.needsConfirmation,
+      note: i.note,
+      validFrom,
+      createdBy: actorString(ctx.actor),
+    })))
+    .returning();
+
+  for (const row of inserted) {
+    const prev = before.get(row.gradeId);
+    const g = byId.get(row.gradeId)!;
+    const changes = {
+      product: g.productName,
+      grade: g.name,
+      pricePerKgInr: [prev?.pricePerKgInr ?? null, row.pricePerKgInr],
+      gstPercent: [prev?.gstPercent ?? null, row.gstPercent],
+      moqKg: [prev?.moqKg ?? null, row.moqKg],
+      validFrom,
+    };
+    await audit(tx, ctx, { action: "rate.update", entityType: "price_entry", entityId: row.id, changes });
+    await emit(tx, ctx, { type: "rate.updated", entityType: "product_grade", entityId: row.gradeId, payload: changes });
+  }
+  return { count: inserted.length, validFrom };
+}
+
 /** Adds new price rows (never overwrites). Only changed rates should be sent by the UI. */
 export const updateRates = defineService({
   name: "catalog.updateRates",
   input: updateRatesInput,
   permission: "rates.write",
-  handler: async (ctx, input, tx) => {
-    const validFrom = input.validFrom ?? todayIST();
-    // A back-dated entry would never become current (a newer valid_from already exists), so it would be
-    // saved but silently ignored by quotes. History is append-only; corrections start today.
-    if (validFrom < todayIST()) {
-      throw new AppError("VALIDATION", "“Valid from” can't be in the past. Use today's date; the old rate stays in history.", { fieldErrors: { validFrom: ["Use today or a later date"] } });
-    }
-    const gradeIds = [...new Set(input.items.map((i) => i.gradeId))];
-    const grades = await tx
-      .select({ id: productGrades.id, name: productGrades.name, productName: products.name })
-      .from(productGrades)
-      .innerJoin(products, eq(products.id, productGrades.productId))
-      .where(and(eq(productGrades.orgId, ctx.orgId), inArray(productGrades.id, gradeIds), isNull(productGrades.deletedAt)));
-    const byId = new Map(grades.map((g) => [g.id, g]));
-    for (const id of gradeIds) if (!byId.has(id)) throw notFound(`Grade ${id}`);
-
-    const before = new Map((await currentRatesInternal(tx, ctx.orgId)).map((r) => [r.gradeId, r]));
-    const inserted = await tx
-      .insert(priceEntries)
-      .values(input.items.map((i) => ({
-        orgId: ctx.orgId,
-        gradeId: i.gradeId,
-        pricePerKgInr: i.pricePerKgInr,
-        gstPercent: i.gstPercent,
-        priceBasis: i.priceBasis,
-        moqKg: i.moqKg,
-        packSize: i.packSize,
-        needsConfirmation: i.needsConfirmation,
-        note: i.note,
-        validFrom,
-        createdBy: actorString(ctx.actor),
-      })))
-      .returning();
-
-    for (const row of inserted) {
-      const prev = before.get(row.gradeId);
-      const g = byId.get(row.gradeId)!;
-      const changes = {
-        product: g.productName,
-        grade: g.name,
-        pricePerKgInr: [prev?.pricePerKgInr ?? null, row.pricePerKgInr],
-        gstPercent: [prev?.gstPercent ?? null, row.gstPercent],
-        moqKg: [prev?.moqKg ?? null, row.moqKg],
-        validFrom,
-      };
-      await audit(tx, ctx, { action: "rate.update", entityType: "price_entry", entityId: row.id, changes });
-      await emit(tx, ctx, { type: "rate.updated", entityType: "product_grade", entityId: row.gradeId, payload: changes });
-    }
-    return { count: inserted.length, validFrom };
-  },
+  handler: (ctx, input, tx) => insertRatesInternal(tx, ctx, input),
 });
 
 export const listProducts = defineService({

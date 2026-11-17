@@ -27,6 +27,8 @@ How a request flows: **page or server action** (`src/app`) → **service** (`src
 | Add or change a Claude (MCP) tool | `buildMcpServer` in `src/modules/mcp/server.ts` (+ `MCP_TOOL_NAMES`) | The tool must call a service, never the DB |
 | Change dashboard numbers | `getDashboard` in `src/modules/dashboard/service.ts`; UI in `src/app/(app)/page.tsx` | |
 | Change rates screen behaviour | `components/rates/rates-editor.tsx`; saving in `updateRates` (`catalog/service.ts`) | Append-only price history |
+| Change how a price list is read or imported | Reading, matching and the diff: `catalog/price-list.ts` (pure). Writing: `catalog/price-list-service.ts`. Screen: `(app)/rates/import/page.tsx` + `components/rates/price-list-import.tsx`. Command: `scripts/rates-import.ts` | A company's own reading of its list is data: `seed/<company>/price-list-map.json`, saved in `org_settings.price_list_map` ([ADR-025](decisions/ADR-025-price-list-import.md)) |
+| Change the terms printed on a quotation | MOQ, pack size, GST and price basis come from the rate (`price_entries`); payment terms from `org_settings.payment_terms` (Settings → Organisation). Item wording: `DEFAULT_ITEM_BLOCK` in `templates/engine.ts` | An empty value drops its line; nothing is invented |
 | Change IndiaMART buy-lead rules/cap | `src/modules/buyleads/service.ts`; UI `components/settings/buylead-rules.tsx`; prompt in docs/COWORK_INDIAMART_TASK.md | |
 | Change sign-in / password emails | `src/app/login/*`, `src/app/auth/callback/route.ts`, `src/components/auth/hash-session.tsx`, `src/lib/auth.ts` | Setup: docs/SETUP.md §4 |
 | Change navigation | `src/components/shell/nav.tsx` (sidebar + phone bottom bar), `src/app/(app)/layout.tsx` (header, banners) | |
@@ -53,7 +55,8 @@ How a request flows: **page or server action** (`src/app`) → **service** (`src
 | Function | What it does |
 |---|---|
 | `membershipsForUserInternal(tx, userId)` | A user's organisations and roles (used by sign-in). |
-| `getOrgSettingsInternal` / `getOrgSettings` / `updateOrgSettings` | Organisation settings (quote validity days, default price basis, features). |
+| `getOrgSettingsInternal` / `getOrgSettings` / `updateOrgSettings` | Organisation settings (quote validity days, default price basis, payment terms, features). |
+| `setPriceListMapInternal` | Saves the company's price list mapping (validated by the catalog module) and audits that it changed. |
 | `getIntegrationInternal(tx, orgId, provider)` | The Gmail/TradeIndia integration row; creates it (audited) if missing. |
 | `readSecretsInternal` / `writeSecretsInternal` | Decrypt/encrypt integration secrets (AES-256-GCM). Server-only; audit logs field names, never values. Need a system transaction. |
 | `updateIntegrationInternal` | Update integration state (status, cursor, errors), optionally audited. |
@@ -111,11 +114,17 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 |---|---|
 | `currentRatesInternal` / `getCurrentRates` | Current rate per grade (newest entry valid today). |
 | `rateHistory` | All price entries for a grade. |
-| `updateRates` | Append new price rows (never overwrite); refuses back-dated `valid_from`. |
+| `updateRates` / `insertRatesInternal` | Append new price rows (never overwrite); refuses back-dated `valid_from`. The internal form is shared with the price list import. |
 | `listProducts`, `createProduct` / `createProductInternal` | Products and grades. |
 | `matchProduct`, `normalizeProductText`, `productMatcherCatalog` | Free text ("soy isolate protein") → catalogue product. |
 | `productNameById`, `countProducts` | Small lookups. |
 | `types.ts`: `updateRatesInput`, `rateUpdateItem`, `moneyString`, `percentString`, `CurrentRate` | Rate input validation. |
+| `price-list.ts`: `parsePriceList` | Price list text → lines (heading, name, price, qualifier, raw line), the GST section, and the lines it could not read. Never drops or guesses a line. |
+| `price-list.ts`: `planImport`, `priceListMapSchema`, `normalizeListName` | Matches each line to a product and grade (the company's mapping first, then catalogue names and aliases) and works out what would change. Pure. GST, pack size and MOQ come only from the mapping, the current rate or the product; a line with no known GST rate is not written. |
+| `price-list.ts`: `planSections`, `planCounts`, `describePlan` | The diff as headed lists; the screen and the command show the same thing. |
+| `price-list-service.ts`: `planPriceListImport` | Read-only: the diff for a pasted list (`catalog.read`). |
+| `price-list-service.ts`: `applyPriceListImport` | Writes the diff in one transaction (`rates.write` and `catalog.write`): new products and grades, renamed grades, aliases, new rate rows; all audited. |
+| `price-list-service.ts`: `savePriceListMap`, `catalogForImportInternal` | Save the company's mapping; the catalogue in the shape the planner needs. |
 
 ### quotes (`quotes/service.ts`, `quotes/mime.ts`)
 | Function | What it does |
@@ -182,6 +191,7 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `/leads/[id]` Lead detail | `(app)/leads/[id]/page.tsx` | `(app)/leads/actions.ts`: `setStatusAction`, `addNoteAction`, `quoteAction`, `whatsappTextAction`, `updateLeadAction`, `createLeadAction`; components `leads/actions.tsx` (Copy/Call/WhatsApp/Quote buttons), `leads/detail-client.tsx` (status, notes, edit) |
 | `/review` Review queue | `(app)/review/page.tsx` | `(app)/review/actions.ts`: `classifyAction`; `components/review/review-item.tsx` |
 | `/rates` Rates | `(app)/rates/page.tsx` | `(app)/rates/actions.ts`: `saveRatesAction`, `rateHistoryAction`, `addProductAction`; `components/rates/rates-editor.tsx`, `add-product.tsx` |
+| `/rates/import` Import price list | `(app)/rates/import/page.tsx` | `(app)/rates/actions.ts`: `planPriceListAction` (reads only), `applyPriceListAction`, `savePriceListMapAction`; `components/rates/price-list-import.tsx` (list, folded mapping editor, preview) |
 | `/templates` | `(app)/templates/page.tsx` | `(app)/templates/actions.ts`: `saveTemplateAction`; `components/templates/editor.tsx` |
 | `/indiamart` Buy-lead log | `(app)/indiamart/page.tsx` | — |
 | `/settings?tab=…` | `(app)/settings/page.tsx` | `(app)/settings/actions.ts`: TradeIndia save/test, Sync now, Gmail save/connect/disconnect, MCP tokens, email rules, buy-lead rules, org settings; components in `components/settings/*` |
@@ -245,20 +255,24 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 
 | Path | What it is |
 |---|---|
-| `scripts/seed.ts` (`npm run db:seed`) → `src/server/seed.ts` (`seed()`) | Idempotent seed: org, owner (Supabase Auth or local), catalogue + rates from `seed/*.json`, templates, rules, integration rows. `parseOwnerEmail`, `maskEmail`, `ensureSupabaseUser`. |
+| `scripts/seed.ts` (`npm run db:seed`) → `src/server/seed.ts` (`seed()`) | Idempotent seed from one folder (`SEED_DIR`, default `seed/stdm`): org and quotation terms (`settings.json`), owner (Supabase Auth or local), catalogue (`products.json`), price list mapping, rates from the newest file in `price-lists/` through the same import as the Rates screen, templates, rules, integration rows. `parseOwnerEmail`, `maskEmail`, `ensureSupabaseUser`. |
 | `scripts/db-migrate.ts` (`db:migrate`) / `scripts/db-remote-apply.ts` (`db:remote:apply`) | Apply `drizzle/` migrations over TCP / over the Supabase Management API (HTTPS). |
+| `scripts/db-manual-sql.ts` (`db:manual-sql`) | Prints paste-ready SQL (statements plus the bookkeeping row) for named migrations, for the database's SQL editor. |
+| `next.config.ts`: `assertDatabaseIsMigrated` | Stops a hosted production build when the database is missing a migration, so the running site is never replaced by code its database cannot serve (ADR-026). Read-only. |
 | `scripts/db-remote-seed.ts` (`db:remote:seed`) | Seed a Supabase project over HTTPS only. |
 | `scripts/local-db.sh` + `scripts/local-db/supabase-shim.sql` (`db:local:up/down/reset`) | Local Postgres 16 on :54322 that mimics Supabase (`auth.uid()`, roles). |
 | `scripts/demo-data.ts` (`demo:data`) | Loads fixture emails into a LOCAL db for demos/screenshots. |
-| `scripts/fetch-website-products.ts` (`seed:website`) | Diff stdmfood.com catalogue vs `seed/products.json`. |
+| `scripts/rates-import.ts` (`rates:import`) | Prints what a price list file would change; writes only with `--confirm`. `--map` uses another mapping, `--save-map` keeps it, `--org` picks the company. |
+| `scripts/fetch-website-products.ts` (`seed:website`) | Diff the company website's catalogue vs `SEED_DIR/products.json`. |
 | `scripts/gen-keys.ts` (`gen:keys`) | Generate `APP_ENCRYPTION_KEY` and `CRON_SECRET`. |
-| `drizzle/` | Migrations (0000 init, 0001 RLS + grants + triggers, 0002 storage bucket). Never edit an applied one. |
-| `seed/products.json`, `seed/rates.json` | Catalogue and rates source data. |
+| `drizzle/` | Migrations (0000 init, 0001 RLS + grants + triggers, 0002 storage bucket, 0003 payment terms, 0004 price list mapping). Never edit an applied one. |
+| `seed/stdm/` | The first company's data: `settings.json` (name, payment terms, price basis), `products.json` (catalogue, aliases, website links), `price-lists/<date>.txt` (the list as received, one item per line), `price-list-map.json` (headings → GST and pack size, list names → product and grade, MOQ and price basis). |
 | `fixtures/emails/*.json` | Anonymised real email formats with `expected` parse results. |
 | `tests/sign-in.test.ts` | Sign-in is always on (GOAL G-PLT-1): fails if an unauthenticated request reaches a page, a server action, the OAuth consent action or a protected API route, in any environment. |
 | `tests/human-paths.test.ts` | Every service as a signed-in role under RLS (catches permission bugs system-context tests miss). |
 | `tests/rls.test.ts` | Org isolation and append-only rules at the database level. |
 | `tests/sync-resume.test.ts` | TradeIndia sync resumes after a time-budget stop or a killed run, uses IST dates, and does not pass a window with failed leads; a Gmail backlog is picked up on the next tick. |
+| `tests/price-list-import.test.ts` | Price list import as owner under RLS (rates appended, history kept, renames, aliases, audit), refused for sales and viewers; every folder in `seed/` loads and its own list then shows nothing left to change. |
 | `tests/sync-and-quotes.test.ts` | Gmail/TradeIndia sync, dedupe, quotes, review queue (Google faked in `tests/helpers/fake-google.ts`, which throws on any send). |
 | `tests/mcp.test.ts` | MCP tools, tokens, OAuth flow. |
 | `src/**/*.test.ts` | Unit tests next to the code (parsers, catalog, leads, lib). |

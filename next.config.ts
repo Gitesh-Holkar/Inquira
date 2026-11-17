@@ -1,4 +1,34 @@
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import type { NextConfig } from "next";
+import { PHASE_PRODUCTION_BUILD } from "next/constants";
+import postgres from "postgres";
+
+/**
+ * Stops a hosted build when the database is behind the code (ADR-026). A stopped build never
+ * replaces the running site, so the live version keeps working until the migrations are applied.
+ * Reads only: it compares `drizzle/meta/_journal.json` with `drizzle.__drizzle_migrations`.
+ * Runs on Vercel builds, or anywhere with CHECK_MIGRATIONS=1. Any failure to check also stops the build.
+ */
+async function assertDatabaseIsMigrated() {
+  if (process.env.INQUIRA_MIGRATIONS_CHECKED === "1") return; // build workers load this file again
+  const stop = (why: string) => new Error(`Inquira build stopped: ${why} The live site keeps running on its current version. See docs/SETUP.md, "Database changes".`);
+  const url = process.env.DATABASE_URL;
+  if (!url) throw stop("DATABASE_URL is not available to the build, so the database could not be checked.");
+  const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as { entries: { tag: string }[] };
+  const sql = postgres(url, { prepare: false, max: 1, connect_timeout: 20, onnotice: () => {} });
+  let applied: Set<string>;
+  try {
+    applied = new Set((await sql<{ hash: string }[]>`select hash from drizzle.__drizzle_migrations`).map((r) => r.hash));
+  } catch (e) {
+    throw stop(`the database's migration record could not be read (${e instanceof Error ? e.message : "unknown error"}).`);
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+  const missing = journal.entries.filter((e) => !applied.has(createHash("sha256").update(readFileSync(`drizzle/${e.tag}.sql`, "utf8")).digest("hex"))).map((e) => e.tag);
+  if (missing.length) throw stop(`the database is missing ${missing.length} migration(s): ${missing.join(", ")}.`);
+  process.env.INQUIRA_MIGRATIONS_CHECKED = "1";
+}
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -47,4 +77,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default async function config(phase: string): Promise<NextConfig> {
+  if (phase === PHASE_PRODUCTION_BUILD && (process.env.VERCEL || process.env.CHECK_MIGRATIONS === "1")) await assertDatabaseIsMigrated();
+  return nextConfig;
+}

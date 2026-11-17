@@ -42,7 +42,7 @@ src/
   proxy.ts                session refresh + sign-in redirect (Next 16's middleware)
 drizzle/                  SQL migrations (never edit an applied one)
 fixtures/emails/          anonymised email samples with expected parse results
-seed/                     rates.json, products.json (from the rates file + stdmfood.com)
+seed/<company>/           settings.json, products.json, price-lists/*.txt, price-list-map.json (ADR-025)
 scripts/                  local DB, migrations (TCP or Management API), seed, demo data, keys
 tests/, e2e/              Vitest integration tests; Playwright smoke tests
 ```

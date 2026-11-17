@@ -18,6 +18,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/db-migrate.ts",
     "db:remote:apply": "tsx scripts/db-remote-apply.ts",
+    "db:manual-sql": "tsx scripts/db-manual-sql.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:local:up": "bash scripts/local-db.sh up",
     "db:local:down": "bash scripts/local-db.sh down",
@@ -25,7 +26,8 @@
     "seed:website": "tsx scripts/fetch-website-products.ts",
     "gen:keys": "tsx scripts/gen-keys.ts",
     "demo:data": "tsx scripts/demo-data.ts",
-    "db:remote:seed": "tsx scripts/db-remote-seed.ts"
+    "db:remote:seed": "tsx scripts/db-remote-seed.ts",
+    "rates:import": "tsx scripts/rates-import.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.31.0",

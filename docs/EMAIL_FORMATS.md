@@ -88,4 +88,4 @@ Observed in about 15 sent quotations:
 - **Negotiation replies:** "Prices are non negotiable." / "our quoted rates are fixed and non-negotiable as we offer our best ex-factory prices directly".
 - **Samples:** "we are only able to provide 100–200 grams for sample requests". Sample requests ask for company name, FSSAI, GST certificate, delivery address and contact number.
 
-Rates in the sent mail match `seed/rates.json` exactly, with GST quoted as extra. This is the evidence behind the GST-exclusive import (ADR-006, Q-001).
+Rates in the sent mail match the September price list exactly, with GST quoted as extra. This is the evidence behind the GST-exclusive import (ADR-006, Q-001).

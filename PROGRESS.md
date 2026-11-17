@@ -3,11 +3,12 @@
 **Resume prompt** (use this if a session is interrupted):
 > Continue Inquira in this repository only. Read `AGENTS.md`, then this file and `QUESTIONS.md`, then `docs/INDEX.md`. Work on the first milestone below that is not done. The goal is `docs/GOAL.md`.
 
-## Current state (16 Nov 2026)
+## Current state (17 Nov 2026)
 
 - **Goal:** `docs/GOAL.md` (requirement IDs `G-…`). **Rules:** `AGENTS.md`. **Where things are:** `docs/INDEX.md`, `docs/CODEMAP.md`.
-- **Working on:** M0 (safe and correct).
-- **Live site:** deployed on Vercel from this branch. Sign-in was switched off for testing in commit `4a2a5eb` and is being switched back on in M0.
+- **Working on:** M3 is built and waiting at its **OWNER GATE** (`QUESTIONS.md` Q-015). M1 has not started; its licence question is the other open gate.
+- **Live site:** deployed on Vercel from this branch. Sign-in is on again. The live database still has the September rates and has **not** had migrations `0003` and `0004` applied.
+- **Order note:** the owner sent the November price list and quotation terms on 16 Nov and asked for them, so M3 was done before M1 and M2. Its one dependency on M1 (seed folders) was done with it: `seed/stdm/` and `SEED_DIR`. The fictional `seed/example` and the "nothing in `src/` names the company" test are still M1.
 
 ## Handover of 16 Nov 2026
 
@@ -29,10 +30,10 @@ Work in order, one at a time. Stop at every **OWNER GATE**.
 
 | # | Milestone | GOAL requirements | Status |
 | --- | --- | --- | --- |
-| M0 | Safe and correct: sign-in back on, seven audit bugs, November email fixtures | G-PLT-1, G-SRC-3, G-SRC-4 | In progress |
+| M0 | Safe and correct: sign-in back on, seven audit bugs, November email fixtures | G-PLT-1, G-SRC-3, G-SRC-4 | Done (17 Nov). Owner still to do `docs/RUNBOOK.md` section 1 |
 | M1 | Open-source foundation: licence (**OWNER GATE**), seed sets, README, CONTRIBUTING, secret scan | G-OSS-1 to G-OSS-4, P6 | Not started |
 | M2 | Local mode: adapters, local sign-in, Docker packaging, self-hosting guide | G-PLT-5, G-PLT-6 | Not started |
-| M3 | New price list: import command, diff (**OWNER GATE** before anything is written to a live database) | G-KB-6 | Not started |
+| M3 | New price list: import screen and command, diff (**OWNER GATE** before anything is written to a live database); quotation terms | G-KB-6, part of G-KB-2 | Built and tested (17 Nov). **Waiting for the owner:** Q-015 |
 | M4 | IndiaMART API: Push, Pull, reconciliation | G-SRC-1, G-SRC-2, G-SRC-6 to G-SRC-8 | Not started |
 | M5 | AI layer: provider interface, tiers, redaction | G-AI-1 to G-AI-10, G-UND-3, G-UND-4 | Not started |
 | M6 | Knowledge base: commercial terms, rate validity, document library, sample policy, lead score | G-KB-2 to G-KB-5, G-UND-6 | Not started |

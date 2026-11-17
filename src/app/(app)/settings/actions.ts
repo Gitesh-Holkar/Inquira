@@ -60,7 +60,7 @@ export async function saveBuyleadRulesAction(input: Parameters<typeof updateBuyl
   const s = await requireSession("buylead.rules.write");
   return done(await runAction(() => updateBuyleadRules(s.ctx, input)));
 }
-export async function saveOrgAction(input: { quoteValidityDays: number; defaultPriceBasis: string }) {
+export async function saveOrgAction(input: { quoteValidityDays: number; defaultPriceBasis: string; paymentTerms: string }) {
   const s = await requireSession("settings.write");
   return done(await runAction(() => updateOrgSettings(s.ctx, input)));
 }

@@ -29,6 +29,13 @@ export const orgSettings = app.table("org_settings", {
   timezone: text().notNull().default("Asia/Kolkata"),
   homeCountry: text().notNull().default("IN"),
   defaultPriceBasis: text().notNull().default("Ex-factory"),
+  /** Printed on quotations, e.g. "100% advance". Empty until the company enters it (never invented). */
+  paymentTerms: text(),
+  /**
+   * How this company's price list maps onto its catalogue (headings → GST and pack size, list names →
+   * product and grade). Shape: `priceListMapSchema` in the catalog module, which validates it on read.
+   */
+  priceListMap: jsonb().$type<unknown>(),
 }, (t) => [uniqueIndex("org_settings_org_uq").on(t.orgId)]);
 
 export const memberships = app.table("memberships", {
