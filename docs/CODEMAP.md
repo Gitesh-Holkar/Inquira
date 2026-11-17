@@ -156,7 +156,7 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 ### sources (`sources/*`) — external lead sources
 | Function | File | What it does |
 |---|---|---|
-| `tick(opts)` | `sources/jobs.ts` | Cron entry: enqueue Gmail + TradeIndia syncs for every org, then run due jobs one at a time (stops starting jobs after 20 s). |
+| `tick(opts)` | `sources/jobs.ts` | Cron entry: enqueue Gmail + TradeIndia syncs for every org, then run due jobs one at a time (stops starting jobs after 20 s). When a handler returns `{ more: true }`, a follow-up job is queued after the job completes and runs on the next tick. |
 | `JOB_HANDLERS` | `sources/jobs.ts` | Job type → function. Register new background work here. |
 | `syncGmail(ctx, opts)` | `gmail/service.ts` | Incremental Gmail sync (history id; date resync fallback; backlog; skips stored ids; 35 s budget). |
 | `saveGmailClient`, `startGmailConnect`, `completeGmailConnect` / `completeConnectInternal`, `disconnectGmail` | `gmail/service.ts` | Settings → Gmail: save OAuth client, consent URL (PKCE + hashed state), finish OAuth, disconnect. |
@@ -164,8 +164,8 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 | `GmailClient` (`getProfile`, `listMessages`, `listHistory`, `getMessage`, `listSendAs`, `createDraft`), `exchangeCode`, `GMAIL_SCOPES` | `gmail/client.ts` | Minimal Gmail REST client: **no send method**. Retries 429/5xx/403-rate-limit. |
 | `GmailReauthRequired`, `GmailHistoryExpired`, `GmailMessageGone` | `gmail/client.ts` | Error types the sync reacts to. |
 | `header`, `extractBodies`, `parseAddressList`, `parseFrom`, `gmailDraftUrl`, `gmailThreadUrl` | `gmail/client.ts` | MIME helpers and Gmail web links. |
-| `saveTradeIndiaCredentials`, `testTradeIndiaConnection` / `testConnectionInternal`, `syncTradeIndia` | `tradeindia/service.ts` | Settings → TradeIndia and the 10-minute sync (30-day backfill, 2-day overlap). |
-| `TradeIndiaClient` (`page`, `inquiries`), `TradeIndiaAuthError`, `TradeIndiaRateLimited` | `tradeindia/client.ts` | TradeIndia My Inquiry API client (7-day windows). |
+| `saveTradeIndiaCredentials`, `testTradeIndiaConnection` / `testConnectionInternal`, `syncTradeIndia` | `tradeindia/service.ts` | Settings → TradeIndia and the 10-minute sync (30-day first load, 2-day overlap). Resumable: 35 s budget, position saved per 7-day window in `TradeIndiaCursor`, a window with failed leads is not passed until three attempts. |
+| `TradeIndiaClient` (`page`, `url`), `inquiryWindows`, `tradeIndiaDay`, `TradeIndiaAuthError`, `TradeIndiaRateLimited` | `tradeindia/client.ts` | TradeIndia My Inquiry API client. Dates are IST calendar dates; ranges are split into 7-day windows. |
 | `normalizeTradeIndia`, `tradeIndiaDate` | `tradeindia/normalize.ts` | API row → `NormalizedLead`. |
 | `emptyStats`, `SyncStats`, `LeadSourceAdapter` | `sources/types.ts` | Shared sync types. |
 
@@ -258,6 +258,7 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `tests/sign-in.test.ts` | Sign-in is always on (GOAL G-PLT-1): fails if an unauthenticated request reaches a page, a server action, the OAuth consent action or a protected API route, in any environment. |
 | `tests/human-paths.test.ts` | Every service as a signed-in role under RLS (catches permission bugs system-context tests miss). |
 | `tests/rls.test.ts` | Org isolation and append-only rules at the database level. |
+| `tests/sync-resume.test.ts` | TradeIndia sync resumes after a time-budget stop or a killed run, uses IST dates, and does not pass a window with failed leads; a Gmail backlog is picked up on the next tick. |
 | `tests/sync-and-quotes.test.ts` | Gmail/TradeIndia sync, dedupe, quotes, review queue (Google faked in `tests/helpers/fake-google.ts`, which throws on any send). |
 | `tests/mcp.test.ts` | MCP tools, tokens, OAuth flow. |
 | `src/**/*.test.ts` | Unit tests next to the code (parsers, catalog, leads, lib). |

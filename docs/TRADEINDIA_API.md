@@ -30,7 +30,9 @@ A renamed field only needs a one-line change there. The full raw object is alway
 ## Limits (⚠️ undocumented publicly)
 - The date range per call and the page size limit are unknown. Inquira uses **7-day windows**, `limit=50` and `page_no` paging until a short page, with **1.5 s** between calls.
 - The rate limit is unknown; the bare call above got a 429. On `429` Inquira stops the run, records "rate limit", and backs off (10 min, 20 min … up to 6 h). The next cron tick resumes.
-- **Schedule:** the first connect backfills 30 days; afterwards every 10 minutes it re-reads (last success − 2 days) → now. The overlap is harmless because upserts are idempotent on `rfi_id`.
+- **Schedule:** the first connect reads 30 days; afterwards every 10 minutes it re-reads (last completed range − 2 days) → now. The overlap is harmless because upserts are idempotent on `rfi_id`.
+- **Resuming:** a run stops starting new requests after 35 seconds and saves its position after every 7-day window, so the first load continues on the next run instead of starting again.
+- **Dates:** `from_date` and `to_date` are sent as IST calendar dates. ⚠️ Assumed; confirm on the first live sync that an enquiry received just after midnight IST appears.
 
 ## Notification emails vs API (verified from real emails)
 - The same inquiry also arrives as an email from `inquiry.paid@rfis.tradeindia.com`.

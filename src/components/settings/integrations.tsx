@@ -33,9 +33,10 @@ function SyncNow({ provider, disabled }: { provider: "gmail" | "tradeindia"; dis
     <Button variant="outline" disabled={disabled || pending} onClick={() => start(async () => {
       const r = await syncNowAction(provider);
       if (!r.ok) return void toast.error(r.error);
-      const d = r.data as { fetched: number; created: number; duplicates: number; errors: number; skipped?: string; errorMessages?: string[] };
+      const d = r.data as { fetched: number; created: number; duplicates: number; errors: number; skipped?: string; more?: boolean; errorMessages?: string[] };
       if (d.skipped) toast.info(`Skipped: ${d.skipped}`);
       else if (d.errors) toast.warning(`Synced with errors: ${d.errorMessages?.[0] ?? ""}`);
+      else if (d.more) toast.info(`Fetched ${d.fetched} so far, new leads ${d.created}. The rest continues automatically on the next run.`);
       else toast.success(`Fetched ${d.fetched}, new leads ${d.created}, duplicates ${d.duplicates}`);
     })}><RefreshCw className={pending ? "animate-spin" : ""} />{pending ? "Syncing…" : "Sync now"}</Button>
   );

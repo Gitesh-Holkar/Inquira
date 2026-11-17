@@ -1,0 +1,30 @@
+{
+  "format": "tradeindia.inquiry",
+  "subject": "Hi Mr Ravi Kumar, Check Inquiry for Sorghum Starch Powder from Meena Pillai through TradeIndia",
+  "date": "2026-11-12T06:10:00Z",
+  "text": " www.tradeindia.com\n\n| [](http://delivery.rfis.tradeindia.example/XXXX?id=redacted) Sell in Bulk. Buy in Bulk. #SabMilegaYahinMilega |\n\n| Dear Mr Ravi Kumar You are receiving this mail as you're a registered user of TradeIndia - India's largest B2B e-commerce portal. You have a new inquiry. Act quickly and increase your chances of conversion. * Sender Name: Meena Pillai * Product Details: Sorghum Starch Powder * Requirement Details: Kindly share your best price and MOQ for 500 Kg. Quantity: 500 Kg * Buyer Details: Name - Meena Pillai Email - noreply@noreply.tradeindia.com Mobile - +919000001404 city - Coimbatore state - Tamil Nadu country - IN Click here to check inquiry[](http://delivery.rfis.tradeindia.example/XXXX?id=redacted&fl=redacted&ext=cmZpX2lkPTkwMDAwMDAxNCZhbXA7c2VjdGlvbj1JbmJveCNteVJlcGx5) |\n| How to convert inquiry into sale: |\n| * Respond timely * Focus on customer's needs * Personalized follow-up |\n| We empower MSMEs |\n",
+  "expected": {
+    "classification": "inquiry",
+    "source": "tradeindia",
+    "kind": "inquiry",
+    "source_ref": "900000014",
+    "contact_name": "Meena Pillai",
+    "company": null,
+    "phone": "+919000001404",
+    "email": null,
+    "city": "Coimbatore",
+    "state": "Tamil Nadu",
+    "country": "IN",
+    "product": "Sorghum Starch Powder",
+    "quantity": "500 Kg",
+    "international": false
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "tradeindia-check-inquiry",
+  "from": "inquiry.paid@rfis.tradeindia.com",
+  "_anonymised": true
+}

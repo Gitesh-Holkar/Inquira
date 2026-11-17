@@ -176,7 +176,7 @@ const TIME_BUDGET_MS = 35_000;
  * history id has expired (Gmail keeps ~1 week). Messages beyond MAX_PER_RUN (or the time
  * budget) are kept in cursor.backlog and processed next run, so every message is eventually stored.
  */
-export async function syncGmail(ctx: Ctx, opts: { fetchImpl?: typeof fetch; maxPerRun?: number; now?: Date; timeBudgetMs?: number } = {}): Promise<SyncStats & { skipped?: string }> {
+export async function syncGmail(ctx: Ctx, opts: { fetchImpl?: typeof fetch; maxPerRun?: number; now?: Date; timeBudgetMs?: number } = {}): Promise<SyncStats & { skipped?: string; more?: boolean }> {
   const now = opts.now ?? new Date();
   const max = opts.maxPerRun ?? MAX_PER_RUN;
   const deadline = Date.now() + (opts.timeBudgetMs ?? TIME_BUDGET_MS);
@@ -254,9 +254,9 @@ export async function syncGmail(ctx: Ctx, opts: { fetchImpl?: typeof fetch; maxP
       await finishSyncRunInternal(tx, run.id, { status: stats.errors ? "partial" : "ok", fetched: stats.fetched, created: stats.created, duplicates: stats.duplicates, errors: stats.errors, errorMessage: stats.errorMessages.slice(0, 3).join("; ") || null, meta: { resync, backlog: later.length } });
       await recordIntegrationSuccess(tx, ctx, integ, { cursor: nextCursor, lastError: null });
       await emit(tx, ctx, { type: "sync.completed", entityType: "integration", entityId: integ.id, payload: { provider: "gmail", fetched: stats.fetched, created: stats.created, errors: stats.errors, resync } });
-      if (later.length) await enqueueJobInternal(tx, ctx, { type: "gmail.sync", dedupeKey: "gmail.sync" });
     });
-    return stats;
+    // `more` tells the job runner to queue a follow-up (see tick() in ../jobs.ts).
+    return later.length ? { ...stats, more: true } : stats;
   } catch (e) {
     const reauth = e instanceof GmailReauthRequired;
     const msg = reauth ? (e as Error).message : (e as Error).message.slice(0, 300);

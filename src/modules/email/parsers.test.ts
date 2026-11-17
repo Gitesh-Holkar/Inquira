@@ -20,7 +20,7 @@ const toInput = (f: Fixture): EmailInput => ({ id: f.id, from: f.from, to: f.to,
 const ctx = { ownAddresses: ["sales@seller.example"], rules: [], threadHasLead: false };
 
 describe("email fixtures (anonymised, from docs/EMAIL_FORMATS.md)", () => {
-  it("covers every format", () => expect(fixtures.length).toBeGreaterThanOrEqual(17));
+  it("covers every format", () => expect(fixtures.length).toBeGreaterThanOrEqual(25));
 
   for (const f of fixtures) {
     it(`${f.id}`, () => {
@@ -45,6 +45,7 @@ describe("email fixtures (anonymised, from docs/EMAIL_FORMATS.md)", () => {
       if ("quantity" in exp) expect(fields.quantityText).toBe(exp.quantity);
       if ("international" in exp) expect(r.parsed.international).toBe(exp.international);
       if ("message_contains" in exp) expect(fields.message).toContain(exp.message_contains);
+      if ("extras" in exp) expect(r.parsed.extras).toMatchObject(exp.extras as Record<string, string>);
     });
   }
 

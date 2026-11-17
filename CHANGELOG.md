@@ -4,6 +4,12 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 17 Nov 2026 — Audit fixes (M0)
+- **IndiaMART emails:** enquiries from `buyershelpdesk@indiamart.com` now get their product and requirements; Buy Lead emails with several details on one line no longer run the values together; Buy Lead emails in the HTML-only layout now get the buyer's city, state and product; the daily "BuyLeads allocated" notice is ignored and no longer lands in the review queue.
+- **TradeIndia emails:** the placeholders "New Buyer" and "numbermasking-inquiry-…" are no longer stored as a buyer's name or company.
+- **TradeIndia sync:** the first 30-day load now continues across runs (it could restart from the beginning after a timeout); request dates use IST; an enquiry that fails to save is retried and reported, and the sync no longer moves past it silently.
+- **Gmail sync:** a backlog left by one run is always picked up on the next run. "Sync now" says when more is still to come.
+
 ### 16 Nov 2026 — Sign-in is back on (M0)
 - **Sign-in is required again.** The testing switch from 2 Oct is removed, together with a second switch that could have enabled development sign-in on a production build.
 - A test now fails the build if any page, action or the Claude consent screen can be reached without signing in.

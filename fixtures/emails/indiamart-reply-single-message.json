@@ -1,0 +1,24 @@
+{
+  "format": "indiamart.reply",
+  "subject": "Re: Enquiry for Barley Malt Extract from Kiran via IndiaMART",
+  "date": "2026-11-12T06:10:00Z",
+  "text": " \n\n                   Dear Ravi Kumar,\n                   You have a new message from Kiran Desai , Desai Bakers regarding Barley Malt Extract\n\n\t\t\t\t\n\t\t\t\t\tHi Ravi\n\t\t\t\t\t\tNov 12, 6:00 pm\n\n                             Call\n\n                            Chat\n\n                Regards,\n\n                      Kiran Desai  Surat   +91-9000001606 📧  kiran.desai@example.com\n\n\t\tOriginal Requirements\n\t\tProduct Name\n\t\t:\n\t\tBarley Malt Extract\n\n                                     Note : Reply to this mail will be delivered to the email id ( kiran.desai@example.com ) and will also be visible in your lead manager section on IndiaMART.\n",
+  "expected": {
+    "classification": "conversation_candidate",
+    "source": "indiamart",
+    "kind": "reply",
+    "contact_name": "Kiran Desai",
+    "company": "Desai Bakers",
+    "phone": "+919000001606",
+    "email": "kiran.desai@example.com",
+    "product": "Barley Malt Extract"
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "indiamart-reply-single-message",
+  "from": "IndiaMART <buyershelp+reply@indiamart.com>",
+  "_anonymised": true
+}

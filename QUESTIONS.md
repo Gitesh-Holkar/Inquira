@@ -72,3 +72,9 @@ Each item lists the question, what I assumed so the build could continue, and wh
 
 ## Q-013 — Scheduled resume
 - **What happened:** The 04:10 IST resume is scheduled (trigger `trig_01MkFUSSb63XEULCu98HgQZQ`). The build finished before it fired, so that run will just re-check and exit.
+
+## Q-014 — One raw IndiaMART "helpdesk" enquiry email
+- **Question:** Please forward (or export as `.eml`) one email from `buyershelpdesk@indiamart.com` with a subject like "Enquiry for <product> from <name>" (no "via IndiaMART").
+- **Why:** The parser for this layout was built from a description. `fixtures/emails/indiamart-enquiry-helpdesk.json` is marked `reconstructed`; the part after the requirement list is assumed to match the usual enquiry email.
+- **Assumed meanwhile:** The buyer block (name, company, "Click to call", email, address) has the same shape as in `buyershelp+enq@` emails. If it differs, the lead is still created but with fewer fields.
+- **Where it matters:** `parseEnquiry` in `src/modules/email/parsers/indiamart.ts`.

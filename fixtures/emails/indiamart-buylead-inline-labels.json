@@ -1,0 +1,34 @@
+{
+  "format": "indiamart.buylead",
+  "subject": "Buyer Details for Millet Protein Powder",
+  "date": "2026-11-12T06:10:00Z",
+  "text": "                                            Buy Lead through IndiaMART Buyer's Contact Details:\n\n                  Phone ✓ Email ✓\n\n                            Farhan Sheikh , Nagpur, MH\n                             +91-9000001202\n\n                            E-mail: farhan.s@example.com\n\n\t\t\t\t\t\t\tMember Since: 3+ years\n\n                        Buylead Details: Millet Protein Powder\n\n                             Quantity : 30 KG I want this for : Nutraceutical Third Party Manufacturing Probable Order Value : Rs. 9,400 - 13,000 Pack Size : 2 Kg Attachment 1 Attachment 2\n\n                          Reply To This Message\n\n                     IndiaMART recommends you to get in touch with buyer on both Email and Mobile Email: buyleads@indiamart.com Call Us : 096-9696-9696 Visit : https://help.indiamart.com IndiaMART InterMESH Ltd. 6th floor, Tower 2, Assotech Business Cresterra, Plot No.22, Sec 135, Noida-201305, UP If you would like to unsubscribe and stop receiving these emails click here  ",
+  "expected": {
+    "classification": "inquiry",
+    "source": "indiamart",
+    "kind": "buylead",
+    "contact_name": "Farhan Sheikh",
+    "phone": "+919000001202",
+    "email": "farhan.s@example.com",
+    "city": "Nagpur",
+    "state": "Maharashtra",
+    "country": "India",
+    "product": "Millet Protein Powder",
+    "quantity": "30 KG",
+    "international": false,
+    "extras": {
+      "Quantity": "30 KG",
+      "I want this for": "Nutraceutical Third Party Manufacturing",
+      "Probable Order Value": "Rs. 9,400 - 13,000",
+      "Pack Size": "2 Kg"
+    }
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "indiamart-buylead-inline-labels",
+  "from": "buyleads@indiamart.com",
+  "_anonymised": true
+}

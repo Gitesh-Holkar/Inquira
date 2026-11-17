@@ -1,0 +1,29 @@
+{
+  "format": "indiamart.enquiry",
+  "subject": "Enquiry for Finger Millet Starch 90 from Pooja via IndiaMART",
+  "date": "2026-11-12T06:10:00Z",
+  "text": "Download App\n\n  Hi Ravi Kumar ,\n\nI found your company on IndiaMART while searching for my requirement. I am looking for\n                                                    Finger Millet Starch 90 .\n\n                                     Below are my requirements:\n\n                                           Quantity\n\n                                           :\n\n                                           3 Kg\n\n                                           Net Quantity\n\n                                           :\n\n                                           1 kg\n\n               Call\n\n               Chat\n\n                                    Regards,\n\n                                           Pooja Menon\n\n                                    Menon Home Foods\n\n                                    Click to call:\n                                    +91-9000001707\n\n                                           Email:\n                                           pooja.menon@example.com\n\n                                    Ujjain - 456001, Madhya Pradesh, India\n\n                         Additional details about me:\n\n                             Interested Products : Glass Jars\n\n                         Requirements till date : 1\n\n                     Member since : 2 Years\n\n          Need Help?\n            |  \n          Contact Us\n             \n\nIf you'd like to unsubscribe and stop receiving these emails click here .\n\n ",
+  "expected": {
+    "classification": "inquiry",
+    "source": "indiamart",
+    "kind": "enquiry",
+    "contact_name": "Pooja Menon",
+    "company": "Menon Home Foods",
+    "phone": "+919000001707",
+    "email": "pooja.menon@example.com",
+    "city": "Ujjain",
+    "state": "Madhya Pradesh",
+    "country": "India",
+    "product": "Finger Millet Starch 90",
+    "quantity": "3 Kg",
+    "international": false
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "indiamart-enquiry-text",
+  "from": "IndiaMART <buyershelp+enq@indiamart.com>",
+  "_anonymised": true
+}

@@ -65,7 +65,9 @@ export function parseTradeIndia(m: EmailInput): ParseResult | null {
   const ipCountry = colon("IP/Country");
   if (!country && ipCountry) country = clean(ipCountry.split("/").pop());
   let companyName = colon("Company") ?? clean(requirement.match(/Company Name:\s*(.*?)\s+Mobile:/i)?.[1]);
-  if (companyName && /^New Company-/i.test(companyName)) companyName = null;
+  // TradeIndia placeholders for a masked or unknown buyer are not buyer data.
+  if (companyName && /^(New Company-|numbermasking-inquiry-)/i.test(companyName)) companyName = null;
+  if (contactName && /^New Buyer$/i.test(contactName)) contactName = null;
   if (!phone) phone = clean(requirement.match(/Mobile:\s*(\+?\d{8,15})/i)?.[1]);
   if (!country) country = clean(requirement.match(/Country:\s*([A-Za-z ]{2,30}?)(?:\s+Need more help|\s*$)/i)?.[1]);
 

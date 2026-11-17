@@ -20,6 +20,17 @@ Collected in Phase A (29 Sep 2026) using the read-only Gmail connector. I looked
 | `indiamart.buylead` | `buyleads@indiamart.com` | `Buyer Details for <Product>` | Arrives after **"Contact Buyer Now"** on a Buy Lead (the Cowork flow, §7.2b). The block after `Buyer's Contact Details:` holds verification ticks (`Phone ✓ Email ✓ GST ✓`), then `<Name> [<Company>] [<City> - <PIN>, <ST>]`, then `+91-XXXXXXXXXX`, then optionally `E-mail: …`. Next come `Buylead Details: <Product>` and a single line of `Key : Value` pairs (Quantity, Packaging Size, Protein Content %, Probable Order Value, …). The state is a 2-letter code (NL, MH, TN, GA, TS, MP). |
 | `indiamart.reply` | `buyershelp+reply@indiamart.com` | `<Seller>, N new messages for <Product> enquiry from <Buyer> via IndiaMART` or `Re: <original subject>` | A **conversation** on an existing IndiaMART lead, e.g. "Please send COA report" or "Any negotiation". Linked to the existing lead by buyer email or phone. It does not create a new lead unless no lead matches, in which case it goes to `needs_review`. |
 
+**Layouts added from the November 2026 mailbox study** (fixtures use invented data):
+
+| Format id | Sender | Subject pattern | Notes |
+|---|---|---|---|
+| `indiamart.enquiry` (helpdesk) | `buyershelpdesk@indiamart.com` | `Enquiry for <Product> from <Name>` (no "via IndiaMART") | Body: "I received your company details from IndiaMART while searching for <Product>. Below are the requirement details : …". Fixture `indiamart-enquiry-helpdesk` is **reconstructed** from a description (QUESTIONS Q-014). |
+| `indiamart.enquiry` (text part) | `buyershelp+enq@indiamart.com` | `Enquiry for <Product> from <FirstName> via IndiaMART` | Usable text part with `Label` / `:` / `value` on separate lines. Fixture `indiamart-enquiry-text`. |
+| `indiamart.buylead` (inline labels) | `buyleads@indiamart.com` | `Buyer Details for <Product>` | Several requirement labels share one line (`Quantity : … I want this for : … Probable Order Value : … Pack Size : …`) and end with `Attachment 1 Attachment 2`. Each value ends at the next known label. Fixture `indiamart-buylead-inline-labels`. |
+| `indiamart.buylead` (HTML table) | `buyleads@indiamart.com` | `Buyer Details for <Product>` | The text part is only "Dear User". In the HTML the buyer is on separate lines (name, then `City - PIN, ST`), the product is on the line after "Buylead Details:", and the requirements are table rows whose values are printed twice. Fixture `indiamart-buylead-html-table`. |
+| `indiamart.reply` (single message) | `buyershelp+reply@indiamart.com` | `Re: Enquiry for <Product> from <Buyer> via IndiaMART` | "You have a new message from <Buyer>, <Company> regarding <Product>". Fixture `indiamart-reply-single-message`. |
+| Ignored: allocation digest | `buyleads@indiamart.com` | `<N> India BuyLeads allocated successfully!` | A daily notice with no buyer. Classified as ignored. Fixture `indiamart-buyleads-allocated`. |
+
 There is no stable IndiaMART enquiry ID in these emails, so `source_ref` for IndiaMART email leads is the **Gmail message id** (`gmail:<messageId>`). Dedup across emails then falls back to contact + product + a 48h window (ADR-009).
 
 ## TradeIndia
@@ -32,6 +43,8 @@ All TradeIndia emails come from `inquiry.paid@rfis.tradeindia.com` and share one
 | WhatsApp inquiry | `<Product> Inquiry from <Name> through TI Whatsapp` | Same body as above. |
 | Buy-lead / RFI | `Looking for suppliers of <Product>` | `Buyer Details` may omit the name, and the RFI id is the literal placeholder `__RFI_ID__`. |
 | Catalog-website inquiry | `Inquiry from <digits> through tradeindia.com` | **HTML only** (the text part is `.`). "Requirement Details" contains a free-text message plus a `Details of the sender` block with `Name :`, `Company :`, `Email :` (may list several), `Mobile No. :` (may list several), `City :`, `State :` and `IP/Country :`. **STDM's own website (stdmfood.com) is a TradeIndia catalog, so website leads arrive in this format.** The subject "digits" are not a real phone number. |
+
+Added in November 2026: the subject `Hi Mr <Seller>, Check Inquiry for <Product> from <Buyer> through TradeIndia` (fixture `tradeindia-check-inquiry`), and masked buyers, where TradeIndia prints the placeholders `New Buyer`, `New Company-<digits>` or `numbermasking-inquiry-<digits>`; these are never stored as the buyer's name or company (fixture `tradeindia-looking-for-suppliers-masked`).
 
 **Inquiry ID.** The "Click here to check inquiry" link has an `ext=` query parameter. It is base64 for `rfi_id=<ID>&amp;section=Inbox#myReply`. In HTML the read-tracking pixel also carries `rfi_id=<ID>`. This ID is TradeIndia's inquiry ID. It lets an email be matched **exactly** to the same inquiry fetched through the TradeIndia API (ADR-009). The placeholder `__RFI_ID__` means there is no ID.
 

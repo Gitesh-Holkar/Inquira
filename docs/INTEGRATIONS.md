@@ -29,8 +29,9 @@ Agents never call these live accounts (`AGENTS.md` rule 13). Everything is devel
 | **Code** | `src/modules/sources/tradeindia/client.ts`, `normalize.ts`, `service.ts`. |
 | **Endpoint** | `GET https://www.tradeindia.com/utils/my_inquiry.html` with `userid`, `profile_id`, `key`, `from_date`, `to_date` (`YYYY-MM-DD`), `limit`, `page_no`. |
 | **Auth** | User ID, profile ID and key from the seller account, stored encrypted. |
-| **Limits handled** | Unknown officially. Inquira uses 7-day windows, 50 rows a page and 1.5 seconds between calls ([ADR-012](decisions/ADR-012-tradeindia-sync-windows.md)). |
-| **Errors** | 429 → backoff. 401, 403 or a "key/invalid" message → `reauth_required`. Non-JSON → integration error. |
+| **Dates** | `from_date` and `to_date` are built as **IST calendar dates** (`tradeIndiaDay`). This is an assumption: TradeIndia is an Indian service and publishes no specification. A UTC date would end "yesterday" between 00:00 and 05:30 IST. |
+| **Limits handled** | Unknown officially. Inquira uses 7-day windows, 50 rows a page and 1.5 seconds between calls ([ADR-012](decisions/ADR-012-tradeindia-sync-windows.md)). A run stops starting new requests after 35 seconds; the position is saved after every window in `integrations.cursor.resume`, so the first 30-day load continues across runs instead of restarting. |
+| **Errors** | 429 → backoff. 401, 403 or a "key/invalid" message → `reauth_required`. Non-JSON → integration error. A lead that fails to save keeps the sync at that window: it is retried on the next two runs and skipped on the third, with the lead's ID in the sync run's error text. |
 | **Status** | Built and tested against a fake. **Field names and limits are unverified until the first live call**; every field is read through alias lists and the raw payload is stored on the lead. |
 | **If replaced** | A new source module with `client`, `normalize` and `sync…` following this one (see `docs/ARCHITECTURE.md`, "Add a lead source"). |
 

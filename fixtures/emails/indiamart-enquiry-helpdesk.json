@@ -1,0 +1,32 @@
+{
+  "format": "indiamart.enquiry",
+  "subject": "Enquiry for Barley Protein Powder from Deepak Nair",
+  "date": "2026-11-12T06:10:00Z",
+  "text": "Download App\n\n  Hi Ravi Kumar ,\n\nI received your company details from IndiaMART while searching for Barley Protein Powder .\n\n   Below are the requirement details :\n\n      Quantity\n\n      :\n\n      50 Kg\n\n      Grade\n\n      :\n\n      Food Grade\n\n      Pack Type\n\n      :\n\n      Jar Pack\n\n   Call\n\n   Chat\n\n   Regards,\n\n      Deepak Nair\n\n      Sunrise Nutra Foods\n\n      Click to call:\n      +91-9000001101\n\n      Email:\n      deepak.sunrise@example.com\n\n      Kochi - 682001, Kerala, India\n\n   Additional details about me:\n\n      Requirements till date : 3\n\n      Member since : 1 Year\n",
+  "expected": {
+    "classification": "inquiry",
+    "source": "indiamart",
+    "kind": "enquiry",
+    "contact_name": "Deepak Nair",
+    "company": "Sunrise Nutra Foods",
+    "phone": "+919000001101",
+    "email": "deepak.sunrise@example.com",
+    "city": "Kochi",
+    "state": "Kerala",
+    "country": "India",
+    "product": "Barley Protein Powder",
+    "quantity": "50 Kg",
+    "international": false,
+    "message_contains": "Grade: Food Grade"
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "indiamart-enquiry-helpdesk",
+  "from": "IndiaMART <buyershelpdesk@indiamart.com>",
+  "_anonymised": true,
+  "reconstructed": true,
+  "_note": "Rebuilt from the audit's description of this layout (sender, subject and opening lines). The part after the requirements follows the +enq layout. Replace with a real anonymised email when the owner supplies one (QUESTIONS Q-014)."
+}

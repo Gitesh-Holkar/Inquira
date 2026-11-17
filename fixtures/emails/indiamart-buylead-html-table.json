@@ -1,0 +1,35 @@
+{
+  "format": "indiamart.buylead",
+  "subject": "Buyer Details for Roasted Gram Flour",
+  "date": "2026-11-12T06:10:00Z",
+  "text": "Dear User",
+  "expected": {
+    "classification": "inquiry",
+    "source": "indiamart",
+    "kind": "buylead",
+    "contact_name": "Senthil",
+    "company": null,
+    "phone": "+919000001303",
+    "email": null,
+    "city": "Madurai",
+    "state": "Tamil Nadu",
+    "country": "India",
+    "product": "Roasted Gram Flour",
+    "international": false,
+    "extras": {
+      "Type": "Defatted",
+      "Form": "Roasted",
+      "Protein Content": "> 50%",
+      "Grade": "Food Grade",
+      "Application": "Protein Supplements"
+    }
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": "<html><body><div><p><strong>Buy Lead through IndiaMART</strong></p><div>Buyer's Contact Details:</div><table><tr><td>Phone</span> <span>&#10003;</span></td></tr></table><table><tbody><tr><td><div>\r\n                            Senthil<br/> Madurai - 625001, TN    <br/>\r\n                             <a rel='nofollow' href=\"https://indmrt.example/call+91-9000001303\">&#43;91-9000001303</a><br/>\r\n<br/>\r\n\t\t\t\t\t\t\tMember Since: 1 month\r\n                        </div></td></tr></tbody></table><p>Buylead Details: </p><div><div><span><div><strong >Roasted Gram Flour </strong></div>\r\n<br/>\r\n<div><table><tr><td><strong>Type</strong></td><td><strong>:</strong></td><td>Defatted Defatted</td></tr><tr><td><strong>Form</strong></td><td><strong>:</strong></td><td>Roasted Roasted</td></tr><tr><td><strong>Protein Content</strong></td><td><strong>:</strong></td><td>> 50% > 50%</td></tr><tr><td><strong>Grade</strong></td><td><strong>:</strong></td><td>Food Grade Food Grade</td></tr><tr><td><strong>Application</strong></td><td><strong>:</strong></td><td>Protein Supplements Protein Supplements</td></tr></table></div><br/></div><div><a href=\"#\"> Reply To This Message</a></div></div><div><strong>Email: </strong><a href=\"mailto:buyleads@indiamart.com\">buyleads@indiamart.com</a><br> <strong>Call Us :</strong> 096-9696-9696</div><div>IndiaMART InterMESH Ltd. 6th floor, Tower 2, Assotech Business Cresterra, Plot No.22, Sec 135, Noida-201305, UP</div></div></body></html>",
+  "cc": [],
+  "id": "indiamart-buylead-html-table",
+  "from": "buyleads@indiamart.com",
+  "_anonymised": true
+}

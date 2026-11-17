@@ -1,0 +1,18 @@
+{
+  "format": "ignored",
+  "subject": "87 India BuyLeads allocated successfully!",
+  "date": "2026-11-12T06:10:00Z",
+  "text": "Dear Ravi Kumar,\n\n87 India BuyLeads have been allocated to your account successfully.\n\nLog in to your Lead Manager to view the latest BuyLeads matching your products.\n\nView BuyLeads\n\nIndiaMART InterMESH Ltd.\n",
+  "expected": {
+    "classification": "ignored",
+    "reason": "portal"
+  },
+  "to": [
+    "sales@seller.example"
+  ],
+  "html": null,
+  "cc": [],
+  "id": "indiamart-buyleads-allocated",
+  "from": "IndiaMART BuyLeads <buyleads@indiamart.com>",
+  "_anonymised": true
+}

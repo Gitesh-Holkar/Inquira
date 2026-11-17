@@ -10,22 +10,36 @@ export function extractAddress(from: string): string {
   return (m ? m[1]! : from).trim().toLowerCase();
 }
 
+/** Requirement labels IndiaMART prints. A value ends where the next known label starts. */
 const REQ_KEYS = [
-  "Quantity", "Quantity Unit", "Packaging Size", "Packaging Type", "Protein Form", "Protein Content %", "Protein Content",
+  "Quantity", "Quantity Unit", "Packaging Size", "Packaging Type", "Pack Size", "Pack Type", "Protein Form", "Protein Content %", "Protein Content",
   "Organic Status", "Probable Order Value", "Probable Requirement Type", "Grade", "Application", "Usage/Application", "Type",
   "Type of Requirement", "Purity", "Form", "Physical Form", "Color", "Brand", "Shelf Life", "Buyer Filled Details", "Packaging",
+  "I want this for", "Net Quantity",
 ];
 
-/** "Quantity : 25 Kg Protein Form : Concentrate ..." → { Quantity: "25 Kg", "Protein Form": "Concentrate", ... } */
+/** IndiaMART's HTML layout prints each value twice ("Food Grade Food Grade"); keep one copy. */
+function undouble(v: string): string {
+  const words = v.split(" ");
+  if (words.length % 2 !== 0) return v;
+  const half = words.length / 2;
+  return words.slice(0, half).join(" ") === words.slice(half).join(" ") ? words.slice(0, half).join(" ") : v;
+}
+
+/**
+ * "Quantity : 25 Kg Protein Form : Concentrate ..." → { Quantity: "25 Kg", "Protein Form": "Concentrate", ... }.
+ * Each value ends at the next known label. Trailing "Attachment 1 Attachment 2" markers are not part of a value.
+ */
 export function parseInlineKv(s: string): Record<string, string> {
+  const text = s.replace(/\s*\bAttachment \d+\b.*$/i, "");
   const keys = [...REQ_KEYS].sort((a, b) => b.length - a.length).map((k) => k.replace(/[.*+?^${}()|[\]\\/%]/g, "\\$&"));
   const re = new RegExp(`(?:^|\\s)(${keys.join("|")})\\s*:\\s*`, "g");
   const out: Record<string, string> = {};
-  const hits = [...s.matchAll(re)];
+  const hits = [...text.matchAll(re)];
   hits.forEach((h, i) => {
     const start = h.index! + h[0].length;
-    const end = i + 1 < hits.length ? hits[i + 1]!.index! : s.length;
-    const v = s.slice(start, end).trim();
+    const end = i + 1 < hits.length ? hits[i + 1]!.index! : text.length;
+    const v = undouble(text.slice(start, end).trim());
     if (v) out[h[1]!] = v;
   });
   return out;
@@ -61,7 +75,8 @@ function parseEnquiry(m: EmailInput): ParseResult | null {
   let mm: RegExpMatchArray | null;
   if ((mm = subject.match(/^Export Enquiry for (.+) from (.+?), ([^,]+?) via IndiaMART$/i))) {
     [product, firstName, country] = [mm[1]!, mm[2]!, mm[3]!];
-  } else if ((mm = subject.match(/^Enquiry for (.+) from (.+?) via IndiaMART$/i))) {
+  } else if ((mm = subject.match(/^Enquiry for (.+) from (.+?)(?: via IndiaMART)?$/i))) {
+    // "… via IndiaMART" (buyershelp+enq@) or without it (buyershelpdesk@).
     [product, firstName] = [mm[1]!, mm[2]!];
   } else if ((mm = subject.match(/^(.+?) Enquiry by Phone on /i))) {
     product = mm[1]!;
@@ -70,12 +85,13 @@ function parseEnquiry(m: EmailInput): ParseResult | null {
   } else return null;
 
   const ls = lines(bestText(m));
-  // Body product ("I am looking for X ." / "I need X .") beats the subject (subjects get truncated).
+  // Body product ("I am looking for X ." / "I need X ." / "… while searching for X .") beats the subject (subjects get truncated).
   const joined = ls.join(" ");
-  const bodyProduct = joined.match(/I am looking for (.+?) \.(?:\s|$)/)?.[1] ?? joined.match(/I need (.+?) \.(?:\s|$)/)?.[1];
+  const bodyProduct = joined.match(/I am looking for (.+?) \.(?:\s|$)/)?.[1] ?? joined.match(/I need (.+?) \.(?:\s|$)/)?.[1]
+    ?? joined.match(/from IndiaMART while searching for (.+?)\s*\.(?:\s|$)/)?.[1];
   if (bodyProduct) product = bodyProduct.trim();
 
-  const reqStart = ls.findIndex((l) => /^Below are my requirements:?$/i.test(l));
+  const reqStart = ls.findIndex((l) => /^Below are (?:my requirements|the requirement details)\s*:?$/i.test(l));
   const req = reqStart >= 0 ? parseRequirementLines(ls.slice(reqStart + 1)) : {};
 
   const regIdx = ls.findIndex((l) => /^Regards,?$/i.test(l));
@@ -167,14 +183,20 @@ function parseBuylead(m: EmailInput): ParseResult | null {
   if (start < 0) return null;
   let i = start + 1;
   if (ls[i] && /✓/.test(ls[i]!)) i++; // verification ticks
-  const identity = ls[i] ?? "";
-  const phoneLine = ls.slice(i, i + 4).find((l) => /^\+?\d[\d\s-]{7,}$/.test(l));
+  // The buyer line comes before the phone. The HTML layout breaks it into "Name" / "City - PIN, ST".
+  const phoneAt = ls.slice(i, i + 4).findIndex((l) => /^\+?\d[\d\s-]{7,}$/.test(l));
+  const phoneLine = phoneAt >= 0 ? ls[i + phoneAt] : undefined;
+  const identity = phoneAt >= 0 ? ls.slice(i, i + phoneAt).join(" ") : (ls[i] ?? "");
   const email = ls.slice(i, i + 6).map((l) => l.match(/^E-?mail:\s*(\S+@\S+)/i)?.[1]).find(Boolean) ?? null;
   const detailsIdx = ls.findIndex((l) => /^Buylead Details:/i.test(l));
-  const product = detailsIdx >= 0 ? ls[detailsIdx]!.replace(/^Buylead Details:\s*/i, "") : subj[1]!;
-  const kvLine = detailsIdx >= 0 ? ls.slice(detailsIdx + 1, detailsIdx + 4).filter((l) => !/^Reply To This Message/i.test(l) && !/^IndiaMART recommends/i.test(l)).join(" ") : "";
+  // "Buylead Details: Product" on one line (text part) or the product on the next line (HTML layout).
+  const inlineProduct = detailsIdx >= 0 ? ls[detailsIdx]!.replace(/^Buylead Details:\s*/i, "") : "";
+  const product = detailsIdx < 0 ? subj[1]! : inlineProduct || ls[detailsIdx + 1] || subj[1]!;
+  const kvFrom = detailsIdx >= 0 ? detailsIdx + (inlineProduct ? 1 : 2) : -1;
+  const kvEnd = kvFrom >= 0 ? ls.findIndex((l, n) => n >= kvFrom && /^(Reply To This Message|IndiaMART recommends|Email:)/i.test(l)) : -1;
+  const kvLine = kvFrom >= 0 ? ls.slice(kvFrom, kvEnd >= 0 ? kvEnd : kvFrom + 12).join(" ") : "";
   const kv = parseInlineKv(kvLine);
-  const id = splitBuyleadIdentity(identity === phoneLine ? "" : identity);
+  const id = splitBuyleadIdentity(identity);
   const sells = ls.find((l) => /^Sells:/i.test(l));
   const msgParts = [`Buyer line: ${identity}`];
   if (kvLine) msgParts.push(kvLine);

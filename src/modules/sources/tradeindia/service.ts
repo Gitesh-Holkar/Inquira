@@ -10,11 +10,25 @@ import {
 } from "@/modules/core/service";
 import { upsertLeadInternal } from "@/modules/leads/service";
 import { emptyStats, type SyncStats } from "../types";
-import { TradeIndiaAuthError, TradeIndiaClient, TradeIndiaRateLimited, type TradeIndiaCredentials } from "./client";
+import { inquiryWindows, TradeIndiaAuthError, TradeIndiaClient, TradeIndiaRateLimited, tradeIndiaDay, type TradeIndiaCredentials } from "./client";
 import { normalizeTradeIndia } from "./normalize";
 
 const BACKFILL_DAYS = 30;
 const OVERLAP_MS = 2 * 86400_000; // re-read the last 2 days each run; upserts are idempotent
+/** Stop starting new page fetches after this long, so a run always ends inside the 60 s function limit. */
+const TIME_BUDGET_MS = 35_000;
+const PAGE_DELAY_MS = 1500;
+/** A window whose leads keep failing is retried this many runs, then skipped with the error recorded. */
+const MAX_WINDOW_ATTEMPTS = 3;
+
+/**
+ * Where the sync is. `lastSuccessTo`: everything up to this instant was read by a completed range.
+ * `resume`: a range that is not finished yet; the next run continues at `windowStart`, `page`.
+ */
+export type TradeIndiaCursor = {
+  lastSuccessTo?: string;
+  resume?: { to: string; windowStart: string; page: number; attempts: number };
+};
 
 export const saveTradeIndiaCredentials = defineService({
   name: "tradeindia.saveCredentials",
@@ -69,49 +83,106 @@ export async function testConnectionInternal(ctx: Ctx, f: typeof fetch = fetch) 
 }
 
 /**
- * Incremental + idempotent sync. First run backfills 30 days; later runs read from
- * (last success - 2 days) to now. Dedupe is by rfi_id (unique source_ref).
+ * Idempotent, resumable sync (GOAL G-SRC-3). The first range is the last 30 days; later ranges start two
+ * days before the last completed range. A range is read in 7-day windows:
+ *  - after each window the position is saved, so a run killed by the host resumes there;
+ *  - past the time budget the run stops and the next tick continues (`more: true`);
+ *  - a window in which a lead failed to save is not passed: it is retried on the next runs, and only
+ *    after MAX_WINDOW_ATTEMPTS is it skipped, with the error kept in the sync run.
+ * Leads are de-duplicated by rfi_id (unique source_ref), so re-reading is harmless.
  */
-export async function syncTradeIndia(ctx: Ctx, opts: { fetchImpl?: typeof fetch; delayMs?: number; now?: Date } = {}): Promise<SyncStats & { skipped?: string }> {
+export async function syncTradeIndia(
+  ctx: Ctx,
+  opts: { fetchImpl?: typeof fetch; delayMs?: number; now?: Date; timeBudgetMs?: number; clock?: () => number } = {},
+): Promise<SyncStats & { skipped?: string; more?: boolean }> {
   const now = opts.now ?? new Date();
+  const clock = opts.clock ?? Date.now;
+  const deadline = clock() + (opts.timeBudgetMs ?? TIME_BUDGET_MS);
+  const delay = opts.delayMs ?? PAGE_DELAY_MS;
+  const pause = () => (delay ? new Promise((r) => setTimeout(r, delay)) : Promise.resolve());
   const { integ, creds } = await credsFor(ctx);
   if (!creds || !integ.enabled) return { ...emptyStats(), skipped: "not configured" };
   if (integ.backoffUntil && integ.backoffUntil > now) return { ...emptyStats(), skipped: `backing off until ${integ.backoffUntil.toISOString()}` };
   if (integ.status === "reauth_required") return { ...emptyStats(), skipped: "credentials rejected; fix in Settings" };
 
-  const lastOk = (integ.cursor as { lastSuccessTo?: string }).lastSuccessTo;
-  const kind = lastOk ? "incremental" : "backfill";
-  const from = lastOk ? new Date(new Date(lastOk).getTime() - OVERLAP_MS) : new Date(now.getTime() - BACKFILL_DAYS * 86400_000);
+  const cursor = (integ.cursor ?? {}) as TradeIndiaCursor;
+  const resume = cursor.resume;
+  const to = resume ? new Date(resume.to) : now;
+  const from = resume
+    ? new Date(resume.windowStart)
+    : cursor.lastSuccessTo ? new Date(new Date(cursor.lastSuccessTo).getTime() - OVERLAP_MS) : new Date(now.getTime() - BACKFILL_DAYS * 86400_000);
+  const kind = resume ? "resume" : cursor.lastSuccessTo ? "incremental" : "backfill";
   const run = await withSystemTx((tx) => startSyncRunInternal(tx, ctx, "tradeindia", kind));
   const stats = emptyStats();
   const client = new TradeIndiaClient(creds, opts.fetchImpl ?? fetch);
+  const savePosition = (next: TradeIndiaCursor) => withSystemTx((tx) => updateIntegrationInternal(tx, ctx, integ.id, { cursor: next }));
+  const windows = inquiryWindows(from, to);
+  let stop: TradeIndiaCursor["resume"] | null = null;
+  let stopReason: "time budget" | "lead errors" | null = null;
+
   try {
-    for await (const page of client.inquiries(from, now, { delayMs: opts.delayMs })) {
-      stats.fetched += page.length;
-      for (const raw of page) {
-        const lead = normalizeTradeIndia(raw);
-        if (!lead) {
-          stats.errors++;
-          stats.errorMessages.push("Inquiry without id skipped");
-          continue;
+    for (const [n, w] of windows.entries()) {
+      const firstPage = n === 0 && resume ? resume.page : 1;
+      let windowErrors = 0;
+      for (let page = firstPage; ; page++) {
+        if (clock() > deadline) {
+          // Out of time. A window with failed leads is read again from its first page.
+          stop = { to: to.toISOString(), windowStart: w.start.toISOString(), page: windowErrors ? 1 : page, attempts: n === 0 && resume ? resume.attempts : 0 };
+          stopReason = "time budget";
+          break;
         }
-        try {
-          const r = await withSystemTx((tx) => upsertLeadInternal(tx, ctx, lead));
-          if (r.created) stats.created++;
-          else stats.duplicates++;
-        } catch (e) {
-          stats.errors++;
-          stats.errorMessages.push(`${lead.sourceRef}: ${publicMessage(e).message}`);
+        const rows = await client.page(w.start, w.end, page);
+        stats.fetched += rows.length;
+        for (const raw of rows) {
+          const lead = normalizeTradeIndia(raw);
+          if (!lead) {
+            stats.errors++;
+            stats.errorMessages.push("Inquiry without id skipped");
+            continue;
+          }
+          try {
+            const r = await withSystemTx((tx) => upsertLeadInternal(tx, ctx, lead));
+            if (r.created) stats.created++;
+            else stats.duplicates++;
+          } catch (e) {
+            windowErrors++;
+            stats.errors++;
+            stats.errorMessages.push(`${lead.sourceRef}: ${publicMessage(e).message}`);
+          }
         }
+        if (rows.length < client.pageSize) break;
+        await pause();
+      }
+      if (stop) break;
+      if (windowErrors) {
+        const attempts = (n === 0 && resume ? resume.attempts : 0) + 1;
+        if (attempts < MAX_WINDOW_ATTEMPTS) {
+          stop = { to: to.toISOString(), windowStart: w.start.toISOString(), page: 1, attempts };
+          stopReason = "lead errors";
+          break;
+        }
+        stats.errorMessages.push(`Window ${tradeIndiaDay(w.start)} to ${tradeIndiaDay(w.end)} skipped after ${attempts} attempts`);
+      }
+      const next = windows[n + 1];
+      if (next) {
+        await savePosition({ ...cursor, resume: { to: to.toISOString(), windowStart: next.start.toISOString(), page: 1, attempts: 0 } });
+        await pause();
       }
     }
+
+    const nextCursor: TradeIndiaCursor = stop ? { lastSuccessTo: cursor.lastSuccessTo, resume: stop } : { lastSuccessTo: to.toISOString() };
     await withSystemTx(async (tx) => {
-      await finishSyncRunInternal(tx, run.id, { status: stats.errors ? "partial" : "ok", fetched: stats.fetched, created: stats.created, duplicates: stats.duplicates, errors: stats.errors, errorMessage: stats.errorMessages.slice(0, 5).join("; ") || null, meta: { from: from.toISOString(), to: now.toISOString() } });
-      await recordIntegrationSuccess(tx, ctx, integ, { status: "connected", cursor: { ...integ.cursor, lastSuccessTo: now.toISOString() }, lastError: stats.errors ? stats.errorMessages[0] ?? null : null });
-      await emit(tx, ctx, { type: "sync.completed", entityType: "integration", entityId: integ.id, payload: { provider: "tradeindia", ...stats, errorMessages: undefined } });
+      await finishSyncRunInternal(tx, run.id, {
+        status: stats.errors || stop ? "partial" : "ok", fetched: stats.fetched, created: stats.created, duplicates: stats.duplicates, errors: stats.errors,
+        errorMessage: stats.errorMessages.slice(0, 5).join("; ") || null,
+        meta: { from: from.toISOString(), to: to.toISOString(), ...(stop ? { stopped: stopReason, resumeFrom: stop.windowStart, page: stop.page } : {}) },
+      });
+      await recordIntegrationSuccess(tx, ctx, integ, { status: "connected", cursor: nextCursor, lastError: stats.errors ? stats.errorMessages[0] ?? null : null });
+      await emit(tx, ctx, { type: "sync.completed", entityType: "integration", entityId: integ.id, payload: { provider: "tradeindia", ...stats, errorMessages: undefined, more: !!stop } });
     });
-    return stats;
+    return stop ? { ...stats, more: true } : stats;
   } catch (e) {
+    // The position saved after the last finished window stays; the next run resumes there.
     const msg = e instanceof TradeIndiaRateLimited ? e.message : publicMessage(e).message === "Something went wrong. Please try again." ? String((e as Error).message).slice(0, 300) : publicMessage(e).message;
     await withSystemTx(async (tx) => {
       await finishSyncRunInternal(tx, run.id, { status: "error", fetched: stats.fetched, created: stats.created, duplicates: stats.duplicates, errors: stats.errors + 1, errorMessage: msg });

@@ -1,4 +1,5 @@
 import { AppError } from "@/lib/errors";
+import { todayIST } from "@/lib/format";
 
 /** TradeIndia "My Inquiry API". See docs/TRADEINDIA_API.md for what is known and what is assumed. */
 export const TRADEINDIA_ENDPOINT = "https://www.tradeindia.com/utils/my_inquiry.html";
@@ -16,15 +17,32 @@ export class TradeIndiaAuthError extends AppError {
   }
 }
 
-const ymd = (d: Date) => d.toISOString().slice(0, 10);
+/**
+ * The calendar date in IST. TradeIndia is an Indian service and its `from_date` / `to_date` are assumed
+ * to be IST dates (unverified; docs/INTEGRATIONS.md). A UTC date would end "yesterday" from 00:00 to 05:30 IST.
+ */
+export const tradeIndiaDay = (d: Date) => todayIST(d);
+
+const WINDOW_DAYS = 7;
+const DAY_MS = 86400_000;
+export type InquiryWindow = { start: Date; end: Date };
+
+/** Splits [from, to] into consecutive windows of at most 7 days (conservative; ADR-012). */
+export function inquiryWindows(from: Date, to: Date): InquiryWindow[] {
+  const out: InquiryWindow[] = [];
+  for (let start = new Date(from); start <= to; start = new Date(start.getTime() + WINDOW_DAYS * DAY_MS)) {
+    out.push({ start, end: new Date(Math.min(to.getTime(), start.getTime() + (WINDOW_DAYS - 1) * DAY_MS)) });
+  }
+  return out;
+}
 
 export class TradeIndiaClient {
-  constructor(private creds: TradeIndiaCredentials, private f: typeof fetch = fetch, private pageSize = 50) {}
+  constructor(private creds: TradeIndiaCredentials, private f: typeof fetch = fetch, readonly pageSize = 50) {}
 
   url(from: Date, to: Date, page: number) {
     const p = new URLSearchParams({
       userid: this.creds.userId, profile_id: this.creds.profileId, key: this.creds.key,
-      from_date: ymd(from), to_date: ymd(to), limit: String(this.pageSize), page_no: String(page),
+      from_date: tradeIndiaDay(from), to_date: tradeIndiaDay(to), limit: String(this.pageSize), page_no: String(page),
     });
     return `${TRADEINDIA_ENDPOINT}?${p}`;
   }
@@ -47,23 +65,5 @@ export class TradeIndiaClient {
     if (/no (record|inquir|data)/i.test(msg)) return [];
     if (res.status === 401 || res.status === 403 || /invalid|unauthori[sz]ed|key|credential/i.test(msg)) throw new TradeIndiaAuthError(msg);
     throw new AppError("INTEGRATION", `TradeIndia error: ${msg}`);
-  }
-
-  /** Yields pages for [from, to] split into 7-day windows (conservative; ADR-012). */
-  async *inquiries(from: Date, to: Date, opts: { delayMs?: number; maxPages?: number } = {}): AsyncGenerator<TradeIndiaInquiry[]> {
-    const delay = opts.delayMs ?? 1500;
-    let pages = 0;
-    for (let start = new Date(from); start <= to; start = new Date(start.getTime() + 7 * 86400_000)) {
-      const end = new Date(Math.min(to.getTime(), start.getTime() + 6 * 86400_000));
-      for (let page = 1; ; page++) {
-        if (opts.maxPages && pages >= opts.maxPages) return;
-        const rows = await this.page(start, end, page);
-        pages++;
-        if (rows.length) yield rows;
-        if (rows.length < this.pageSize) break;
-        if (delay) await new Promise((r) => setTimeout(r, delay));
-      }
-      if (delay) await new Promise((r) => setTimeout(r, delay));
-    }
   }
 }

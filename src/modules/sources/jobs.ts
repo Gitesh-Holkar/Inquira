@@ -5,7 +5,11 @@ import type { Ctx } from "@/modules/core/types";
 import { syncGmail } from "./gmail/service";
 import { syncTradeIndia } from "./tradeindia/service";
 
+/** A handler may return `{ more: true }` when it stopped early (time budget, backlog); a follow-up is then queued. */
 type Handler = (ctx: Ctx, payload: Record<string, unknown>) => Promise<unknown>;
+
+/** Follow-ups wait a minute, so they run on the next tick and never twice in the same one. */
+const FOLLOW_UP_DELAY_MS = 60_000;
 
 /** Job type → handler. Register new background work here (see docs/ARCHITECTURE.md). */
 export const JOB_HANDLERS: Record<string, Handler> = {
@@ -43,7 +47,14 @@ export async function tick(opts: { maxJobs?: number; schedule?: boolean; startBu
     try {
       if (!handler) throw new Error(`No handler for job type ${job.type}`);
       const result = await handler(ctx, job.payload);
-      await withSystemTx((tx) => completeJobInternal(tx, job.id));
+      await withSystemTx(async (tx) => {
+        await completeJobInternal(tx, job.id);
+        // Queue the follow-up only now: while the job was running it still held its de-duplication key,
+        // so an enqueue from inside the handler would have been dropped.
+        if ((result as { more?: boolean } | null)?.more) {
+          await enqueueJobInternal(tx, ctx, { type: job.type, payload: job.payload, dedupeKey: job.type, runAfter: new Date(Date.now() + FOLLOW_UP_DELAY_MS) });
+        }
+      });
       results.push({ id: job.id, type: job.type, ok: true, result });
     } catch (e) {
       const msg = e instanceof Error ? e.message : publicMessage(e).message;

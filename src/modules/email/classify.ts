@@ -94,6 +94,8 @@ export function classifyEmail(m: EmailInput, ctx: ClassifyContext): ClassifyResu
   }
   if (/@([a-z0-9-]+\.)*(indiamart|tradeindia)\.com$/i.test(addr)) {
     // Portal mail we don't recognise (newsletters, account notices, new templates)
+    // The daily "87 India BuyLeads allocated successfully!" digest names no buyer: it is a notice, not an enquiry.
+    if (/buy\s?leads? allocated/i.test(m.subject)) return { classification: "ignored", reason: "Portal notification (not an inquiry)", by: "system" };
     if (/enquiry|inquiry|buyer|lead/i.test(m.subject)) return { classification: "needs_review", reason: "Unrecognised portal format", by: "system" };
     return { classification: "ignored", reason: "Portal notification (not an inquiry)", by: "system" };
   }
