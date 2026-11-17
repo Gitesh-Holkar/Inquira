@@ -22,7 +22,7 @@ export function actorString(actor: Actor): string {
 export const EVENT_TYPES = [
   "lead.created", "lead.updated", "lead.status_changed", "lead.note_added", "lead.duplicate_merged",
   "contact.created", "email.received", "email.classified", "quote.drafted", "quote.failed",
-  "rate.updated", "product.created", "product.updated", "integration.connected", "integration.error", "integration.disconnected",
+  "rate.updated", "product.created", "product.updated", "product.removed", "product.restored", "integration.connected", "integration.error", "integration.disconnected",
   "sync.completed", "buylead.decision_logged", "template.updated", "rule.created", "mcp.token_created", "mcp.token_revoked",
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];

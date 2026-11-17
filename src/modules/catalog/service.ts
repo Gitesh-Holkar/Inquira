@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, lte, or, gte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lte, or, gte, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Tx } from "@/db/client";
 import { AppError, notFound } from "@/lib/errors";
@@ -8,6 +8,7 @@ import { defineService } from "@/modules/core/service-kit";
 import { actorString, type Ctx } from "@/modules/core/types";
 import { priceEntries, productGrades, products } from "./schema";
 import { updateRatesInput, type CurrentRate } from "./types";
+import { addProductTermsInternal, dropProductTermsInternal } from "@/modules/buyleads/service";
 
 /** Current rate per grade: newest entry valid today (append-only book, ADR-006). */
 export async function currentRatesInternal(tx: Tx, orgId: string, opts: { productIds?: string[]; asOf?: string } = {}): Promise<CurrentRate[]> {
@@ -204,9 +205,57 @@ export async function createProductInternal(tx: Tx, ctx: Ctx, input: z.output<ty
 
 /** A product name is unique in a company (also among removed products), so say so instead of failing on the index. */
 async function assertNameFree(tx: Tx, orgId: string, name: string) {
-  const [clash] = await tx.select({ id: products.id }).from(products).where(and(eq(products.orgId, orgId), eq(products.name, name)));
+  const [clash] = await tx.select({ id: products.id, deletedAt: products.deletedAt }).from(products).where(and(eq(products.orgId, orgId), eq(products.name, name)));
+  if (clash?.deletedAt) throw new AppError("VALIDATION", "A removed product has this name. Restore it under Rates → Removed products instead", { fieldErrors: { name: ["Used by a removed product"] } });
   if (clash) throw new AppError("VALIDATION", "A product with this name already exists", { fieldErrors: { name: ["Already used by another product"] } });
 }
+
+/**
+ * Takes a product out of the catalogue (discontinued, or added by mistake). It no longer appears on the
+ * Rates screen, in quotations, in lead matching or in Buy Lead suggestions. Nothing is deleted: its
+ * grades, rates and history stay, leads keep their link, and `restoreProduct` brings it back as it was.
+ */
+export const removeProduct = defineService({
+  name: "catalog.removeProduct",
+  input: z.object({ productId: z.string().uuid() }),
+  permission: "catalog.write",
+  handler: async (ctx, input, tx) => {
+    const [p] = await tx.select().from(products).where(and(eq(products.orgId, ctx.orgId), eq(products.id, input.productId), isNull(products.deletedAt)));
+    if (!p) throw notFound("Product");
+    await tx.update(products).set({ deletedAt: new Date() }).where(eq(products.id, p.id));
+    const buyleadTerms = await dropProductTermsInternal(tx, ctx, p.id);
+    await audit(tx, ctx, { action: "product.remove", entityType: "product", entityId: p.id, changes: { name: p.name, buyleadTermsRemoved: buyleadTerms } });
+    await emit(tx, ctx, { type: "product.removed", entityType: "product", entityId: p.id, payload: { name: p.name } });
+    return { ok: true };
+  },
+});
+
+/** Brings a removed product back with its grades and rates, and its Buy Lead match terms. */
+export const restoreProduct = defineService({
+  name: "catalog.restoreProduct",
+  input: z.object({ productId: z.string().uuid() }),
+  permission: "catalog.write",
+  handler: async (ctx, input, tx) => {
+    const [p] = await tx.select().from(products).where(and(eq(products.orgId, ctx.orgId), eq(products.id, input.productId)));
+    if (!p) throw notFound("Product");
+    if (!p.deletedAt) return { ok: true };
+    await tx.update(products).set({ deletedAt: null }).where(eq(products.id, p.id));
+    await addProductTermsInternal(tx, ctx, p);
+    await audit(tx, ctx, { action: "product.restore", entityType: "product", entityId: p.id, changes: { name: p.name } });
+    await emit(tx, ctx, { type: "product.restored", entityType: "product", entityId: p.id, payload: { name: p.name } });
+    return { ok: true };
+  },
+});
+
+/** Removed products, newest first, for Rates → Removed products. */
+export const listRemovedProducts = defineService({
+  name: "catalog.listRemovedProducts",
+  input: z.object({}).default({}),
+  permission: "catalog.read",
+  handler: (ctx, _i, tx) =>
+    tx.select({ id: products.id, name: products.name, category: products.category, removedAt: products.deletedAt }).from(products)
+      .where(and(eq(products.orgId, ctx.orgId), isNotNull(products.deletedAt))).orderBy(desc(products.deletedAt)),
+});
 
 export const createProduct = defineService({
   name: "catalog.createProduct",
@@ -322,8 +371,18 @@ export async function productMatcherCatalog(tx: Tx, orgId: string): Promise<Prod
 }
 
 export async function productNameById(tx: Tx, orgId: string, id: string): Promise<string | null> {
-  const [p] = await tx.select({ name: products.name }).from(products).where(and(eq(products.orgId, orgId), eq(products.id, id)));
-  return p?.name ?? null;
+  return (await productInfoById(tx, orgId, id))?.name ?? null;
+}
+
+/** Name and whether the product was removed from the catalogue (leads keep pointing at removed products). */
+export async function productInfoById(tx: Tx, orgId: string, id: string): Promise<{ name: string; removed: boolean } | null> {
+  const [p] = await tx.select({ name: products.name, deletedAt: products.deletedAt }).from(products).where(and(eq(products.orgId, orgId), eq(products.id, id)));
+  return p ? { name: p.name, removed: !!p.deletedAt } : null;
+}
+
+/** Names of removed products, so an import or a new product with the same name is explained instead of failing. */
+export async function removedProductNamesInternal(tx: Tx, orgId: string): Promise<string[]> {
+  return (await tx.select({ name: products.name }).from(products).where(and(eq(products.orgId, orgId), isNotNull(products.deletedAt)))).map((r) => r.name);
 }
 
 export async function countProducts(tx: Tx, orgId: string) {

@@ -170,3 +170,23 @@ export async function seedRulesFromCatalogInternal(tx: Tx, ctx: Ctx, catalog: { 
   await audit(tx, ctx, { action: "buylead.rules_seed", entityType: "buylead_rules", entityId: r.id, changes: { products: productTerms.length } });
   return after!;
 }
+
+/** A product left the catalogue: its Buy Lead match terms go too, so nothing is suggested for it. Returns how many entries were removed. */
+export async function dropProductTermsInternal(tx: Tx, ctx: Ctx, productId: string): Promise<number> {
+  const r = await getRulesInternal(tx, ctx);
+  const kept = r.productTerms.filter((t) => t.productId !== productId);
+  if (kept.length === r.productTerms.length) return 0;
+  await tx.update(buyleadRules).set({ productTerms: kept }).where(eq(buyleadRules.id, r.id));
+  await audit(tx, ctx, { action: "buylead.rules_product_removed", entityType: "buylead_rules", entityId: r.id, changes: { productId } });
+  return r.productTerms.length - kept.length;
+}
+
+/** A product came back: match terms from its name and other names, unless it already has an entry. */
+export async function addProductTermsInternal(tx: Tx, ctx: Ctx, product: { id: string; name: string; aliases: string[] }) {
+  const r = await getRulesInternal(tx, ctx);
+  if (r.productTerms.some((t) => t.productId === product.id)) return;
+  const terms = [...new Set([product.name.toLowerCase().replace(/\s*\([^)]*\)/g, ""), ...product.aliases.map((a) => a.toLowerCase())])];
+  await tx.update(buyleadRules).set({ productTerms: [...r.productTerms, { productId: product.id, productName: product.name, terms }] }).where(eq(buyleadRules.id, r.id));
+  await audit(tx, ctx, { action: "buylead.rules_product_added", entityType: "buylead_rules", entityId: r.id, changes: { productId: product.id } });
+}
+

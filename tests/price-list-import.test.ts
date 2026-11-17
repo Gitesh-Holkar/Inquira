@@ -9,7 +9,11 @@ import { asc, eq } from "drizzle-orm";
 import { closeDb, getDb } from "@/db/client";
 import { auditLogs, orgSettings } from "@/modules/core/schema";
 import { priceEntries, productGrades, products } from "@/modules/catalog/schema";
-import { createProduct, getCurrentRates, listProducts, rateHistory, updateProduct, updateRates } from "@/modules/catalog/service";
+import { createProduct, getCurrentRates, listProducts, listRemovedProducts, productMatcherCatalog, rateHistory, removeProduct, restoreProduct, updateProduct, updateRates } from "@/modules/catalog/service";
+import { getBuyleadRules, getBuyleadRulesCompact, updateBuyleadRules } from "@/modules/buyleads/service";
+import { createQuoteDraft } from "@/modules/quotes/service";
+import { leads } from "@/modules/leads/schema";
+import { withSystemTx } from "@/db/client";
 import { planCounts } from "@/modules/catalog/price-list";
 import { applyPriceListImport, planPriceListImport, savePriceListMap } from "@/modules/catalog/price-list-service";
 import { seed } from "@/server/seed";
@@ -115,7 +119,7 @@ describe("price list import (G-KB-6)", () => {
   });
 });
 
-describe("editing a product (G-KB-1)", () => {
+describe("editing and removing a product (G-KB-1)", () => {
   beforeEach(resetDb);
   afterAll(closeDb);
 
@@ -141,6 +145,32 @@ describe("editing a product (G-KB-1)", () => {
     await expect(updateProduct(ctx, { productId: fiber.product.id, name: "Sample Fibre", aliases: [], grades: [{ id: protein.grades[0]!.id, name: "X" }] })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
+  it("removing a discontinued product hides it everywhere and keeps its history; restoring brings it back as it was", async () => {
+    const { org, ctx, user, fiber } = await company();
+    await updateBuyleadRules(ctx, { productTerms: [{ productId: fiber.product.id, productName: "Sample Fiber", terms: ["sample fiber"] }], excludedTerms: [], allowedCountries: ["India"], allowedStates: [], excludedStates: [], minQuantityKg: null, maxQuantityKg: null, dailyCap: 5 });
+    const [lead] = await getDb().insert(leads).values({ orgId: org.id, source: "manual", sourceRef: "m-rm", productText: "Sample Fiber", productId: fiber.product.id, createdBy: "system:test" }).returning();
+
+    await removeProduct(ctx, { productId: fiber.product.id });
+    expect((await getCurrentRates(ctx, {})).map((r) => r.productName)).not.toContain("Sample Fiber");
+    expect((await withSystemTx((tx) => productMatcherCatalog(tx, org.id))).map((p) => p.name)).not.toContain("Sample Fiber");
+    expect((await getBuyleadRulesCompact(ctx, {})).products).toEqual([]); // no Buy Lead suggestions for it
+    expect((await listRemovedProducts(ctx, {})).map((p) => p.name)).toEqual(["Sample Fiber"]);
+    // A quote for a lead still linked to it says what happened instead of "no rate".
+    await expect(createQuoteDraft(ctx, { leadId: lead!.id })).rejects.toThrow(/was removed from the catalogue/);
+    // The same name cannot be added again by mistake, and a price list line for it is explained, not crashed on.
+    await expect(createProduct(ctx, { name: "Sample Fiber" })).rejects.toThrow(/removed product has this name/);
+    const plan = await planPriceListImport(ctx, { text: "Sample Fiber - 300 Rs/Kg", map: { categories: {}, lines: { "sample fiber": { product: "Sample Fiber", grade: "Standard" } } } });
+    expect(plan.rows[0]!.problems.join(" ")).toMatch(/was removed from the catalogue/);
+
+    await restoreProduct(ctx, { productId: fiber.product.id });
+    const back = (await getCurrentRates(ctx, {})).find((r) => r.productId === fiber.product.id);
+    expect(back).toMatchObject({ productName: "Sample Fiber", pricePerKgInr: "275.00" });
+    expect((await getBuyleadRules(ctx, {})).productTerms.map((t) => t.productId)).toEqual([fiber.product.id]);
+    expect(await listRemovedProducts(ctx, {})).toEqual([]);
+    const actions = (await getDb().select().from(auditLogs).where(eq(auditLogs.orgId, org.id))).filter((a) => a.actor === `human:${user.id}`).map((a) => a.action);
+    expect(actions).toEqual(expect.arrayContaining(["product.remove", "buylead.rules_product_removed", "product.restore", "buylead.rules_product_added"]));
+  });
+
   it("two grades can swap names in one save", async () => {
     const { ctx } = await setupOrgWithUser("owner");
     const p = await createProduct(ctx, { name: "Sample Starch", grades: ["Native", "Waxy"] });
@@ -154,9 +184,12 @@ describe("editing a product (G-KB-1)", () => {
       const u = await createUser();
       await addMember(org.id, u, role);
       await expect(updateProduct(human(org.id, u, role), { productId: fiber.product.id, name: "Changed", aliases: [] })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(removeProduct(human(org.id, u, role), { productId: fiber.product.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(restoreProduct(human(org.id, u, role), { productId: fiber.product.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
     }
     const other = await setupOrgWithUser("owner");
     await expect(updateProduct(other.ctx, { productId: fiber.product.id, name: "Changed", aliases: [] })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(removeProduct(other.ctx, { productId: fiber.product.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });
 

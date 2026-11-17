@@ -12,8 +12,7 @@
     "Saccharides": { "gst_percent": 5, "pack_size": "25 Kg" },
     "Lecithin": {
       "gst_percent": 18,
-      "pack_size": "25 Kg",
-      "needs_confirmation": "GST to confirm: the price list's GST section puts Lecithin at 18%, the owner's note of 16 Nov 2026 says only proteins are 18%. Kept at 18% as printed on the list"
+      "pack_size": "25 Kg"
     }
   },
   "product_overrides": {

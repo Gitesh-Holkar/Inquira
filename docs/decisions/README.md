@@ -37,7 +37,7 @@ Each file has: Context, Problem, Options, Decision, Reasoning, Consequences, Sta
 
 | Decision | Planned status | Milestone |
 | --- | --- | --- |
-| Open-source licence; company data as named seed sets | Accepted once the owner chooses | M1 |
+| Open-source licence | Deferred by the owner on 17 Nov 2026 (`QUESTIONS.md` Q-016) | M1, later |
 | Runtime modes (cloud, local) with adapters for auth, file storage and scheduler | Accepted | M2 |
 | Local-mode sign-in method | Accepted | M2 |
 | IndiaMART through Push plus Pull, with email as cross-check | Accepted | M4 |

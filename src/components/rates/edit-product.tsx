@@ -1,17 +1,18 @@
 "use client";
 import { useState, useTransition } from "react";
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ConfirmDialog, Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/primitives";
-import { updateProductAction } from "@/app/(app)/rates/actions";
+import { removeProductAction, updateProductAction } from "@/app/(app)/rates/actions";
 
 export type EditableProduct = { id: string; name: string; category: string | null; aliases: string[]; grades: { id: string; name: string }[] };
 
 /**
  * Corrects a product: its name, category, the other names buyers use, and its grades. Grades can be
  * renamed and added but not removed, because their rates are history. Prices are edited on the table.
+ * "Remove product" takes a discontinued product out of the catalogue; Rates → Removed products restores it.
  */
 export function EditProductButton({ products }: { products: EditableProduct[] }) {
   const [open, setOpen] = useState(false);
@@ -57,7 +58,16 @@ export function EditProductButton({ products }: { products: EditableProduct[] })
                 {errors.grades ? <p className="text-xs text-danger" role="alert">{errors.grades[0]}</p> : null}
               </fieldset>
               <Field label="Add grades (comma separated)" htmlFor="ep-new" hint="Enter their rates on the Rates screen afterwards"><Input id="ep-new" name="newGrades" placeholder="30%, 50%" /></Field>
-              <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save product"}</Button></div>
+              <div className="flex flex-wrap justify-between gap-2">
+                <ConfirmDialog danger title={`Remove ${p.name}?`} confirmLabel="Remove product"
+                  description="It disappears from rates, quotations, lead matching and Buy Lead suggestions. Its rates and history are kept, and you can restore it under Rates → Removed products."
+                  trigger={<Button type="button" variant="outline" disabled={pending}><Trash2 />Remove product</Button>}
+                  onConfirm={() => start(async () => {
+                    const r = await removeProductAction(p.id);
+                    if (r.ok) { toast.success(`${p.name} removed`); setOpen(false); setId(""); } else toast.error(r.error);
+                  })} />
+                <div className="flex gap-2"><Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save product"}</Button></div>
+              </div>
             </form>
           ) : null}
         </div>

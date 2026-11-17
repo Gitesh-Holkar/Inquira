@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth";
 import { runAction } from "@/lib/actions";
-import { createProduct, rateHistory, updateProduct, updateRates } from "@/modules/catalog/service";
+import { createProduct, rateHistory, removeProduct, restoreProduct, updateProduct, updateRates } from "@/modules/catalog/service";
 import { planCounts, planSections, type PlanSection } from "@/modules/catalog/price-list";
 import { applyPriceListImport, planPriceListImport, savePriceListMap } from "@/modules/catalog/price-list-service";
 
@@ -75,6 +75,22 @@ export async function updateProductAction(input: ProductEdit) {
     productId: input.productId, name: input.name, category: input.category || null,
     aliases: split(input.aliases).map((a) => a.toLowerCase()), grades: input.grades, newGrades: split(input.newGrades),
   }));
+  revalidatePath("/rates");
+  return r.ok ? { ok: true as const } : r;
+}
+
+/** Takes a product out of the catalogue; its rates and history are kept (Rates → Edit product → Remove). */
+export async function removeProductAction(productId: string) {
+  const s = await requireSession("catalog.write");
+  const r = await runAction(() => removeProduct(s.ctx, { productId }));
+  revalidatePath("/rates");
+  return r.ok ? { ok: true as const } : r;
+}
+
+/** Brings a removed product back (Rates → Removed products). */
+export async function restoreProductAction(productId: string) {
+  const s = await requireSession("catalog.write");
+  const r = await runAction(() => restoreProduct(s.ctx, { productId }));
   revalidatePath("/rates");
   return r.ok ? { ok: true as const } : r;
 }

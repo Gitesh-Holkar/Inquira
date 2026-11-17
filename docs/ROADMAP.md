@@ -23,7 +23,7 @@ Each milestone is planned, built, tested and documented before the next one star
 | # | Milestone | Phase | Requirements | Owner gate |
 | --- | --- | --- | --- | --- |
 | M0 | Safe and correct | 0 | G-PLT-1, G-SRC-3, G-SRC-4 | — |
-| M1 | Open-source foundation | 0 | G-OSS-1 to G-OSS-4, P6 | Licence choice |
+| M1 | Open-source foundation | 0 | G-OSS-1 to G-OSS-4, P6 | Deferred by the owner on 17 Nov 2026: no licence and no public release for now (`QUESTIONS.md` Q-016) |
 | M2 | Local mode | 0 | G-PLT-5, G-PLT-6 | — |
 | M3 | New price list and import command | 0 | G-KB-6 | Confirm the diff before anything is written to a live database |
 | M4 | IndiaMART API | 1 | G-SRC-1, G-SRC-2, G-SRC-6, G-SRC-7, G-SRC-8 | Register the Push URL; enter the Pull key |

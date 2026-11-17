@@ -100,6 +100,19 @@ test("main flows", async ({ page }) => {
   await editDialog.getByRole("button", { name: "Save product" }).click();
   await expect(page.getByText("Product saved")).toBeVisible();
 
+  // Remove a discontinued product, then restore it from Removed products
+  await expect(async () => {
+    if (!(await editDialog.isVisible())) await page.getByRole("button", { name: "Edit product" }).click();
+    await expect(editDialog).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 30_000 });
+  await editDialog.getByLabel("Product", { exact: true }).selectOption({ label: "Wheat Starch" });
+  await editDialog.getByRole("button", { name: "Remove product" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Remove product" }).click();
+  await expect(page.getByText("Wheat Starch removed")).toBeVisible();
+  await page.getByText("Removed products").click();
+  await page.getByRole("button", { name: "Restore" }).click();
+  await expect(page.getByText("Wheat Starch restored")).toBeVisible();
+
   // Import a price list (G-KB-6): paste, read what would change, apply. A line with no known GST rate is left out.
   await page.getByRole("link", { name: "Import price list" }).click();
   await expect(page.getByRole("heading", { name: "Import price list" })).toBeVisible();

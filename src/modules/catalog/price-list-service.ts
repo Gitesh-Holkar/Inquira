@@ -14,7 +14,7 @@ import { getOrgSettingsInternal, setPriceListMapInternal } from "@/modules/core/
 import { defineService, parseInput } from "@/modules/core/service-kit";
 import { actorString, type Ctx } from "@/modules/core/types";
 import { productGrades, products } from "./schema";
-import { createProductInternal, currentRatesInternal, insertRatesInternal } from "./service";
+import { createProductInternal, currentRatesInternal, insertRatesInternal, removedProductNamesInternal } from "./service";
 import { parsePriceList, planImport, priceListMapSchema, type CatalogForImport, type ImportPlan } from "./price-list";
 import { updateRatesInput } from "./types";
 
@@ -44,7 +44,7 @@ export async function catalogForImportInternal(tx: Tx, orgId: string): Promise<C
 async function plan(tx: Tx, ctx: Ctx, input: z.output<typeof importInput>): Promise<ImportPlan> {
   const settings = await getOrgSettingsInternal(tx, ctx.orgId);
   try {
-    return planImport(parsePriceList(input.text), await catalogForImportInternal(tx, ctx.orgId), input.map ?? settings.priceListMap ?? {}, { priceBasis: settings.defaultPriceBasis });
+    return planImport(parsePriceList(input.text), await catalogForImportInternal(tx, ctx.orgId), input.map ?? settings.priceListMap ?? {}, { priceBasis: settings.defaultPriceBasis, removedNames: await removedProductNamesInternal(tx, ctx.orgId) });
   } catch (e) {
     if (e instanceof z.ZodError) throw new AppError("VALIDATION", "The price list mapping file is not valid", z.flattenError(e));
     throw e;

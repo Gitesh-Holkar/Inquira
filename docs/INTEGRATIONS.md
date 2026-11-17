@@ -48,7 +48,7 @@ Details of what was probed and what is assumed: [`docs/TRADEINDIA_API.md`](TRADE
 | **Auth** | `DATABASE_URL` (transaction pooler, port 6543), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (seed only). `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF` are only for the HTTPS migration scripts. |
 | **Limits** | The built-in mailer sends only a few emails an hour, which matters for password-reset links. The free tier pauses inactive projects. |
 | **Errors** | Sign-in failures are explained on the sign-in page (`docs/SETUP.md` section 4). |
-| **Status** | In use: migrations 0000 to 0002 applied and the first company seeded. On 17 Nov 2026 the `SUPABASE_ACCESS_TOKEN` in the agent environment was rejected (401), so `db:remote:*` cannot run until the owner replaces it; `docs/SETUP.md` section 11 has the other two ways to apply a migration. |
+| **Status** | In use: migrations 0000 to 0004 applied (0003 and 0004 on 17 Nov 2026) and the first company seeded. Agent sessions reach the Management API with a token the owner saved as a network secret for `api.supabase.com` (Database read and write, this project only); run the scripts with `NODE_USE_ENV_PROXY=1 SUPABASE_ACCESS_TOKEN=proxy-injected` (`docs/SETUP.md` section 11). |
 | **If replaced** | Local mode (GOAL G-PLT-5) replaces all three parts: its own Postgres, its own sign-in and a worker loop. The seams are `src/db/client.ts`, `src/lib/auth.ts` and the tick endpoint. |
 
 ## Hosting (Vercel)

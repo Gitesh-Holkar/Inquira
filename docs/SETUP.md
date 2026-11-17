@@ -297,6 +297,8 @@ A product that is not in your catalogue is only added when Inquira knows its GST
 
 **A product's name, its other names or its grades:** **Rates → Edit product**. Other names are what buyers call the product; they help match enquiries and price list lines to it. A grade can be renamed or added, not removed, because its rates are history.
 
+**A discontinued product:** **Rates → Edit product** → choose it → **Remove product**. It disappears from rates, quotations, lead matching and Buy Lead suggestions; its rates and history are kept. To bring it back: **Removed products** at the bottom of the Rates screen → **Restore**.
+
 **Payment terms, price basis, quotation validity:** **Settings → Organisation**. Payment terms are printed on every quotation; leave the field empty to leave the line out. MOQ and pack size are part of each rate.
 
 From a terminal, `npm run rates:import -- <list.txt>` prints the same changes and writes only with `--confirm`.
@@ -309,7 +311,7 @@ To apply the change, use one of these:
 
 - **No tools needed:** Supabase → **SQL Editor** → **New query** → paste the SQL block that came with the update → **Run**. Then Vercel → **Deployments** → open the failed one → **Redeploy**. The block is produced with `npm run db:manual-sql -- <migration names>`; running it twice does nothing the second time.
 - **From a computer with this repository and `.env.local`:** `npm run db:migrate`.
-- **From an agent session:** `npm run db:remote:apply`, which needs a valid `SUPABASE_ACCESS_TOKEN` in the session's environment (Supabase → Account → Access Tokens).
+- **From an agent session:** `NODE_USE_ENV_PROXY=1 SUPABASE_ACCESS_TOKEN=proxy-injected npm run db:remote:apply`. The real token is a network secret for `api.supabase.com` saved on the session's environment (Supabase → Account → Access Tokens; permission: Database read and write on this project only). `NODE_USE_ENV_PROXY=1` makes Node send its requests through the session's proxy, which adds the token.
 
 ## 12. Troubleshooting
 

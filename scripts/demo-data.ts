@@ -1,6 +1,7 @@
 /**
  * LOCAL DEMO DATA ONLY. Loads the anonymised email fixtures through the real ingest pipeline
- * (parsers → classification → leads), plus a few buy-lead decisions, so every screen has content.
+ * (parsers → classification → leads), plus a few buy-lead decisions and one rate marked "to check"
+ * (as an import marks an unclear line), so every screen has content.
  * Refuses to run against anything but a localhost database.
  *   DATABASE_URL=postgres://postgres:postgres@127.0.0.1:54322/inquira_dev npm run demo:data
  */
@@ -11,6 +12,7 @@ import { listOrgIdsInternal, getIntegrationInternal, updateIntegrationInternal }
 import { ingestMessageInternal } from "@/modules/email/service";
 import { logBuyleadDecision } from "@/modules/buyleads/service";
 import { listLeads, updateLeadStatus, addLeadNote } from "@/modules/leads/service";
+import { getCurrentRates, updateRates } from "@/modules/catalog/service";
 import type { Ctx } from "@/modules/core/types";
 
 const url = process.env.DATABASE_URL ?? "";
@@ -56,6 +58,15 @@ try {
     { lead_title: "Pea Protein Isolate 500 kg, Pune", product: "Pea Protein Isolate", location: "Pune, MH", quantity: "500 kg", decision: "would_contact" as const, reason: "Matches pea protein; Maharashtra; qty in range" },
     { lead_title: "Potato starch production plant", product: "Potato Starch", location: "Sidhpur, GJ", decision: "skipped" as const, reason: "Excluded term: production plant" },
   ]) await logBuyleadDecision(ctx, d);
+  // One rate marked "to check", so the Rates screen shows the Confirm badge and its flow.
+  const toCheck = (await getCurrentRates(ctx, {})).find((r) => r.pricePerKgInr && !r.needsConfirmation && r.productName === "Soya Isoflavones")
+    ?? (await getCurrentRates(ctx, {})).find((r) => r.pricePerKgInr && !r.needsConfirmation);
+  if (toCheck) {
+    await updateRates(ctx, { items: [{
+      gradeId: toCheck.gradeId, pricePerKgInr: toCheck.pricePerKgInr!, gstPercent: toCheck.gstPercent!, priceBasis: toCheck.priceBasis!,
+      moqKg: toCheck.moqKg, packSize: toCheck.packSize, needsConfirmation: true, note: "Demo: marked to check",
+    }] });
+  }
   console.log("Demo data loaded.");
 } finally {
   await closeDb();

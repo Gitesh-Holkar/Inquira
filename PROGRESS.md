@@ -6,7 +6,7 @@
 ## Current state (17 Nov 2026)
 
 - **Goal:** `docs/GOAL.md` (requirement IDs `G-…`). **Rules:** `AGENTS.md`. **Where things are:** `docs/INDEX.md`, `docs/CODEMAP.md`.
-- **Working on:** M3 is built and waiting at its **OWNER GATE** (`QUESTIONS.md` Q-015). M1 has not started; its licence question is the other open gate.
+- **Working on:** M3 answered (Q-015); the owner applies the list in the app. **Licence deferred** by the owner on 17 Nov 2026 (Q-016): no open-source release for now; he wants to run Inquira himself, locally. So M2 (local mode) is next; M1's licence, README for strangers and CONTRIBUTING wait. The parts of M1 local mode needs (a fictional `seed/example`, no company names in `src/`) are done with M2.
 - **Live site:** deployed on Vercel from this branch. Sign-in is on again. The live database still has the September rates and has **not** had migrations `0003` and `0004` applied.
 - **Order note:** the owner sent the November price list and quotation terms on 16 Nov and asked for them, so M3 was done before M1 and M2. Its one dependency on M1 (seed folders) was done with it: `seed/stdm/` and `SEED_DIR`. The fictional `seed/example` and the "nothing in `src/` names the company" test are still M1.
 
@@ -31,7 +31,7 @@ Work in order, one at a time. Stop at every **OWNER GATE**.
 | # | Milestone | GOAL requirements | Status |
 | --- | --- | --- | --- |
 | M0 | Safe and correct: sign-in back on, seven audit bugs, November email fixtures | G-PLT-1, G-SRC-3, G-SRC-4 | Done (17 Nov). Owner still to do `docs/RUNBOOK.md` section 1 |
-| M1 | Open-source foundation: licence (**OWNER GATE**), seed sets, README, CONTRIBUTING, secret scan | G-OSS-1 to G-OSS-4, P6 | Not started |
+| M1 | Open-source foundation: licence, seed sets, README, CONTRIBUTING, secret scan | G-OSS-1 to G-OSS-4, P6 | **Deferred by the owner (17 Nov 2026, Q-016).** Seed folders done with M3; example data and the company-name scan come with M2 |
 | M2 | Local mode: adapters, local sign-in, Docker packaging, self-hosting guide | G-PLT-5, G-PLT-6 | Not started |
 | M3 | New price list: import screen and command, diff (**OWNER GATE** before anything is written to a live database); quotation terms | G-KB-6, part of G-KB-2 | Built and tested (17 Nov). **Waiting for the owner:** Q-015 |
 | M4 | IndiaMART API: Push, Pull, reconciliation | G-SRC-1, G-SRC-2, G-SRC-6 to G-SRC-8 | Not started |
@@ -55,16 +55,17 @@ Every service, screen and setting was checked against the rule in `AGENTS.md` se
 | Price list: no way to load a new one | Rates → Import price list, with its mapping editor |
 | Quotations had no payment terms and no MOQ on rates | Payment terms setting; MOQ set by the price list import |
 | A settings input for feature switches that nothing read | Removed from the service |
+| The price list import says "missing does not mean discontinued, say so", but nothing could mark a product discontinued | Rates → Edit product → Remove product; Removed products → Restore |
 
-**Not built, and not shown anywhere in the app** (so nothing on screen leads to a dead end)
+**Not built, and not shown anywhere in the app** (so nothing on screen leads to a dead end). Checked against `docs/GOAL.md` on 17 Nov 2026 at the owner's request:
 
-| Item | Where it is planned |
-| --- | --- |
-| Members screen (invite, change role). Today: SQL in `docs/SETUP.md` section 4 | M8, G-PLT-2 |
-| Assigning a lead to a person (`leads.assigned_to` exists, nothing uses it) | M8, with the members screen |
-| Switching between companies for a user who belongs to two (the cookie is read, nothing sets it) | M8 |
-| Removing or discontinuing a product, and an end date on a rate | M6, G-KB-3 |
-| Document library (the `documents` storage bucket exists, unused) | M6, G-KB-4 |
+| Item | In the goal? | Decision |
+| --- | --- | --- |
+| Members screen (invite, remove, change role). Today: SQL in `docs/SETUP.md` section 4 | Yes, G-PLT-2, Phase 3 | Build **after M2**: inviting works differently with Supabase sign-in and local sign-in, so it needs the M2 auth adapter first. The owner is the only user today. |
+| Document library (COA, TDS, MSDS with expiry; the `documents` storage bucket exists, unused) | Yes, G-KB-4, Phase 2 (M6) | Build **after M2**: files go to Supabase storage in the cloud and to disk locally, so it needs the M2 file-storage adapter first. Needs the owner's COA/TDS files. |
+| Assigning a lead to a person (`leads.assigned_to` exists, nothing uses it) | No | Not built. Revisit with the members screen if a team uses Inquira. |
+| Switching between companies for a user who belongs to two (the cookie is read, nothing sets it) | No (one company per install) | Not built. |
+| An end date on a rate | Yes, G-KB-3 (M6) | With the knowledge base. |
 | A form for the price list mapping (today it is edited as text on the import screen) | M6, with commercial terms G-KB-2 |
 | Priority order of email rules (stored, no control on screen; rules apply in the order they were created) | When a second rule type needs it |
 | The `events` table records what happened but nothing consumes it yet | M7 (outbound pipeline) |

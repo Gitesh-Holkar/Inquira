@@ -34,7 +34,7 @@ Each item lists the question, what I assumed so the build could continue, and wh
 
 ## Q-005 — Rates flagged `needs_confirmation` (closed by the November list, except lecithin)
 1. **Spirulina Protein Powder "(White)":** kept exactly as your list prints it. No answer needed.
-2. **Soya Isoflavones (₹1200):** still listed under Lecithin; it follows the lecithin GST question (Q-015).
+2. **Soya Isoflavones (₹1200):** 18% like the lecithins (answered 17 Nov 2026).
 3. **Oats Fiber:** the November list has both lines, so this is settled: Oat Fiber ₹400 and Oat Fiber (Insoluble) ₹195.
 4. **Soya Flour pack size:** kept as your list's GST section prints it, "25/50 Kg". Say so if quotations should say "25 Kg" only.
 
@@ -72,8 +72,9 @@ Each item lists the question, what I assumed so the build could continue, and wh
 - **Assumed meanwhile:** The buyer block (name, company, "Click to call", email, address) has the same shape as in `buyershelp+enq@` emails. If it differs, the lead is still created but with fewer fields.
 - **Where it matters:** `parseEnquiry` in `src/modules/email/parsers/indiamart.ts`.
 
-## Q-015 — OWNER GATE: confirm the November price list (16 Nov 2026) before it goes live
-Nothing below has been written to the live database. The live site still shows the September rates.
+## Q-015 — November price list (16 Nov 2026): answered 17 Nov 2026
+- **Answers:** lecithin (and Soya Isoflavones, listed under it) is **18%** GST; Pea Fiber (Insoluble) at **₹185** is correct. The "Confirm" mark on the lecithin rates is removed from the mapping.
+- **Still to do by the owner in the app:** the steps under "How it goes live" below. Nothing has been written to the live rates yet.
 
 **What the new list changes** (80 lines read, none unreadable; produced by the import itself against a copy of your September data):
 
@@ -127,5 +128,9 @@ Nothing below has been written to the live database. The live site still shows t
    Then open Vercel → **Deployments** → the newest (failed) one → **Redeploy**. Until this is done Vercel shows new deployments as failed on purpose and the site keeps running on the previous version (`docs/SETUP.md` section 11).
 2. **Settings → Organisation:** type `100% advance` in **Payment terms** and save.
 3. **Rates → Import price list:**
-   - Open **How Inquira reads your list (mapping)**, paste the whole text of [`seed/stdm/price-list-map.json`](seed/stdm/price-list-map.json) and press **Save mapping**. (If your answer to the lecithin question is 5%, tell me first and I will change that file.)
+   - Open **How Inquira reads your list (mapping)**, paste the whole text of [`seed/stdm/price-list-map.json`](seed/stdm/price-list-map.json) and press **Save mapping**.
    - Paste your price list, press **Show changes**, check that it shows what is listed above, press **Apply**. Old rates stay in the history.
+
+## Q-016 — Licence (deferred by the owner, 17 Nov 2026)
+- **Owner's answer:** no licence for now. Inquira is for the owner's own use and should run locally. Keep the open-source idea for later.
+- **Effect:** no `LICENSE` file is added; G-OSS-1 waits. Without a licence the code stays "all rights reserved" even though the repository is public. When the owner wants to publish, the choice is between AGPL-3.0-or-later and MIT (not legal advice).

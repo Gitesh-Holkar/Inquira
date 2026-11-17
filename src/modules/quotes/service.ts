@@ -9,7 +9,7 @@ import { authorize } from "@/modules/core/permissions";
 import { defineService, parseInput, runTx } from "@/modules/core/service-kit";
 import { getOrgSettingsInternal } from "@/modules/core/service";
 import { actorString, type Ctx } from "@/modules/core/types";
-import { currentRatesInternal, productNameById } from "@/modules/catalog/service";
+import { currentRatesInternal, productInfoById } from "@/modules/catalog/service";
 import type { CurrentRate } from "@/modules/catalog/types";
 import { getLeadInternal, markQuotedInternal, type Lead } from "@/modules/leads/service";
 import { getDefaultTemplateInternal, getTemplateInternal } from "@/modules/templates/service";
@@ -72,8 +72,9 @@ async function pickItems(tx: Tx, ctx: Ctx, lead: Lead, gradeIds?: string[]) {
   chosen = chosen.filter((r) => r.pricePerKgInr);
   if (!chosen.length) {
     if (!lead.productId && !gradeIds?.length) throw new AppError("VALIDATION", "Pick the product for this lead first (Edit → Product), then create the quote.");
-    const name = lead.productId ? await productNameById(tx, ctx.orgId, lead.productId) : "the selected grade";
-    throw new AppError("VALIDATION", `There is no current rate for ${name}. Add one on the Rates screen first.`);
+    const info = lead.productId ? await productInfoById(tx, ctx.orgId, lead.productId) : null;
+    if (info?.removed) throw new AppError("VALIDATION", `${info.name} was removed from the catalogue. Restore it under Rates → Removed products, or pick another product for this lead.`);
+    throw new AppError("VALIDATION", `There is no current rate for ${info?.name ?? "the selected grade"}. Add one on the Rates screen first.`);
   }
   return chosen.map(snapshot);
 }

@@ -4,6 +4,12 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 17 Nov 2026 — Owner's answers; remove a product
+- **Rates → Edit product → Remove product** for a discontinued product: it leaves rates, quotations, lead matching and Buy Lead suggestions, and keeps its history. **Removed products** at the bottom of the Rates screen restores it.
+- Lecithin rates are 18% GST as the price list says, without a "Confirm" mark (owner's answer). Pea Fiber (Insoluble) ₹185 confirmed.
+- The live database has the two new columns (migrations 0003 and 0004), so this version deploys.
+- No licence for now (owner's decision); the open-source release waits.
+
 ### 17 Nov 2026 — Feature check: finish what was half-built
 - **Buy Leads are suggestions only.** Claude reads your rules and suggests which IndiaMART Buy Leads match; a person clicks on IndiaMART. The "test mode / live mode" switch is gone, the daily number is now "Suggestions per day", and the connector can no longer log a lead as contacted. `docs/COWORK_INDIAMART_TASK.md` is rewritten; **do not run the earlier prompt that clicked for you.**
 - **Rates → Edit product:** correct a product's name, category, the other names buyers use, rename a grade or add one. Adding a product with a name that already exists now says so.

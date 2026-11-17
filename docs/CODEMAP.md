@@ -116,6 +116,8 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 | `rateHistory` | All price entries for a grade. |
 | `updateRates` / `insertRatesInternal` | Append new price rows (never overwrite); refuses back-dated `valid_from`. The internal form is shared with the price list import. |
 | `listProducts`, `createProduct` / `createProductInternal` | Products and grades. A duplicate name is refused with a plain message. |
+| `removeProduct` / `restoreProduct` / `listRemovedProducts` | Take a discontinued product out of the catalogue (rates screen, quotations, lead matching, Buy Lead terms) and bring it back. Nothing is deleted: grades, rates and history stay. |
+| `productInfoById`, `removedProductNamesInternal` | Name and removed state of a product; names of removed products (so a new product or a price list line with that name is explained). |
 | `updateProduct` | Corrects a product: name, category, other names (aliases), grade names, extra grades. Grades are renamed or added, never removed; rates and their history are untouched. |
 | `matchProduct`, `normalizeProductText`, `productMatcherCatalog` | Free text ("soy isolate protein") → catalogue product. |
 | `productNameById`, `countProducts` | Small lookups. |
@@ -149,6 +151,7 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 | `logBuyleadDecision` | Logs each Buy Lead an assistant looked at: `would_contact` (suggested) or `skipped`; flags suggestions over the daily limit. Cannot record a purchase. |
 | `getBuyleadSummary`, `listBuyleadDecisions`, `todayDecisionCountsInternal` | IndiaMART page and dashboard card. |
 | `seedRulesFromCatalogInternal` | First-time match terms from the catalogue. |
+| `dropProductTermsInternal`, `addProductTermsInternal` | Remove or add one product's match terms when it is removed from or restored to the catalogue. |
 
 ### dashboard (`dashboard/service.ts`)
 | `getDashboard` | All dashboard numbers in one call: new today by source, needing action, review queue, international, integration health, IndiaMART card. |
@@ -191,7 +194,7 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `/leads` Inbox (+ International tab) | `(app)/leads/page.tsx` | `components/leads/inbox-list.tsx` (keyboard j/k/e/w/q/?), `new-lead.tsx` |
 | `/leads/[id]` Lead detail | `(app)/leads/[id]/page.tsx` | `(app)/leads/actions.ts`: `setStatusAction`, `addNoteAction`, `quoteAction`, `whatsappTextAction`, `updateLeadAction`, `createLeadAction`, `deleteLeadAction` (owners and admins; `DeleteLeadButton` in `detail-client.tsx`); components `leads/actions.tsx` (Copy/Call/WhatsApp/Quote buttons), `leads/detail-client.tsx` (status, notes, edit) |
 | `/review` Review queue | `(app)/review/page.tsx` | `(app)/review/actions.ts`: `classifyAction`; `components/review/review-item.tsx` |
-| `/rates` Rates | `(app)/rates/page.tsx` | `(app)/rates/actions.ts`: `saveRatesAction`, `rateHistoryAction`, `addProductAction`, `updateProductAction`; `components/rates/rates-editor.tsx`, `add-product.tsx`, `edit-product.tsx` |
+| `/rates` Rates | `(app)/rates/page.tsx` | `(app)/rates/actions.ts`: `saveRatesAction`, `rateHistoryAction`, `addProductAction`, `updateProductAction`, `removeProductAction`, `restoreProductAction`; `components/rates/rates-editor.tsx`, `add-product.tsx`, `edit-product.tsx` (incl. Remove), `removed-products.tsx` (Restore) |
 | `/rates/import` Import price list | `(app)/rates/import/page.tsx` | `(app)/rates/actions.ts`: `planPriceListAction` (reads only), `applyPriceListAction`, `savePriceListMapAction`; `components/rates/price-list-import.tsx` (list, folded mapping editor, preview) |
 | `/templates` | `(app)/templates/page.tsx` | `(app)/templates/actions.ts`: `saveTemplateAction`; `components/templates/editor.tsx` |
 | `/indiamart` Buy-lead log | `(app)/indiamart/page.tsx` | — |

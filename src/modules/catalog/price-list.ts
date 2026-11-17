@@ -183,7 +183,8 @@ function resolve(line: PriceListLine, catalog: CatalogForImport, map: PriceListM
  * Works out what importing `parsed` would do to `catalog`. Pure: the same inputs give the same plan.
  * Terms come from the mapping (category, then product override), else from the grade's current rate.
  */
-export function planImport(parsed: ParsedPriceList, catalog: CatalogForImport, rawMap?: unknown, defaults: { priceBasis?: string | null } = {}): ImportPlan {
+export function planImport(parsed: ParsedPriceList, catalog: CatalogForImport, rawMap?: unknown, defaults: { priceBasis?: string | null; removedNames?: string[] } = {}): ImportPlan {
+  const removed = new Set((defaults.removedNames ?? []).map((n) => normalizeListName(n)));
   const map = priceListMapSchema.parse(rawMap ?? {});
   const seen = new Set<string>();
   const rows: PlanRow[] = parsed.lines.map((line) => {
@@ -201,6 +202,7 @@ export function planImport(parsed: ParsedPriceList, catalog: CatalogForImport, r
     if (!basis) problems.push("No price basis is known for this line");
     const key = `${r.product.toLowerCase()}|${r.grade.toLowerCase()}`;
     if (seen.has(key)) problems.push("Another line on this list maps to the same product and grade");
+    if (!r.productId && removed.has(normalizeListName(r.product))) problems.push("This product was removed from the catalogue. Restore it under Rates → Removed products, then import again");
     seen.add(key);
 
     const decided = map.lines[normalizeListName(line.name, line.qualifier)];
