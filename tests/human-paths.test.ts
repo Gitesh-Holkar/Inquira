@@ -87,6 +87,18 @@ describe("signed-in users (RLS) can use every screen", () => {
       ])).resolves.toBeTruthy();
     }
     await expect(listMcpTokens(owner, {})).resolves.toEqual([]);
+    // QA and Accounts open every page in their menu (Accounts has no Settings).
+    for (const role of ["qa", "accounts"] as const) {
+      const u = await createUser();
+      await addMember(org.id, u, role);
+      const ctx = human(org.id, u, role);
+      await expect(Promise.all([
+        getReconciliation(ctx, {}), getDashboard(ctx, {}), listLeads(ctx, {}), listProducts(ctx, {}), getCurrentRates(ctx, {}), listTemplates(ctx, {}),
+        getBuyleadSummary(ctx, {}), listBuyleadDecisions(ctx, {}), listEmailsNeedingReview(ctx, {}), getOrgSettings(ctx, {}), listAudit(ctx, {}),
+      ])).resolves.toBeTruthy();
+      if (role === "qa") await expect(Promise.all([listIntegrations(ctx, {}), listSyncRuns(ctx, {}), listClassificationRules(ctx, {})])).resolves.toBeTruthy();
+      else await expect(listIntegrations(ctx, {})).rejects.toMatchObject({ code: "FORBIDDEN" });
+    }
   });
 
   it("sales can work leads and the review queue; viewers cannot write", async () => {

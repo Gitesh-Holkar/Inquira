@@ -12,7 +12,7 @@ How a request flows: **page or server action** (`src/app`) → **service** (`src
 
 | I want to… | Change this | Notes |
 |---|---|---|
-| Change who may do what | `src/modules/core/permissions.ts` | Roles (owner/admin/sales/viewer) and the narrow MCP permission set |
+| Change who may do what | `src/modules/core/permissions.ts` (roles, `ABILITIES`, `BASE_PERMISSIONS`); the same role defaults in SQL (`app.role_default`, a new migration) | Roles owner, admin, sales, QA, accounts, viewer; abilities switched per member on Settings → Members → Access; the narrow MCP set. `tests/roles.test.ts` checks code and SQL agree |
 | Add or change a lead field | `src/modules/leads/schema.ts` → `npm run db:generate` → `leads/service.ts` (`upsertLeadInternal`, `updateLead`) → `leads/[id]/page.tsx` + `components/leads/detail-client.tsx` | Never edit an applied migration |
 | Change how duplicate inquiries merge | `upsertLeadInternal` and `fillMissing` in `src/modules/leads/service.ts`; contacts in `resolveContactInternal` (`contacts/service.ts`) | 48 h window, `source`+`source_ref` first |
 | Support a new IndiaMART/TradeIndia email format | `src/modules/email/parsers/indiamart.ts` or `tradeindia.ts` + a fixture in `fixtures/emails/` with an `expected` block | `parsers.test.ts` runs every fixture |
@@ -48,7 +48,8 @@ How a request flows: **page or server action** (`src/app`) → **service** (`src
 | `parseInput(schema, raw)` | `core/service-kit.ts` | zod parse → `AppError("VALIDATION")` with field errors. |
 | `audit(tx, ctx, {action, entityType, entityId, changes})` | `core/audit.ts` | Writes an append-only audit row (`human:<id>` / `mcp:<token>` / `system:<job>`). Every write must call it (hard rule 8). |
 | `emit(tx, ctx, {type, ...})` | `core/audit.ts` | Records a domain event in the `events` outbox. Types are in `EVENT_TYPES` (`core/types.ts`). |
-| `can(ctx, perm)` / `authorize(ctx, perm)` | `core/permissions.ts` | Permission check (boolean / throws FORBIDDEN). `PERMISSIONS`, `ROLE_PERMISSIONS`, `MCP_PERMISSIONS` define the sets. |
+| `permissionsFor`, `abilitiesFor`, `overridesFor`, `withRequirements` | `core/permissions.ts` | A member's effective permissions (role defaults + `granted` − `revoked`; owners always everything), the abilities that are on, and the overrides that give a role a chosen set of abilities. |
+| `can(ctx, perm)` / `authorize(ctx, perm)` | `core/permissions.ts` | Permission check (boolean / throws FORBIDDEN), including the member's custom access. `PERMISSIONS`, `ROLE_PERMISSIONS`, `MCP_PERMISSIONS` define the sets. |
 | `actorString(actor)` | `core/types.ts` | Actor → `human:<uuid>` / `mcp:<name>` / `system:<job>`. Types `Ctx`, `Actor`, `Role`. |
 
 ### `core/service.ts` (orgs, integrations, sync runs, jobs, audit reads)
@@ -72,7 +73,8 @@ How a request flows: **page or server action** (`src/app`) → **service** (`src
 |---|---|
 | `listMembers` | Active members with role and date added. |
 | `inviteMember(ctx, {email, role}, deps?)` | Finds or creates the sign-in account (`lib/accounts.ts`, outside any transaction), then adds the membership, or restores a removed one with the new role. |
-| `changeMemberRole`, `removeMember` | Owners and admins manage members; only an owner touches owners and admins; nobody changes or removes themselves; the last owner stays. Removal is a soft delete. |
+| `setMemberAccess(ctx, {memberId, abilities})` | Switches abilities on or off for one member on top of their role. Only abilities the editor has; not for owners or yourself; adds required abilities (for example "See settings"). Audited as `member.access`. |
+| `changeMemberRole`, `removeMember` | Owners and admins manage members; only an owner touches owners and admins; nobody changes or removes themselves; the last owner stays. Removal is a soft delete. A role change resets custom access. |
 
 ### documents (`documents/service.ts`, `storage.ts`, `types.ts`) — document library (GOAL G-KB-4)
 | Function | What it does |
@@ -219,7 +221,7 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `/templates` | `(app)/templates/page.tsx` | `(app)/templates/actions.ts`: `saveTemplateAction`; `components/templates/editor.tsx` |
 | `/documents` Documents | `(app)/documents/page.tsx` | `(app)/documents/actions.ts`: `uploadDocumentAction` (form with the file), `removeDocumentAction`; `components/documents/upload-form.tsx`, `remove-document.tsx`. Filters by product and type (URL). |
 | `/indiamart` Buy-lead log | `(app)/indiamart/page.tsx` | — |
-| `/settings?tab=…` | `(app)/settings/page.tsx` | `(app)/settings/actions.ts`: TradeIndia save/test, Sync now, Gmail save/connect/disconnect, MCP tokens, email rules, buy-lead rules, org settings, members (`inviteMemberAction`, `changeMemberRoleAction`, `removeMemberAction`; `components/settings/members.tsx`); components in `components/settings/*` |
+| `/settings?tab=…` | `(app)/settings/page.tsx` | `(app)/settings/actions.ts`: TradeIndia save/test, Sync now, Gmail save/connect/disconnect, MCP tokens, email rules, buy-lead rules, org settings, members (`inviteMemberAction`, `changeMemberRoleAction`, `removeMemberAction`, `setMemberAccessAction`; `components/settings/members.tsx`); components in `components/settings/*` |
 | `/login` | `login/page.tsx` | `login/actions.ts`: `signIn`, `sendReset` (first password / reset email), `updatePassword`, `devSignIn` (local only), `signOut`; `login/forms.tsx` |
 | `/auth/callback` | `auth/callback/route.ts` | Email links (PKCE `code` or `token_hash`) → session → set password |
 | `/auth/update-password` | `auth/update-password/page.tsx` | Uses `updatePassword` |
@@ -251,7 +253,7 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `ui/button.tsx` | `Button`, `buttonVariants` | Buttons (sizes incl. 44 px `touch`) |
 | `ui/dialog.tsx` | `Dialog`, `DialogContent`, `ConfirmDialog` | Modals; confirm for destructive actions |
 | `status.tsx` | `StatusBadge`, `SourceBadge`, `EMAIL_CLASS_LABEL` | Colour + text status labels |
-| `shell/nav.tsx`, `shell/theme-toggle.tsx` | `Sidebar`, `BottomNav`, `ThemeToggle` | Navigation and light/dark |
+| `shell/nav.tsx`, `shell/nav-access.ts`, `shell/theme-toggle.tsx` | `Sidebar`, `BottomNav`, `NAV_ITEMS`, `PAGE_PERMISSION`, `ThemeToggle` | Navigation (only pages the person may open; on phones up to five) and light/dark |
 | `auth/hash-session.tsx` | `HashSessionHandler` | Session/error from `#access_token` / `#error` email links |
 
 ---
@@ -292,7 +294,7 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `scripts/rates-import.ts` (`rates:import`) | Prints what a price list file would change; writes only with `--confirm`. `--map` uses another mapping, `--save-map` keeps it, `--org` picks the company. |
 | `scripts/fetch-website-products.ts` (`seed:website`) | Diff the company website's catalogue vs `SEED_DIR/products.json`. |
 | `scripts/gen-keys.ts` (`gen:keys`) | Generate `APP_ENCRYPTION_KEY` and `CRON_SECRET`. |
-| `drizzle/` | Migrations (0000 init, 0001 RLS + grants + triggers, 0002 storage bucket, 0003 payment terms, 0004 price list mapping, 0005 documents, 0006 documents RLS). Never edit an applied one. |
+| `drizzle/` | Migrations (0000 init, 0001 RLS + grants + triggers, 0002 storage bucket, 0003 payment terms, 0004 price list mapping, 0005 documents, 0006 documents RLS, 0007 roles and custom access, 0008 permission-based access rules). Never edit an applied one. |
 | `seed/stdm/` | The first company's data: `settings.json` (name, payment terms, price basis), `products.json` (catalogue, aliases, website links), `price-lists/<date>.txt` (the list as received, one item per line), `price-list-map.json` (headings → GST and pack size, list names → product and grade, MOQ and price basis). |
 | `fixtures/emails/*.json` | Anonymised real email formats with `expected` parse results. |
 | `tests/sign-in.test.ts` | Sign-in is always on (GOAL G-PLT-1): fails if an unauthenticated request reaches a page, a server action, the OAuth consent action or a protected API route, in any environment. |
@@ -300,6 +302,7 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `tests/rls.test.ts` | Org isolation and append-only rules at the database level. |
 | `tests/sync-resume.test.ts` | TradeIndia sync resumes after a time-budget stop or a killed run, uses IST dates, and does not pass a window with failed leads; a Gmail backlog is picked up on the next tick. |
 | `tests/price-list-import.test.ts` | Price list import as owner under RLS (rates appended, history kept, renames, aliases, audit), refused for sales and viewers; every folder in `seed/` loads and its own list then shows nothing left to change. |
+| `tests/roles.test.ts` | Roles and abilities are consistent; SQL role defaults equal the code's; switching an ability on or off changes what a member can do in the app and under RLS; who may change whose access. |
 | `tests/members.test.ts` | Members as signed-in roles under RLS: add, restore, roles, last owner, other company; Supabase accounts fake. |
 | `tests/documents.test.ts` | Documents: upload rules, who may do what, latest valid, attachments on quote drafts (expired never), both storage adapters. |
 | `tests/sync-and-quotes.test.ts` | Gmail/TradeIndia sync, dedupe, quotes, review queue (Google faked in `tests/helpers/fake-google.ts`, which throws on any send). |

@@ -15,7 +15,7 @@ export type Integration = typeof integrations.$inferSelect;
 
 export async function membershipsForUserInternal(tx: Tx, userId: string) {
   return tx
-    .select({ orgId: memberships.orgId, role: memberships.role, email: memberships.email, displayName: memberships.displayName, orgName: organizations.name })
+    .select({ orgId: memberships.orgId, role: memberships.role, granted: memberships.granted, revoked: memberships.revoked, email: memberships.email, displayName: memberships.displayName, orgName: organizations.name })
     .from(memberships)
     .innerJoin(organizations, eq(organizations.id, memberships.orgId))
     .where(and(eq(memberships.userId, userId), isNull(memberships.deletedAt), isNull(organizations.deletedAt)))
@@ -32,7 +32,8 @@ export async function getOrgSettingsInternal(tx: Tx, orgId: string) {
 export const getOrgSettings = defineService({
   name: "core.getOrgSettings",
   input: z.object({}).default({}),
-  permission: "settings.read",
+  // Company name, quotation terms and price basis: no secrets, and the Rates screens need them, so every member may read them.
+  permission: "dashboard.read",
   handler: (ctx, _i, tx) => getOrgSettingsInternal(tx, ctx.orgId),
 });
 

@@ -270,17 +270,53 @@ test("documents: add, download and attach to a quote; members: add, change role,
   const email = `teammate-${proj}@example.com`;
   await expect(async () => {
     await page.getByLabel("Email address").fill(email);
-    await page.getByLabel("Role", { exact: true }).selectOption("sales");
+    await page.getByLabel("Role", { exact: true }).selectOption("qa");
     await page.getByRole("button", { name: "Add member" }).click();
     await expect(page.getByText(`Next step for ${email}`)).toBeVisible({ timeout: 3000 });
   }).toPass({ timeout: 30_000 });
   await noHorizontalScroll(page);
   await shot(page, "13-members");
+  // Custom access: let this QA person change prices too
+  const access = page.getByRole("dialog", { name: `Access for ${email}` });
+  await expect(async () => {
+    if (!(await access.isVisible())) await page.getByRole("button", { name: `Access of ${email}` }).click();
+    await expect(access).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 30_000 });
+  await access.getByRole("checkbox", { name: "Change prices and import price lists" }).check();
+  await expect(access.getByText("Added")).toBeVisible();
+  await access.getByRole("button", { name: "Save access" }).click();
+  await expect(page.getByText(`Access saved for ${email}`)).toBeVisible();
+  await expect(page.getByRole("list", { name: "Members" }).getByRole("listitem").filter({ hasText: email })).toContainText("Custom access");
   await page.getByLabel(`Role of ${email}`).selectOption("viewer");
-  await expect(page.getByText(`${email} is now Viewer`)).toBeVisible();
+  await expect(page.getByText(`${email} is now Viewer; custom access was reset`)).toBeVisible();
   await page.getByRole("button", { name: `Remove ${email}` }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Remove member" }).click();
   await expect(page.getByText(`${email} removed`)).toBeVisible();
   await expect(page.getByRole("list", { name: "Members" })).not.toContainText(email);
+});
+
+test("an Accounts member sees no Settings and cannot open it", async ({ page }) => {
+  await signIn(page);
+  const email = `accounts-${test.info().project.name}@example.com`;
+  await page.goto("/settings?tab=members");
+  await expect(async () => {
+    await page.getByLabel("Email address").fill(email);
+    await page.getByLabel("Role", { exact: true }).selectOption("accounts");
+    await page.getByRole("button", { name: "Add member" }).click();
+    await expect(page.getByText(`Next step for ${email}`)).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/login/);
+  await page.getByLabel("Email").fill(email);
+  await page.getByRole("button", { name: /Sign in/ }).click();
+  await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
+  const nav = page.getByRole("navigation", { name: "Main" }).locator("visible=true");
+  await expect(nav.getByRole("link", { name: "Leads" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Documents" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Settings" })).toHaveCount(0);
+  await page.goto("/settings");
+  await expect(page).toHaveURL(/denied=1/);
+  await expect(page.getByText("You don't have access to that page")).toBeVisible();
+  await noHorizontalScroll(page);
 });
 

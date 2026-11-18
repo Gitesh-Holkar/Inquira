@@ -47,7 +47,7 @@ export async function appSessionFor(user: SessionUser): Promise<AppSession | nul
     role: m.role,
     orgName: m.orgName,
     orgs: mships.map((x) => ({ orgId: x.orgId, orgName: x.orgName, role: x.role })),
-    ctx: { orgId: m.orgId, actor: { kind: "human", userId: user.id, email: user.email || m.email, role: m.role } },
+    ctx: { orgId: m.orgId, actor: { kind: "human", userId: user.id, email: user.email || m.email, role: m.role, granted: m.granted, revoked: m.revoked } },
   };
 }
 

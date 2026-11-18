@@ -50,6 +50,20 @@
       "when": 1794935923027,
       "tag": "0006_documents_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794997382862,
+      "tag": "0007_roles_and_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794997397525,
+      "tag": "0008_access_rules",
+      "breakpoints": true
     }
   ]
 }

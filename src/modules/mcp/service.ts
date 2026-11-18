@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { and, desc, eq, gt, isNull, or } from "drizzle-orm";
 import { z } from "zod";
+import { can } from "@/modules/core/permissions";
 import { withSystemTx, type Tx } from "@/db/client";
 import { randomToken, safeEqual, sha256 } from "@/lib/crypto";
 import { AppError, notFound } from "@/lib/errors";
@@ -168,7 +169,7 @@ export async function validateAuthorizeRequest(params: Record<string, string | u
 
 /** Called when the signed-in owner/admin clicks Allow on the consent screen. */
 export async function issueAuthorizationCode(ctx: Ctx, params: z.infer<typeof authorizeParams>) {
-  if (ctx.actor.kind !== "human" || !["owner", "admin"].includes(ctx.actor.role)) throw new AppError("FORBIDDEN", "Only owners and admins can connect Claude.");
+  if (ctx.actor.kind !== "human" || !can(ctx, "mcp_tokens.manage")) throw new AppError("FORBIDDEN", "Only people who may manage the Claude connector can connect Claude.");
   const code = randomToken("inq_code");
   await withSystemTx(async (tx) => {
     await tx.insert(oauthCodes).values({

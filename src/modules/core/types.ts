@@ -1,7 +1,8 @@
-export type Role = "owner" | "admin" | "sales" | "viewer";
+export type Role = "owner" | "admin" | "sales" | "qa" | "accounts" | "viewer";
 
 export type Actor =
-  | { kind: "human"; userId: string; email: string; role: Role }
+  /** `granted` and `revoked` are this member's custom access on top of the role (Settings → Members → Access). */
+  | { kind: "human"; userId: string; email: string; role: Role; granted?: readonly string[]; revoked?: readonly string[] }
   | { kind: "mcp"; tokenId: string; tokenName: string; scopes: string[] }
   | { kind: "system"; job: string };
 

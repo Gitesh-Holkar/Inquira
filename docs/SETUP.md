@@ -121,9 +121,13 @@ select m.email, m.role, o.name from app.memberships m join app.organizations o o
 | Role | Can |
 | --- | --- |
 | Owner | Everything, including adding or removing owners and admins |
-| Admin | Everything except owners and admins |
+| Admin | Everything except managing owners and admins |
 | Sales | Leads, quotations, the review queue; view rates and documents |
+| QA | Add and remove product documents (COA, TDS, MSDS); view everything else |
+| Accounts | View leads, quotations, prices and documents; no settings |
 | Viewer | Look only |
+
+**Custom access:** next to each person, **Access** lists what they may do, ability by ability (for example "Change prices", "Add and remove documents", "See settings"). Tick or untick, then **Save access**. "Added" and "Taken away" show where it differs from the role. You can only give or take away abilities you have yourself, and only an owner changes the access of an owner or admin. Changing someone's role resets their access to the new role's defaults.
 
 Removing someone (same screen) takes effect at their next click; what they did stays in the history. Nobody can remove themselves or change their own role, and the last owner always stays.
 

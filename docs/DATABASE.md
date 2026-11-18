@@ -18,7 +18,7 @@ Postgres with Drizzle ORM. Every table is in the private schema **`app`** (see [
 | --- | --- | --- |
 | `organizations` (soft delete) | One row per company | `name`, `slug` |
 | `org_settings` | Per-company settings, one row | `features` (json; reserved, nothing reads it yet), `quote_validity_days`, `timezone`, `home_country`, `default_price_basis`, `payment_terms` (printed on quotations; empty until entered), `price_list_map` (json: how the company's price list maps onto its catalogue, see `priceListMapSchema`) |
-| `memberships` (soft delete) | Who belongs to which company, with a role. Managed on Settings → Members; a removed member's row stays, marked deleted | `user_id`, `role` (`owner`, `admin`, `sales`, `viewer`), `email`, `display_name`; unique `(org_id, user_id)` |
+| `memberships` (soft delete) | Who belongs to which company, with a role. Managed on Settings → Members; a removed member's row stays, marked deleted | `user_id`, `role` (`owner`, `admin`, `sales`, `qa`, `accounts`, `viewer`), `granted` and `revoked` (text arrays: custom access on top of the role), `email`, `display_name`; unique `(org_id, user_id)` |
 | `audit_logs` | **Append-only.** One row per write | `actor`, `action`, `entity_type`, `entity_id`, `changes` (json) |
 | `events` | Domain event outbox | `type`, `entity_type`, `entity_id`, `payload`, `processed_at` |
 | `jobs` | Background work queue | `type`, `payload`, `status`, `run_after`, `attempts`, `max_attempts`, `locked_at`, `dedupe_key`; unique `(org_id, dedupe_key)` |
@@ -95,16 +95,28 @@ organizations ─┬─ org_settings (1:1)        ─┬─ products ── prod
                └─ mcp_tokens ── oauth_refresh_tokens (access_token_id)
 ```
 
-## Policies (`drizzle/0001_rls_policies.sql`)
+## Policies (`drizzle/0001_rls_policies.sql`, rewritten by `drizzle/0008_access_rules.sql`)
 
-Helper functions: `app.is_member(org)` and `app.has_role(org, roles[])`, both `SECURITY DEFINER` with an empty search path, reading `auth.uid()`.
+Since 0008, writes are allowed by **permission**, not by role name. Helper functions, all `SECURITY DEFINER` with an empty search path, reading `auth.uid()`:
+
+- `app.is_member(org)`: any active member (used for reading).
+- `app.role_default(role, permission)`: the role's default permissions, a copy of `ROLE_PERMISSIONS` in `src/modules/core/permissions.ts`. `tests/roles.test.ts` fails if the two differ, so change both together, in a new migration.
+- `app.can(org, permission)`: owner, or the role's default and not in `memberships.revoked`, or in `memberships.granted`.
+- `app.can_any(org, permissions[])`, and `app.can_work(org)`: may change anything at all.
+- `app.has_role(org, roles[])` (from 0001) is still used for deletes on the working tables and for `organizations`.
 
 | Group | Tables | Read | Insert and update | Delete |
 | --- | --- | --- | --- | --- |
 | Company | `organizations` | members | owner (update only) | — |
-| Writer tables | `contacts`, `leads`, `lead_notes`, `lead_status_changes`, `email_messages`, `quotations`, `events`, `audit_logs`, `jobs`, `sync_runs`, `buylead_decisions` | members | owner, admin, sales | owner, admin |
-| Admin tables | `org_settings`, `memberships`, `products`, `product_grades`, `price_entries`, `templates`, `classification_rules`, `buylead_rules`, `integrations` | members | owner, admin | owner, admin |
-| Tokens | `mcp_tokens` | owner, admin | owner, admin | owner, admin |
+| Working tables | `contacts`, `leads`, `lead_notes`, `lead_status_changes`, `email_messages`, `quotations`, `events`, `audit_logs`, `jobs`, `sync_runs`, `buylead_decisions` | members | `can_work` (anyone who may change something) | owner, admin |
+| Settings | `org_settings` | members | `settings.write` or `catalog.write` (price list mapping) | same |
+| Members | `memberships` | members | `members.manage` | same |
+| Catalogue | `products`, `product_grades` | members | `catalog.write` | same |
+| Rates | `price_entries` (append-only) | members | `rates.write` | — |
+| Templates and rules | `templates`, `classification_rules`, `buylead_rules` | members | `templates.write`; `rules.write`; `buylead.rules.write` or `catalog.write` | same |
+| Connections | `integrations` | members | `integrations.manage` | same |
+| Documents | `documents` | members | `documents.write` | same |
+| Tokens | `mcp_tokens` | `mcp_tokens.manage` | `mcp_tokens.manage` | `mcp_tokens.manage` |
 | System only | `integration_secrets`, `oauth_clients`, `oauth_codes`, `oauth_refresh_tokens` | none | none | none |
 
 `anon` has no access to the schema. System actors (cron, MCP tokens) connect as the table owner and must filter by `org_id` in code.
@@ -126,5 +138,7 @@ Every list the app shows has an index on its filter: leads by `(org_id, status, 
 | `0004_org_price_list_map.sql` | `org_settings.price_list_map` (json, empty by default) |
 | `0005_documents.sql` | Enum `document_type` and table `documents` |
 | `0006_documents_rls.sql` | Row-level security, grants and the `updated_at` trigger for `documents` |
+| `0007_roles_and_access.sql` | Roles `qa` and `accounts`; `memberships.granted` and `memberships.revoked` |
+| `0008_access_rules.sql` | Permission-based write rules (`app.role_default`, `app.can`, `app.can_any`, `app.can_work`) replacing the role-based ones |
 
 Rules: generate with `npm run db:generate`; never edit an applied migration; a new table needs base columns, `org_id`, and a migration that enables RLS with policies, plus a case in `tests/rls.test.ts`. Apply with `npm run db:migrate` (TCP) or `npm run db:remote:apply` (HTTPS).

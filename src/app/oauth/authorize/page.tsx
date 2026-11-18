@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { getAppSession } from "@/lib/auth";
+import { can } from "@/modules/core/permissions";
 import { OAuthError, validateAuthorizeRequest } from "@/modules/mcp/service";
 import { Alert, Card, CardContent } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
   }
   const host = new URL(params.redirect_uri!).host;
   const loopback = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
-  const allowed = s.role === "owner" || s.role === "admin";
+  const allowed = can(s.ctx, "mcp_tokens.manage");
 
   return (
     <main className="grid min-h-dvh place-items-center px-4 py-10">

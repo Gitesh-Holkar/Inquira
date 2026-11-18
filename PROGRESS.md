@@ -66,11 +66,19 @@ Every service, screen and setting was checked against the rule in `AGENTS.md` se
 | Assigning a lead to a person (`leads.assigned_to` exists, nothing uses it) | No | Not built. Revisit with the members screen if a team uses Inquira. |
 | Switching between companies for a user who belongs to two (the cookie is read, nothing sets it) | No (one company per install) | Not built. |
 | An end date on a rate | Yes, G-KB-3 (M6) | With the knowledge base. |
-| Roles QA and Accounts | Yes, G-PLT-2 | Waiting for the owner to say what they may do (`QUESTIONS.md` Q-017). |
+| Roles QA and Accounts | Yes, G-PLT-2 | Built 18 Nov 2026 with custom access per person (ADR-028). |
 | A form for the price list mapping (today it is edited as text on the import screen) | M6, with commercial terms G-KB-2 |
 | Priority order of email rules (stored, no control on screen; rules apply in the order they were created) | When a second rule type needs it |
 | The `events` table records what happened but nothing consumes it yet | M7 (outbound pipeline) |
 | `npm run seed:website` reads the first company's website address from code | M1, P6 |
+
+## Owner's to-do list (the owner asked on 18 Nov 2026 to be told about these later; repeat it in the next report)
+
+1. Vercel → Settings → Environment Variables: check `SUPABASE_SERVICE_ROLE_KEY` is set (needed by Members and Documents), then redeploy.
+2. Documents: upload the COA, TDS and MSDS files with batch and expiry dates (`QUESTIONS.md` Q-018).
+3. Settings → Organisation → Payment terms: `100% advance`.
+4. Rates → Import price list: save the mapping (`seed/stdm/price-list-map.json`), paste the November list, Apply. The live site still has the September prices.
+5. Sign in again and revoke the Claude tokens issued while sign-in was off (`docs/RUNBOOK.md` section 1).
 
 ## Notes for the owner
 

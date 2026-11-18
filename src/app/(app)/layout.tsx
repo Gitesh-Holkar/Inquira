@@ -9,15 +9,20 @@ import { BottomNav, Sidebar } from "@/components/shell/nav";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { signOut } from "../login/actions";
+import { can } from "@/modules/core/permissions";
+import { PAGE_PERMISSION } from "@/components/shell/nav-access";
 
 export const dynamic = "force-dynamic";
 
+const ROLE_NAMES = { owner: "owner", admin: "admin", sales: "sales", qa: "QA", accounts: "accounts", viewer: "viewer" } as const;
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const s = await requireSession();
-  const [integrations, rec] = await Promise.all([listIntegrations(s.ctx, {}), getReconciliation(s.ctx, {})]);
+  const [integrations, rec] = await Promise.all([can(s.ctx, "integrations.read") ? listIntegrations(s.ctx, {}) : Promise.resolve([]), getReconciliation(s.ctx, {})]);
+  const allowed = Object.entries(PAGE_PERMISSION).filter(([, perm]) => can(s.ctx, perm)).map(([href]) => href);
   const reviewCount = rec.pendingReview + rec.olderBacklog;
   const problems = integrations.filter((i) => i.status !== "connected");
-  const isAdmin = s.role === "owner" || s.role === "admin";
+  const isAdmin = can(s.ctx, "integrations.manage");
   // A wrong APP_URL silently breaks Gmail OAuth, the Claude connector URL and email links.
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
@@ -31,10 +36,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <span className="grid size-7 place-items-center rounded-md bg-primary text-sm font-bold text-primary-foreground">In</span>
           Inquira
         </Link>
-        <Sidebar reviewCount={reviewCount} />
+        <Sidebar reviewCount={reviewCount} allowed={allowed} />
         <div className="mt-auto grid gap-2 px-3 text-xs text-muted">
           <p className="truncate" title={s.orgName}>{s.orgName}</p>
-          <p className="truncate" title={s.user.email}>{s.user.email} · {s.role}</p>
+          <p className="truncate" title={s.user.email}>{s.user.email} · {ROLE_NAMES[s.role]}</p>
         </div>
       </aside>
       <div className="min-w-0 pb-20 lg:pb-8">
@@ -76,7 +81,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         ) : null}
         <main className="mx-auto w-full max-w-6xl px-4 py-4 sm:py-6">{children}</main>
       </div>
-      <BottomNav reviewCount={reviewCount} />
+      <BottomNav reviewCount={reviewCount} allowed={allowed} />
     </div>
   );
 }

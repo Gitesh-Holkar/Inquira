@@ -5,7 +5,7 @@ import { requireSession } from "@/lib/auth";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { getDashboard } from "@/modules/dashboard/service";
 import { SOURCE_LABELS, LEAD_SOURCES } from "@/modules/leads/types";
-import { Badge, Card, CardContent, CardHeader, CardTitle, PageHeader } from "@/components/ui/primitives";
+import { Alert, Badge, Card, CardContent, CardHeader, CardTitle, PageHeader } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -25,13 +25,14 @@ function Stat({ label, value, href, icon, tone }: { label: string; value: number
   return href ? <Link href={href} className="block rounded-lg">{inner}</Link> : inner;
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
   const s = await requireSession("dashboard.read");
-  const d = await getDashboard(s.ctx, {});
+  const [d, sp] = await Promise.all([getDashboard(s.ctx, {}), searchParams]);
   const r = d.reconciliation;
   return (
     <>
       <PageHeader title="Today" description={`Signed in to ${s.orgName}`} actions={<Button asChild><Link href="/leads">Open lead inbox</Link></Button>} />
+      {sp.denied ? <Alert tone="warning" className="mb-4" title="You don't have access to that page">Ask an owner or admin to switch it on for you under Settings → Members → Access.</Alert> : null}
       <section aria-label="Key numbers" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="New leads today" value={d.newTodayTotal} href="/leads" icon={<Inbox />} />
         <Stat label="Need action" value={d.needingAction} href="/leads?status=new" icon={<AlertCircle />} tone="bg-info-soft text-info" />

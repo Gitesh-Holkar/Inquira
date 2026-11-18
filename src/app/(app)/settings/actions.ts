@@ -9,7 +9,9 @@ import { createMcpToken, revokeMcpToken } from "@/modules/mcp/service";
 import { createClassificationRule, updateClassificationRule } from "@/modules/email/service";
 import { updateBuyleadRules } from "@/modules/buyleads/service";
 import { authorize } from "@/modules/core/permissions";
-import { changeMemberRole, inviteMember, removeMember } from "@/modules/core/members";
+import { changeMemberRole, inviteMember, removeMember, setMemberAccess } from "@/modules/core/members";
+import type { AbilityId } from "@/modules/core/permissions";
+import type { Role } from "@/modules/core/types";
 
 const done = <T,>(r: Awaited<ReturnType<typeof runAction<T>>>) => { revalidatePath("/settings"); revalidatePath("/", "layout"); return r; };
 
@@ -66,13 +68,13 @@ export async function saveOrgAction(input: { quoteValidityDays: number; defaultP
   return done(await runAction(() => updateOrgSettings(s.ctx, input)));
 }
 
-export async function inviteMemberAction(input: { email: string; role: "owner" | "admin" | "sales" | "viewer" }) {
+export async function inviteMemberAction(input: { email: string; role: Role }) {
   const s = await requireSession("members.manage");
   const r = await runAction(() => inviteMember(s.ctx, input));
   revalidatePath("/settings");
   return r.ok ? { ok: true as const, data: { accountKind: r.data.accountKind } } : r;
 }
-export async function changeMemberRoleAction(memberId: string, role: "owner" | "admin" | "sales" | "viewer") {
+export async function changeMemberRoleAction(memberId: string, role: Role) {
   const s = await requireSession("members.manage");
   const r = await runAction(() => changeMemberRole(s.ctx, { memberId, role }));
   revalidatePath("/settings");
@@ -84,3 +86,10 @@ export async function removeMemberAction(memberId: string) {
   revalidatePath("/settings");
   return r.ok ? { ok: true as const } : r;
 }
+export async function setMemberAccessAction(memberId: string, abilities: AbilityId[]) {
+  const s = await requireSession("members.manage");
+  const r = await runAction(() => setMemberAccess(s.ctx, { memberId, abilities }));
+  revalidatePath("/settings");
+  return r.ok ? { ok: true as const } : r;
+}
+

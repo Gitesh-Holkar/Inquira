@@ -4,7 +4,7 @@ import { app, baseColumns, softDelete } from "@/db/pg-schema";
 // Re-exported so drizzle-kit emits CREATE SCHEMA "app".
 export { app } from "@/db/pg-schema";
 
-export const roleEnum = app.enum("member_role", ["owner", "admin", "sales", "viewer"]);
+export const roleEnum = app.enum("member_role", ["owner", "admin", "sales", "qa", "accounts", "viewer"]);
 
 export const organizations = app.table("organizations", {
   ...baseColumns(),
@@ -44,6 +44,9 @@ export const memberships = app.table("memberships", {
   orgId: uuid().notNull().references(() => organizations.id),
   userId: uuid().notNull(),
   role: roleEnum().notNull(),
+  /** Custom access on top of the role: permissions added and taken away (src/modules/core/permissions.ts). */
+  granted: text().array().notNull().default([]),
+  revoked: text().array().notNull().default([]),
   email: text().notNull(),
   displayName: text(),
 }, (t) => [

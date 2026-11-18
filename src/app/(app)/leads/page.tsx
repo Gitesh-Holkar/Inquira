@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Inbox, Search } from "lucide-react";
 import { requireSession } from "@/lib/auth";
+import { can } from "@/modules/core/permissions";
 import { listLeads } from "@/modules/leads/service";
 import { listProducts } from "@/modules/catalog/service";
 import { LEAD_SOURCES, LEAD_STATUSES, SOURCE_LABELS, STATUS_LABELS, type LeadSource, type LeadStatus } from "@/modules/leads/types";
@@ -40,7 +41,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHeader title="Leads" description={`${res.total} ${view === "international" ? "international (parked, no quotes)" : "leads"}${filtered ? " matching filters" : ""}`}
-        actions={s.role !== "viewer" ? <NewLeadButton /> : undefined} />
+        actions={can(s.ctx, "leads.create") ? <NewLeadButton /> : undefined} />
       <div role="tablist" aria-label="Lead views" className="mb-3 flex gap-1 rounded-lg bg-surface-2 p-1 text-sm">
         {(["inbox", "international"] as const).map((v) => (
           <Link key={v} role="tab" aria-selected={view === v} href={v === "inbox" ? "/leads" : "/leads?view=international"}
@@ -85,7 +86,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       {res.items.length === 0 ? (
         <Card>
           <EmptyState icon={<Inbox />} title={filtered ? "No leads match these filters" : view === "international" ? "No international inquiries" : "No leads yet"}
-            action={filtered ? <Button asChild variant="outline"><Link href="/leads">Clear filters</Link></Button> : view === "inbox" && s.role !== "viewer" ? <Button asChild><Link href="/settings">Connect TradeIndia or Gmail</Link></Button> : undefined}>
+            action={filtered ? <Button asChild variant="outline"><Link href="/leads">Clear filters</Link></Button> : view === "inbox" && can(s.ctx, "integrations.manage") ? <Button asChild><Link href="/settings">Connect TradeIndia or Gmail</Link></Button> : undefined}>
             {filtered ? "Try a wider date range or clear the search." : view === "international" ? "Inquiries from outside India are parked here until USD pricing is supported." : "No leads yet. Connect TradeIndia and Gmail in Settings and new inquiries will appear here within 10 minutes."}
           </EmptyState>
         </Card>

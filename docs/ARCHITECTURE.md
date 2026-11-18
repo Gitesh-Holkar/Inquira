@@ -192,3 +192,7 @@ Two seams keep cloud and local mode on the same code (GOAL G-PLT-6):
 
 Both are network calls, so services call them outside database transactions: `inviteMember` creates the account first and then the membership; `uploadDocument` stores the file first, then saves the row, and removes the file if the row cannot be saved.
 
+## Who may do what
+
+A person's permissions are their role's defaults plus their custom access (`memberships.granted`, `memberships.revoked`), set on Settings → Members → Access as abilities (`ABILITIES` in `src/modules/core/permissions.ts`). Owners always have everything. The app checks permissions in every service (`authorize`); the database checks the same rules again for signed-in people (`app.can`, `drizzle/0008_access_rules.sql`), so a missing check in code cannot write where the person has no permission. Menus show only pages the person may open (`src/components/shell/nav-access.ts`). Claude connector tokens keep their own narrow set (`MCP_PERMISSIONS`).
+

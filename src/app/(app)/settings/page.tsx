@@ -218,7 +218,7 @@ async function MembersTab({ s }: { s: AppSession }) {
       </CardHeader>
       <CardContent>
         <Members me={s.user.id} myRole={s.role} canManage={can(s.ctx, "members.manage")} accountKind={accountKind()} loginUrl={`${appUrl()}/login`}
-          members={members.map((m) => ({ id: m.id, userId: m.userId, email: m.email, role: m.role, createdAt: m.createdAt.toISOString() }))} />
+          members={members.map((m) => ({ id: m.id, userId: m.userId, email: m.email, role: m.role, granted: m.granted, revoked: m.revoked, createdAt: m.createdAt.toISOString() }))} />
       </CardContent>
     </Card>
   );

@@ -1,21 +1,25 @@
 "use client";
 import { useState, useTransition } from "react";
-import { UserMinus, UserPlus } from "lucide-react";
+import { KeyRound, UserMinus, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/dialog";
+import { ConfirmDialog, Dialog, DialogContent } from "@/components/ui/dialog";
 import { Alert, Badge, Field, Input, Select } from "@/components/ui/primitives";
 import { formatDate } from "@/lib/format";
-import { changeMemberRoleAction, inviteMemberAction, removeMemberAction } from "@/app/(app)/settings/actions";
+import { changeMemberRoleAction, inviteMemberAction, removeMemberAction, setMemberAccessAction } from "@/app/(app)/settings/actions";
+import { ABILITIES, abilitiesFor, withRequirements, type AbilityId } from "@/modules/core/permissions";
+import type { Role } from "@/modules/core/types";
 
-type Role = "owner" | "admin" | "sales" | "viewer";
-export type MemberView = { id: string; userId: string; email: string; role: Role; createdAt: string };
+export type MemberView = { id: string; userId: string; email: string; role: Role; granted: string[]; revoked: string[]; createdAt: string };
 
-const ROLE_LABEL: Record<Role, string> = { owner: "Owner", admin: "Admin", sales: "Sales", viewer: "Viewer" };
+const ROLE_LABEL: Record<Role, string> = { owner: "Owner", admin: "Admin", sales: "Sales", qa: "QA", accounts: "Accounts", viewer: "Viewer" };
+const ROLE_ORDER: Role[] = ["owner", "admin", "sales", "qa", "accounts", "viewer"];
 const ROLE_HELP: Record<Role, string> = {
   owner: "Everything, including members and owners",
-  admin: "Everything except owners and admins",
-  sales: "Leads, quotations, review queue, documents (view)",
+  admin: "Everything except managing owners and admins",
+  sales: "Leads, quotations, review queue",
+  qa: "Product documents (COA, TDS, MSDS); sees everything else",
+  accounts: "Sees leads, quotations, prices and documents; no settings",
   viewer: "Can look, cannot change anything",
 };
 const privileged = (r: Role) => r === "owner" || r === "admin";
@@ -29,7 +33,7 @@ export function Members({ members, me, myRole, canManage, accountKind, loginUrl 
 }) {
   const [pending, start] = useTransition();
   const [added, setAdded] = useState<{ email: string; kind: "supabase" | "local" } | null>(null);
-  const assignable = (Object.keys(ROLE_LABEL) as Role[]).filter((r) => myRole === "owner" || !privileged(r));
+  const assignable = ROLE_ORDER.filter((r) => myRole === "owner" || !privileged(r));
   const mayTouch = (m: MemberView) => canManage && m.userId !== me && (myRole === "owner" || !privileged(m.role));
 
   return (
@@ -72,6 +76,7 @@ export function Members({ members, me, myRole, canManage, accountKind, loginUrl 
             <div className="min-w-0 flex-1">
               <p className="break-words font-medium">{m.email}{m.userId === me ? <span className="font-normal text-muted"> (you)</span> : null}</p>
               <p className="text-xs text-muted">Added {formatDate(m.createdAt)} · {ROLE_HELP[m.role]}</p>
+              {m.role !== "owner" && m.granted.length + m.revoked.length ? <Badge tone="info" className="mt-1">Custom access</Badge> : null}
             </div>
             {mayTouch(m) ? (
               <>
@@ -79,11 +84,12 @@ export function Members({ members, me, myRole, canManage, accountKind, loginUrl 
                   const role = e.target.value as Role;
                   start(async () => {
                     const r = await changeMemberRoleAction(m.id, role);
-                    if (r.ok) toast.success(`${m.email} is now ${ROLE_LABEL[role]}`); else toast.error(r.error);
+                    if (r.ok) toast.success(`${m.email} is now ${ROLE_LABEL[role]}${m.granted.length + m.revoked.length ? "; custom access was reset to the role's defaults" : ""}`); else toast.error(r.error);
                   });
                 }}>
-                  {(Object.keys(ROLE_LABEL) as Role[]).filter((r) => r === m.role || assignable.includes(r)).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+                  {ROLE_ORDER.filter((r) => r === m.role || assignable.includes(r)).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
                 </Select>
+                {m.role !== "owner" ? <AccessButton member={m} /> : null}
                 <ConfirmDialog danger title={`Remove ${m.email}?`} confirmLabel="Remove member"
                   description="They lose access at their next click. Everything they did stays in the history. You can add them again later."
                   trigger={<Button variant="outline" size="sm" disabled={pending} aria-label={`Remove ${m.email}`}><UserMinus />Remove</Button>}
@@ -99,3 +105,56 @@ export function Members({ members, me, myRole, canManage, accountKind, loginUrl 
     </div>
   );
 }
+
+/**
+ * Settings → Members → Access: the abilities this member has, switchable one by one on top of their role.
+ * Ticking an ability that needs another (for example "See settings") ticks that one too; the server
+ * applies the same rule and refuses abilities the person editing does not have.
+ */
+function AccessButton({ member }: { member: MemberView }) {
+  const [open, setOpen] = useState(false);
+  const [pending, start] = useTransition();
+  const defaults = abilitiesFor(member.role);
+  const current = abilitiesFor(member.role, member.granted, member.revoked);
+  const [on, setOn] = useState<Set<AbilityId>>(current);
+  const groups = [...new Set(ABILITIES.map((a) => a.group))];
+  const toggle = (id: AbilityId, checked: boolean) => setOn((prev) => {
+    const next = new Set(prev);
+    if (checked) return withRequirements([...next, id]);
+    next.delete(id);
+    for (const a of ABILITIES) if ("requires" in a && a.requires === id) next.delete(a.id); // nothing that needs it stays on
+    return next;
+  });
+  return (
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) setOn(current); }}>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)} aria-label={`Access of ${member.email}`}><KeyRound />Access</Button>
+      <DialogContent title={`Access for ${member.email}`} description={`Starts from the ${ROLE_LABEL[member.role]} role. Everyone can always open the dashboard, leads, quotations, rates, documents and templates.`}>
+        <div className="grid max-h-[60vh] gap-3 overflow-y-auto pr-1">
+          {groups.map((g) => (
+            <fieldset key={g} className="grid gap-1">
+              <legend className="mb-1 text-sm font-semibold">{g}</legend>
+              {ABILITIES.filter((a) => a.group === g).map((a) => (
+                <label key={a.id} className="flex min-h-11 items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
+                  <input type="checkbox" className="size-4" checked={on.has(a.id)} onChange={(e) => toggle(a.id, e.target.checked)} />
+                  <span className="min-w-0 flex-1">{a.label}</span>
+                  {on.has(a.id) !== defaults.has(a.id) ? <Badge tone="info">{on.has(a.id) ? "Added" : "Taken away"}</Badge> : null}
+                </label>
+              ))}
+            </fieldset>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap justify-between gap-2">
+          <Button variant="outline" disabled={pending} onClick={() => setOn(new Set(defaults))}>Back to role defaults</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button disabled={pending} onClick={() => start(async () => {
+              const r = await setMemberAccessAction(member.id, [...on]);
+              if (r.ok) { toast.success(`Access saved for ${member.email}`); setOpen(false); } else toast.error(r.error);
+            })}>{pending ? "Saving…" : "Save access"}</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+

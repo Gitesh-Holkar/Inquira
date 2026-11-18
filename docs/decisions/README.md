@@ -33,6 +33,7 @@ Each file has: Context, Problem, Options, Decision, Reasoning, Consequences, Sta
 | [ADR-025](ADR-025-price-list-import.md) | Price lists are imported from their own text, through one code path; quotation terms | Accepted | 17 Nov 2026 |
 | [ADR-026](ADR-026-build-stops-when-database-is-behind.md) | A hosted build stops when the database is behind the code | Accepted | 17 Nov 2026 |
 | [ADR-027](ADR-027-documents-and-accounts-through-the-server.md) | Documents and new sign-in accounts go through the server, with the service role key | Accepted | 17 Nov 2026 |
+| [ADR-028](ADR-028-permission-based-access.md) | Access is decided by permissions, with custom access per member | Accepted | 18 Nov 2026 |
 
 ## To be written when the work reaches them
 

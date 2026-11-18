@@ -4,6 +4,12 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 18 Nov 2026 — Roles QA and Accounts; custom access per person
+- **New roles:** QA (adds and removes product documents, views everything else) and Accounts (views leads, quotations, prices and documents; no settings).
+- **Settings → Members → Access:** owners and admins switch single abilities on or off for a person on top of their role, for example let QA change prices, or take quotation drafts away from someone. You can only give what you have; owners always keep full access.
+- Menus show only the pages a person may open; opening another page explains why it is not available.
+- The database enforces the same access as the app (migrations 0007 and 0008).
+
 ### 17 Nov 2026 — Members screen and document library
 - **Settings → Members:** add a teammate by email with a role (owner, admin, sales, viewer), change a role, or remove someone, without SQL. The screen tells you what to send the new person. Nobody can remove themselves, and a company always keeps an owner.
 - **Documents** (new menu item; on a phone under Settings): upload COA, TDS, MSDS, specifications, brochures and certificates per product (or for the whole company) with batch, issue and expiry dates; filter, download and remove. PDF, images, Word and Excel up to 4 MB; files are checked by their content.

@@ -158,11 +158,11 @@ describe("OAuth 2.1 for claude.ai connectors", () => {
     expect((await old.json()).error).toBe("invalid_grant");
   });
 
-  it("only owners/admins can authorise; redirect URIs are checked (loopback port-agnostic)", async () => {
+  it("only people who may manage the connector can authorise; redirect URIs are checked (loopback port-agnostic)", async () => {
     const { ctx } = await setupOrgWithUser("sales");
     const client = await registerOAuthClient({ redirect_uris: ["http://localhost/callback", "http://127.0.0.1/callback"] });
     const v = await validateAuthorizeRequest({ response_type: "code", client_id: client.client_id, redirect_uri: "http://localhost:53682/callback", code_challenge: "a".repeat(43), code_challenge_method: "S256" });
-    await expect(issueAuthorizationCode(ctx, v.params)).rejects.toThrow(/owners and admins/);
+    await expect(issueAuthorizationCode(ctx, v.params)).rejects.toThrow(/may manage the Claude connector/);
     await expect(validateAuthorizeRequest({ response_type: "code", client_id: client.client_id, redirect_uri: "https://evil.example/cb", code_challenge: "a".repeat(43), code_challenge_method: "S256" })).rejects.toThrow(/redirect_uri/);
     await expect(validateAuthorizeRequest({ response_type: "code", client_id: client.client_id, redirect_uri: "http://localhost:1/callback", code_challenge: "a".repeat(43), code_challenge_method: "plain" })).rejects.toThrow(/PKCE/);
     expect(redirectMatches(["https://claude.ai/api/mcp/auth_callback"], "https://claude.ai/api/mcp/auth_callback?x=1")).toBe(false);

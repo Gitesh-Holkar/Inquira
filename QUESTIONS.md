@@ -135,10 +135,9 @@ Each item lists the question, what I assumed so the build could continue, and wh
 - **Owner's answer:** no licence for now. Inquira is for the owner's own use and should run locally. Keep the open-source idea for later.
 - **Effect:** no `LICENSE` file is added; G-OSS-1 waits. Without a licence the code stays "all rights reserved" even though the repository is public. When the owner wants to publish, the choice is between AGPL-3.0-or-later and MIT (not legal advice).
 
-## Q-017 — Roles "QA" and "Accounts"
-- **Question:** The goal (G-PLT-2) lists six roles: owner, admin, sales, QA, accounts, viewer. Inquira has the first four. What should QA and Accounts be able to do? For example: QA adds and replaces COA/TDS documents but cannot change rates; Accounts sees quotations and rates but not settings.
-- **Assumed meanwhile:** no QA or Accounts role. Give such a person Viewer (look only) or Admin (can add documents).
-- **Where it matters:** `src/modules/core/permissions.ts`, the role list on Settings → Members.
+## Q-017 — Roles "QA" and "Accounts" (answered 18 Nov 2026)
+- **Owner's answer:** make both, and let owners and admins give or take away any access per person.
+- **Built as:** QA = view everything, add and remove documents. Accounts = view leads, quotations, prices and documents, no settings. Per-person changes on Settings → Members → Access. Adjust either default by saying so.
 
 ## Q-018 — Documents to upload
 - **Question:** Please add your COA, TDS and MSDS files under **Documents**, with batch and expiry date. Which products have them?
