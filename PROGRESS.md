@@ -6,7 +6,7 @@
 ## Current state (17 Nov 2026)
 
 - **Goal:** `docs/GOAL.md` (requirement IDs `G-…`). **Rules:** `AGENTS.md`. **Where things are:** `docs/INDEX.md`, `docs/CODEMAP.md`.
-- **Working on:** M2 (local mode) is done. Next in order: M4 (IndiaMART API), which needs the owner to register the Push URL and enter the Pull key; M1 stays deferred (Q-016).
+- **Working on:** M4 (IndiaMART API) is built and waits at its owner gate (connect it, SETUP 6a). Next: M5 (AI layer), which needs a Gemini key from the owner for its live check; M1 stays deferred (Q-016).
 - **Live site:** deployed on Vercel from this branch. Sign-in is on again. The live database still has the September rates and has **not** had migrations `0003` and `0004` applied.
 - **Order note:** the owner sent the November price list and quotation terms on 16 Nov and asked for them, so M3 was done before M1 and M2. Its one dependency on M1 (seed folders) was done with it: `seed/stdm/` and `SEED_DIR`. The fictional `seed/example` and the "nothing in `src/` names the company" test are still M1.
 
@@ -34,7 +34,7 @@ Work in order, one at a time. Stop at every **OWNER GATE**.
 | M1 | Open-source foundation: licence, seed sets, README, CONTRIBUTING, secret scan | G-OSS-1 to G-OSS-4, P6 | **Deferred by the owner (17 Nov 2026, Q-016).** Seed folders done with M3; example data and the company-name scan come with M2 |
 | M2 | Local mode: adapters, local sign-in, Docker packaging, self-hosting guide | G-PLT-5, G-PLT-6 | **Done 18 Nov 2026.** Verified from a fresh install in Docker (`npm run test:e2e:local`), restart keeps keys and data |
 | M3 | New price list: import screen and command, diff (**OWNER GATE** before anything is written to a live database); quotation terms | G-KB-6, part of G-KB-2 | Built and tested (17 Nov). **Waiting for the owner:** Q-015 |
-| M4 | IndiaMART API: Push, Pull, reconciliation | G-SRC-1, G-SRC-2, G-SRC-6 to G-SRC-8 | Not started |
+| M4 | IndiaMART API: Push, Pull, reconciliation | G-SRC-1, G-SRC-2, G-SRC-6 to G-SRC-8 | **Built 18 Nov 2026, tested against a fake.** OWNER GATE: paste the Pull key and register the push address (SETUP 6a); then compare one lead (Q-019) |
 | M5 | AI layer: provider interface, tiers, redaction | G-AI-1 to G-AI-10, G-UND-3, G-UND-4 | Not started |
 | M6 | Knowledge base: commercial terms, rate validity, document library, sample policy, lead score | G-KB-2 to G-KB-5, G-UND-6 | Not started |
 | M7 | Outbound pipeline: hold rules, modes, sending (**OWNER GATE**: stays in `shadow`) | G-TPL-*, G-OUT-1 to G-OUT-7, G-OUT-9, G-OUT-10 | Not started |
@@ -79,6 +79,7 @@ Every service, screen and setting was checked against the rule in `AGENTS.md` se
 3. Settings → Organisation → Payment terms: `100% advance`.
 4. Rates → Import price list: save the mapping (`seed/stdm/price-list-map.json`), paste the November list, Apply. The live site still has the September prices.
 5. Sign in again and revoke the Claude tokens issued while sign-in was off (`docs/RUNBOOK.md` section 1).
+6. IndiaMART: paste the Pull API key and register the push address (`docs/SETUP.md` section 6a); then compare one lead with IndiaMART (Q-019).
 
 ## Notes for the owner
 

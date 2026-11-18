@@ -1,0 +1,1 @@
+ALTER TYPE "app"."integration_provider" ADD VALUE 'indiamart';

@@ -5,10 +5,11 @@ import { decryptJson, encryptJson } from "@/lib/crypto";
 import { notFound } from "@/lib/errors";
 import { audit, emit } from "./audit";
 import { defineService } from "./service-kit";
+import { can } from "./permissions";
 import { actorString, type Ctx } from "./types";
 import { auditLogs, integrations, integrationSecrets, jobs, memberships, organizations, orgSettings, syncRuns } from "./schema";
 
-export type Provider = "gmail" | "tradeindia";
+export type Provider = "gmail" | "tradeindia" | "indiamart";
 export type Integration = typeof integrations.$inferSelect;
 
 // ---------- org + membership lookups (used by auth) ----------
@@ -68,6 +69,18 @@ export async function setPriceListMapInternal(tx: Tx, ctx: Ctx, map: unknown, su
 }
 
 // ---------- integrations (non-secret state + encrypted secrets) ----------
+
+/** The integration row if it exists (never creates one). */
+export async function findIntegrationInternal(tx: Tx, orgId: string, provider: Provider): Promise<Integration | null> {
+  const [row] = await tx.select().from(integrations).where(and(eq(integrations.orgId, orgId), eq(integrations.provider, provider)));
+  return row ?? null;
+}
+
+/** The IndiaMART integration whose push address secret has this SHA-256 hash (any company); for the push endpoint. */
+export async function integrationByPushSecretHashInternal(tx: Tx, hash: string): Promise<Integration | null> {
+  const [row] = await tx.select().from(integrations).where(and(eq(integrations.provider, "indiamart"), sql`${integrations.config} ->> 'pushSecretHash' = ${hash}`));
+  return row ?? null;
+}
 
 export async function getIntegrationInternal(tx: Tx, orgId: string, provider: Provider): Promise<Integration> {
   const [row] = await tx.select().from(integrations).where(and(eq(integrations.orgId, orgId), eq(integrations.provider, provider)));
@@ -144,7 +157,10 @@ export const listIntegrations = defineService({
   handler: async (ctx, _i, tx) => {
     const g = await getIntegrationInternal(tx, ctx.orgId, "gmail");
     const t = await getIntegrationInternal(tx, ctx.orgId, "tradeindia");
-    return [g, t].map((i) => ({
+    // IndiaMART arrived later: a company seeded before it may have no row yet, and only people who manage
+    // connections may create one, so everyone else sees it as not connected.
+    const m = (await findIntegrationInternal(tx, ctx.orgId, "indiamart")) ?? (can(ctx, "integrations.manage") ? await getIntegrationInternal(tx, ctx.orgId, "indiamart") : null);
+    return [g, t, ...(m ? [m] : [])].map((i) => ({
       id: i.id, provider: i.provider, status: i.status, accountEmail: i.accountEmail, lastSyncAt: i.lastSyncAt,
       lastSuccessAt: i.lastSuccessAt, lastError: i.lastError, lastErrorAt: i.lastErrorAt, enabled: i.enabled,
       config: publicConfig(i.config),

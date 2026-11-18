@@ -85,13 +85,12 @@ export async function upsertLeadInternal(tx: Tx, ctx: Ctx, input: NormalizedLead
       const inputHasRealId = !input.sourceRef.startsWith("gmail:");
       const dupIsEmailOnly = dup.sourceRef.startsWith("gmail:");
       if (inputHasRealId && dupIsEmailOnly) {
-        // Upgrade the email-only lead to the real inquiry id; keep the gmail ref as an alternate.
-        await tx.update(leads).set({
-          sourceRef: input.sourceRef,
-          alternateRefs: [...dup.alternateRefs, { source: dup.channel ?? "email", ref: dup.sourceRef, method: "contact_time_window" }],
-        }).where(eq(leads.id, dup.id));
-        await audit(tx, ctx, { action: "lead.ref_upgraded", entityType: "lead", entityId: dup.id, changes: { sourceRef: [dup.sourceRef, input.sourceRef] } });
-        await fillMissing(tx, ctx, { ...dup, sourceRef: input.sourceRef }, { ...input, phone, email }, null);
+        // Upgrade the email-only lead to the real inquiry id and its channel; the email stays as an alternate
+        // (the API-versus-email counts read the channel and the alternates).
+        const alternateRefs = [...dup.alternateRefs, { source: dup.channel ?? "email", ref: dup.sourceRef, method: "contact_time_window" }];
+        await tx.update(leads).set({ sourceRef: input.sourceRef, channel: input.channel, alternateRefs }).where(eq(leads.id, dup.id));
+        await audit(tx, ctx, { action: "lead.ref_upgraded", entityType: "lead", entityId: dup.id, changes: { sourceRef: [dup.sourceRef, input.sourceRef], channel: [dup.channel, input.channel] } });
+        await fillMissing(tx, ctx, { ...dup, sourceRef: input.sourceRef, channel: input.channel, alternateRefs }, { ...input, phone, email }, null);
       } else {
         await fillMissing(tx, ctx, dup, { ...input, phone, email }, { source: input.channel, ref: input.sourceRef, method: "contact_time_window" });
       }
@@ -403,8 +402,37 @@ export async function touchLeadInternal(tx: Tx, orgId: string, leadId: string, p
   await tx.update(leads).set({ lastActivityAt: new Date(), ...patch }).where(and(eq(leads.id, leadId), eq(leads.orgId, orgId)));
 }
 
-export async function countLeadsByChannelSinceInternal(tx: Tx, orgId: string, channel: string, since: Date) {
+
+export type PortalRoutes = { portal: "indiamart" | "tradeindia"; total: number; api: number; email: number; onlyApi: number; onlyEmail: number };
+
+/**
+ * GOAL G-SRC-7: how today's portal leads arrived, by API and by notification email. A lead that came both
+ * ways is one record (merged), and every route it came by is in `channel` plus `alternate_refs`.
+ * `onlyEmail` > 0 with the API connected means the API missed leads; `onlyApi` means emails did not arrive.
+ */
+export async function arrivalRoutesInternal(tx: Tx, orgId: string, since: Date): Promise<PortalRoutes[]> {
+  const rows = await tx.select({ source: leads.source, channel: leads.channel, alternateRefs: leads.alternateRefs }).from(leads)
+    .where(and(eq(leads.orgId, orgId), inArray(leads.source, ["indiamart", "tradeindia"]), gte(leads.receivedAt, since), isNull(leads.deletedAt)));
+  return (["indiamart", "tradeindia"] as const).map((portal) => {
+    const out: PortalRoutes = { portal, total: 0, api: 0, email: 0, onlyApi: 0, onlyEmail: 0 };
+    for (const r of rows.filter((x) => x.source === portal)) {
+      const routes = [r.channel ?? "", ...r.alternateRefs.map((a) => a.source)].filter(Boolean);
+      const api = routes.some((c) => c.startsWith(`${portal}_api`));
+      const email = routes.some((c) => !c.startsWith(`${portal}_api`) && c !== "manual");
+      out.total++;
+      if (api) out.api++;
+      if (email) out.email++;
+      if (api && !email) out.onlyApi++;
+      if (email && !api) out.onlyEmail++;
+    }
+    return out;
+  });
+}
+
+/** Buy Leads bought today, whichever way they arrived (notification email or the IndiaMART API). */
+export async function countBoughtBuyLeadsSinceInternal(tx: Tx, orgId: string, since: Date) {
   const [r] = await tx.select({ n: sql<number>`count(*)::int` }).from(leads)
-    .where(and(eq(leads.orgId, orgId), eq(leads.channel, channel), gte(leads.receivedAt, since), isNull(leads.deletedAt)));
+    .where(and(eq(leads.orgId, orgId), inArray(leads.channel, ["indiamart_buylead", "indiamart_api_b"]), gte(leads.receivedAt, since), isNull(leads.deletedAt)));
   return r?.n ?? 0;
 }
+

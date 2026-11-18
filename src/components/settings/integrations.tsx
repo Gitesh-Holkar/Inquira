@@ -1,14 +1,14 @@
 "use client";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { RefreshCw, PlugZap } from "lucide-react";
+import { Copy, Link2, RefreshCw, PlugZap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Alert, Badge, Card, CardContent, CardHeader, CardTitle, Field, Input } from "@/components/ui/primitives";
 import { formatDateTime, formatRelative } from "@/lib/format";
-import { connectGmailAction, disconnectGmailAction, saveGmailClientAction, saveTradeIndiaAction, syncNowAction, testTradeIndiaAction } from "@/app/(app)/settings/actions";
+import { connectGmailAction, createIndiaMartPushAddressAction, disconnectGmailAction, saveGmailClientAction, saveIndiaMartKeyAction, saveTradeIndiaAction, syncNowAction, testIndiaMartAction, testTradeIndiaAction } from "@/app/(app)/settings/actions";
 
-export type IntegrationView = { provider: "gmail" | "tradeindia"; status: string; accountEmail: string | null; lastSyncAt: string | null; lastSuccessAt: string | null; lastError: string | null; config: Record<string, unknown> };
+export type IntegrationView = { provider: "gmail" | "tradeindia" | "indiamart"; status: string; accountEmail: string | null; lastSyncAt: string | null; lastSuccessAt: string | null; lastError: string | null; config: Record<string, unknown> };
 export type RunView = { id: string; provider: string; kind: string; startedAt: string; status: string; fetched: number; created: number; duplicates: number; errors: number; errorMessage: string | null };
 
 const STATUS: Record<string, { label: string; tone: "success" | "neutral" | "danger" | "warning" }> = {
@@ -27,7 +27,7 @@ function Health({ i }: { i: IntegrationView }) {
   );
 }
 
-function SyncNow({ provider, disabled }: { provider: "gmail" | "tradeindia"; disabled?: boolean }) {
+function SyncNow({ provider, disabled }: { provider: "gmail" | "tradeindia" | "indiamart"; disabled?: boolean }) {
   const [pending, start] = useTransition();
   return (
     <Button variant="outline" disabled={disabled || pending} onClick={() => start(async () => {
@@ -74,6 +74,76 @@ export function TradeIndiaCard({ i, canManage }: { i: IntegrationView; canManage
               <SyncNow provider="tradeindia" disabled={i.status !== "connected" && i.status !== "error"} />
             </div>
           </form>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * IndiaMART Lead Manager: the Pull API key (safety net and history) and the Push address (each lead the
+ * moment it arrives). The push address is shown once, when it is created, for pasting into IndiaMART.
+ */
+export function IndiaMartCard({ i, canManage, httpsReady }: { i: IntegrationView; canManage: boolean; httpsReady: boolean }) {
+  const [pending, start] = useTransition();
+  const [errors, setErrors] = useState<Record<string, string[]>>({});
+  const [pushUrl, setPushUrl] = useState<string | null>(null);
+  const cfg = i.config as { pushAddressCreatedAt?: string; lastPushAt?: string };
+  return (
+    <Card>
+      <CardHeader><CardTitle>IndiaMART</CardTitle><Badge>Lead Manager API</Badge></CardHeader>
+      <CardContent className="grid gap-4">
+        {i.status === "reauth_required" ? <Alert tone="danger" title="IndiaMART refused the key">Generate a new Pull API key in IndiaMART&apos;s Lead Manager and paste it below.</Alert> : null}
+        <Health i={i} />
+        <p className="text-sm text-muted">
+          Push: {cfg.pushAddressCreatedAt ? <>address created {formatDateTime(cfg.pushAddressCreatedAt)}{cfg.lastPushAt ? <>, last lead received {formatRelative(cfg.lastPushAt)}</> : ", no lead received yet"}</> : "not set up"}.
+          Pull: every 10 minutes once the key works; the first run loads the last 30 days, one week per run.
+        </p>
+        {canManage ? (
+          <>
+            <form className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end" onSubmit={(e) => {
+              e.preventDefault();
+              const key = String(new FormData(e.currentTarget).get("key") ?? "");
+              start(async () => {
+                const r = await saveIndiaMartKeyAction(key);
+                if (!r.ok) { setErrors(r.fieldErrors ?? {}); return void toast.error(r.error); }
+                setErrors({});
+                toast.success("Key saved. Now click Test connection.");
+              });
+            }}>
+              <Field label="Pull API key" htmlFor="im-key" error={errors.key} hint={i.status !== "not_connected" ? "Saved (hidden). Paste again to change." : "IndiaMART Lead Manager → ⋮ → Import/Export Leads → Pull API"}>
+                <Input id="im-key" name="key" type="password" autoComplete="off" required minLength={10} />
+              </Field>
+              <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save key"}</Button>
+            </form>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" disabled={pending || i.status === "not_connected"} onClick={() => start(async () => {
+                const r = await testIndiaMartAction();
+                if (r.ok) toast.success(`Connected to IndiaMART (${r.data.sample} leads in the last hour). Loading the last 30 days, one week per run…`); else toast.error(r.error);
+              })}><PlugZap />Test connection</Button>
+              <SyncNow provider="indiamart" disabled={i.status !== "connected" && i.status !== "error"} />
+              {httpsReady ? (
+                <ConfirmDialog title={cfg.pushAddressCreatedAt ? "Create a new push address?" : "Create the push address?"} confirmLabel="Create address"
+                  description={cfg.pushAddressCreatedAt ? "The current address stops working at once. Paste the new one into IndiaMART straight away." : "You paste this address into IndiaMART's Lead Manager → Push API → Other. It is shown only once."}
+                  trigger={<Button type="button" variant="outline" disabled={pending}><Link2 />{cfg.pushAddressCreatedAt ? "New push address" : "Create push address"}</Button>}
+                  onConfirm={() => start(async () => {
+                    const r = await createIndiaMartPushAddressAction();
+                    if (r.ok) setPushUrl(r.data.url); else toast.error(r.error);
+                  })} />
+              ) : <p className="text-xs text-muted">Push needs a public https address (the cloud site); it is not available on a computer-only install.</p>}
+            </div>
+            {pushUrl ? (
+              <Alert tone="success" title="Push address (shown once)">
+                <span className="mt-1 grid gap-2">
+                  <code className="break-all rounded bg-surface px-2 py-1 text-xs">{pushUrl}</code>
+                  <span>IndiaMART → Lead Manager → ⋮ → Import/Export Leads → Push API → Other: paste this as the Webhook Listener URL and confirm with the OTP.</span>
+                  <span><Button type="button" variant="outline" size="sm" onClick={async () => {
+                    try { await navigator.clipboard.writeText(pushUrl); toast.success("Address copied"); } catch { toast.error("Couldn't copy. Select the address and copy it."); }
+                  }}><Copy />Copy address</Button></span>
+                </span>
+              </Alert>
+            ) : null}
+          </>
         ) : null}
       </CardContent>
     </Card>

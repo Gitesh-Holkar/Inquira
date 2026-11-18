@@ -12,7 +12,7 @@ import { listClassificationRules } from "@/modules/email/service";
 import { getBuyleadRules } from "@/modules/buyleads/service";
 import { gmailRedirectUri } from "@/modules/sources/gmail/service";
 import { Alert, Card, CardContent, CardHeader, CardTitle, PageHeader } from "@/components/ui/primitives";
-import { GmailCard, SyncRuns, TradeIndiaCard, type IntegrationView } from "@/components/settings/integrations";
+import { GmailCard, IndiaMartCard, SyncRuns, TradeIndiaCard, type IntegrationView } from "@/components/settings/integrations";
 import { McpTokens } from "@/components/settings/tokens";
 import { RulesEditor } from "@/components/settings/rules";
 import { BuyleadRulesEditor } from "@/components/settings/buylead-rules";
@@ -84,8 +84,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
 async function IntegrationsTab({ ctx, admin }: { ctx: Ctx; admin: boolean }) {
   const [ints, runs] = await Promise.all([listIntegrations(ctx, {}), listSyncRuns(ctx, { limit: 15 })]);
-  const view = (p: "gmail" | "tradeindia"): IntegrationView => {
-    const i = ints.find((x) => x.provider === p)!;
+  const view = (p: "gmail" | "tradeindia" | "indiamart"): IntegrationView => {
+    const i = ints.find((x) => x.provider === p) ?? { provider: p, status: "not_connected", accountEmail: null, lastSyncAt: null, lastSuccessAt: null, lastError: null, config: {} };
     return {
       provider: p,
       status: i.status,
@@ -99,6 +99,7 @@ async function IntegrationsTab({ ctx, admin }: { ctx: Ctx; admin: boolean }) {
   return (
     <div className="grid gap-4">
       <TradeIndiaCard i={view("tradeindia")} canManage={admin} />
+      <IndiaMartCard i={view("indiamart")} canManage={admin} httpsReady={appUrl().startsWith("https://")} />
       <GmailCard i={view("gmail")} canManage={admin} redirectUri={gmailRedirectUri()} />
       <Card>
         <CardHeader>

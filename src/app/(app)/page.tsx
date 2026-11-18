@@ -25,6 +25,8 @@ function Stat({ label, value, href, icon, tone }: { label: string; value: number
   return href ? <Link href={href} className="block rounded-lg">{inner}</Link> : inner;
 }
 
+const PROVIDER_NAMES: Record<string, string> = { gmail: "Gmail", tradeindia: "TradeIndia", indiamart: "IndiaMART" };
+
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
   const s = await requireSession("dashboard.read");
   const [d, sp] = await Promise.all([getDashboard(s.ctx, {}), searchParams]);
@@ -72,13 +74,31 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </Card>
 
         <Card>
+          <CardHeader><CardTitle>API and email today</CardTitle></CardHeader>
+          <CardContent className="grid gap-3" data-testid="routes">
+            {d.routes.map((p) => {
+              const gap = p.apiConnected && p.onlyEmail > 0;
+              return (
+                <div key={p.portal} className="text-sm">
+                  <p className="font-medium">{PROVIDER_NAMES[p.portal]}{gap ? <Badge tone="warning" className="ml-2">API missed {p.onlyEmail}</Badge> : null}</p>
+                  {p.apiConnected ? (
+                    <p className="text-muted">{p.api} by API, {p.email} by email{p.onlyApi ? ` · ${p.onlyApi} only by API` : ""}{p.onlyEmail ? ` · ${p.onlyEmail} only by email` : ""}</p>
+                  ) : <p className="text-muted">{p.total} by email; the API is not connected, so there is nothing to compare.</p>}
+                </div>
+              );
+            })}
+            <p className="text-xs text-muted">A lead that came both ways counts once in each. &quot;API missed&quot; means a lead came only by email although the API is connected.</p>
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader><CardTitle>Integration health</CardTitle></CardHeader>
           <CardContent className="grid gap-3">
             {d.integrations.map((i) => (
               <div key={i.provider} className="flex items-start gap-3 text-sm">
                 {i.status === "connected" ? <CheckCircle2 className="mt-0.5 size-4 text-success" aria-hidden /> : <AlertCircle className="mt-0.5 size-4 text-warning" aria-hidden />}
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium">{i.provider === "gmail" ? "Gmail" : "TradeIndia"} <Badge tone={i.status === "connected" ? "success" : i.status === "not_connected" || i.status === "configured" ? "neutral" : "danger"}>{i.status.replace("_", " ")}</Badge></p>
+                  <p className="font-medium">{PROVIDER_NAMES[i.provider]} <Badge tone={i.status === "connected" ? "success" : i.status === "not_connected" || i.status === "configured" ? "neutral" : "danger"}>{i.status.replace("_", " ")}</Badge></p>
                   <p className="text-muted">
                     {i.lastSuccessAt ? <>Last sync {formatRelative(i.lastSuccessAt)} <span className="hidden sm:inline">({formatDateTime(i.lastSuccessAt)})</span></> : "Never synced"}
                     {i.account ? ` · ${i.account}` : ""}
@@ -99,7 +119,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <CardContent>
             <p className="text-sm" data-testid="indiamart-card">
               <strong>{d.indiamart.would_contact}</strong> suggested,{" "}
-              <strong>{d.indiamart.skipped}</strong> skipped, <strong>{d.indiamart.arrivedByEmail}</strong> bought and arrived by email
+              <strong>{d.indiamart.skipped}</strong> skipped, <strong>{d.indiamart.arrivedByEmail}</strong> bought and arrived
             </p>
             <p className="mt-1 text-xs text-muted">Up to {d.indiamart.dailyCap} suggestions a day. A person buys on IndiaMART.</p>
             <Link href="/indiamart" className="mt-2 inline-block text-sm text-primary underline-offset-4 hover:underline">Decision log</Link>

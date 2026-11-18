@@ -18,8 +18,13 @@ export function StatusBadge({ status }: { status: LeadStatus }) {
   );
 }
 
+const CHANNEL_SUFFIX: Record<string, string> = {
+  indiamart_buylead: " · Buy lead", tradeindia_api: " · API",
+  indiamart_api_w: " · API", indiamart_api_b: " · Buy lead (API)", indiamart_api_p: " · Call", indiamart_api_biz: " · Catalogue view", indiamart_api_wa: " · WhatsApp",
+};
+
 export function SourceBadge({ source, channel }: { source: LeadSource; channel?: string | null }) {
-  const extra = channel === "indiamart_buylead" ? " · Buy lead" : channel === "tradeindia_api" ? " · API" : "";
+  const extra = CHANNEL_SUFFIX[channel ?? ""] ?? (channel?.endsWith("_api") ? " · API" : "");
   return <Badge tone="neutral">{SOURCE_LABELS[source]}{extra}</Badge>;
 }
 

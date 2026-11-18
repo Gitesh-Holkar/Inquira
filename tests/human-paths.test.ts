@@ -255,7 +255,7 @@ describe("Gmail sync robustness", () => {
     const r = await tick({ startBudgetMs: -1 });
     expect(r.processed).toBe(0);
     const rows = await getDb().select().from(jobs).where(eq(jobs.orgId, org.id));
-    expect(rows.map((j) => j.status).sort()).toEqual(["queued", "queued"]);
+    expect(rows.map((j) => j.status).sort()).toEqual(["queued", "queued", "queued"]); // Gmail, TradeIndia, IndiaMART
   });
 });
 

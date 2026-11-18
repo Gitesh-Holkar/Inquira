@@ -18,7 +18,11 @@ Route handlers, webhooks and MCP tools. Pages and server actions are listed in `
 
 The consent screen at `/oauth/authorize` is a page, not an API route: a signed-in owner or admin approves or denies a client there.
 
-There are no inbound webhooks yet. The IndiaMART Push endpoint (GOAL G-SRC-1) is planned at `POST /api/webhooks/indiamart/[secret]`.
+## Webhooks
+
+| Route | Method | Who calls it | Authentication | What it does |
+| --- | --- | --- | --- | --- |
+| `/api/webhooks/indiamart/[secret]` | POST | IndiaMART Lead Manager Push API | The random secret in the path (created on Settings → Integrations → IndiaMART; only its SHA-256 is stored). IndiaMART offers no signature or header. Rate limited per IP; body at most 64 KB | Stores one lead (`{ CODE, STATUS, RESPONSE: { UNIQUE_QUERY_ID, … } }`). 200 once stored or already there (IndiaMART treats anything else as failed and retries; 48 hours of refusals switch the push off); 404 unknown secret; 400 no lead; 413 too large; 429 too fast; 500 storing failed. |
 
 ## Errors
 

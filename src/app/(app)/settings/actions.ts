@@ -5,6 +5,7 @@ import { runAction } from "@/lib/actions";
 import { updateOrgSettings } from "@/modules/core/service";
 import { saveTradeIndiaCredentials, syncTradeIndia, testTradeIndiaConnection } from "@/modules/sources/tradeindia/service";
 import { disconnectGmail, saveGmailClient, startGmailConnect, syncGmail } from "@/modules/sources/gmail/service";
+import { createIndiaMartPushAddress, saveIndiaMartKey, syncIndiaMart, testIndiaMartConnection } from "@/modules/sources/indiamart/service";
 import { createMcpToken, revokeMcpToken } from "@/modules/mcp/service";
 import { createClassificationRule, updateClassificationRule } from "@/modules/email/service";
 import { updateBuyleadRules } from "@/modules/buyleads/service";
@@ -23,12 +24,12 @@ export async function testTradeIndiaAction() {
   const s = await requireSession("integrations.manage");
   return done(await runAction(() => testTradeIndiaConnection(s.ctx, {})));
 }
-export async function syncNowAction(provider: "gmail" | "tradeindia") {
+export async function syncNowAction(provider: "gmail" | "tradeindia" | "indiamart") {
   const s = await requireSession("sync.run");
   return done(await runAction(async () => {
     authorize(s.ctx, "sync.run");
     const sys = { orgId: s.ctx.orgId, actor: { kind: "system" as const, job: `manual:${provider}` } };
-    return provider === "gmail" ? syncGmail(sys) : syncTradeIndia(sys);
+    return provider === "gmail" ? syncGmail(sys) : provider === "indiamart" ? syncIndiaMart(sys) : syncTradeIndia(sys);
   }));
 }
 export async function saveGmailClientAction(input: { clientId: string; clientSecret: string }) {
@@ -96,5 +97,17 @@ export async function createSignInLinkAction(memberId: string) {
   const s = await requireSession("members.manage");
   const r = await runAction(() => createSignInLink(s.ctx, { memberId }));
   return r.ok ? { ok: true as const, data: { url: r.data.url, expires: r.data.expires.toISOString() } } : r;
+}
+export async function saveIndiaMartKeyAction(key: string) {
+  const s = await requireSession("integrations.manage");
+  return done(await runAction(() => saveIndiaMartKey(s.ctx, { key })));
+}
+export async function testIndiaMartAction() {
+  const s = await requireSession("integrations.manage");
+  return done(await runAction(() => testIndiaMartConnection(s.ctx, {})));
+}
+export async function createIndiaMartPushAddressAction() {
+  const s = await requireSession("integrations.manage");
+  return done(await runAction(() => createIndiaMartPushAddress(s.ctx, {})));
 }
 

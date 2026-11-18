@@ -39,6 +39,24 @@ Details of what was probed and what is assumed: [`docs/TRADEINDIA_API.md`](TRADE
 
 **Owner's check:** `docs/SETUP.md` section 6. After **Test connection**, open a TradeIndia lead and compare its fields with the same enquiry on TradeIndia.
 
+## IndiaMART (Lead Manager APIs)
+
+| | |
+| --- | --- |
+| **Purpose** | Every IndiaMART lead in the inbox: direct enquiries (W), Buy Leads someone bought (B), phone calls (P), catalogue views (BIZ), WhatsApp enquiries (WA) (GOAL G-SRC-1, G-SRC-2, G-SRC-8). Notification emails stay as a cross-check (G-SRC-7). |
+| **Code** | `src/modules/sources/indiamart/client.ts` (Pull), `normalize.ts` (fields), `service.ts` (key, push address, push receive, pull sync), `src/app/api/webhooks/indiamart/[secret]/route.ts` (Push). |
+| **Push** | IndiaMART POSTs each lead as JSON to our https address the moment it arrives. Registered in IndiaMART's Lead Manager → ⋮ → Import/Export Leads → Push API → Other, confirmed by OTP. Needs a public https address, so it works for the cloud site only. |
+| **Pull** | `GET https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=…&start_time=…&end_time=…`, times in IST as `DD-Mon-YYYYHH:MM:SS`. Reply: `CODE`, `STATUS`, `MESSAGE`, `TOTAL_RECORDS`, `RESPONSE`. |
+| **Auth** | Pull: the CRM key (stored encrypted; it is part of the URL, so the URL is never logged). Push: the random secret at the end of our address (only its hash is stored); IndiaMART documents no signature. |
+| **Limits handled** | At most one Pull call per 5 minutes (enforced from `cursor.lastCallAt`, also for Test connection and Sync now); 7 days per call; the first load reads 30 days, one week per run; later runs overlap by 5 minutes; an unused key expires after 7 days (the 10-minute schedule keeps it alive). |
+| **Errors** | 204 = no leads. 401 = key wrong or expired → status `reauth_required`. 429 = wait 15 minutes, not counted as a failure streak. Other codes → integration error with backoff. A lead that fails to save keeps its window for two more runs. |
+| **De-duplication** | `UNIQUE_QUERY_ID` is the lead's `source_ref`; push and pull of the same lead are one record. The notification email of the same enquiry merges by buyer and product within 48 hours; the lead then carries the API id and keeps the email as an alternate. |
+| **Source** | help.indiamart.com: "Integration of IndiaMART's Lead Manager CRM Push API with Third Party CRMs" and "…Pull API with Third Party CRMs", read 18 Nov 2026. Assumptions: `QUESTIONS.md` Q-019. |
+| **Status** | Built and tested against a fake. **Not yet verified against the live account.** |
+| **If replaced** | Another portal: a new folder under `src/modules/sources/` following this one. |
+
+**Owner's check:** `docs/SETUP.md` section 6a.
+
 ## Supabase
 
 | | |
@@ -71,7 +89,6 @@ Inquira is the server here, not the client. See [`docs/API.md`](API.md) for the 
 
 | Service | Requirement | Milestone |
 | --- | --- | --- |
-| IndiaMART Push and Pull APIs | GOAL G-SRC-1, G-SRC-2 | M4 |
 | AI providers (Gemini, Anthropic, OpenAI-compatible) | GOAL G-AI-1 | M5 |
 | Gmail sending | GOAL G-OUT-6 | M7 |
 | WhatsApp Cloud API | GOAL G-OUT-8 | Later, after the owner approves the cost |

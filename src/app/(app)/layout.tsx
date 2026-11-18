@@ -70,8 +70,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <span className="min-w-0 flex-1">
                 {problems.map((p) => (
                   <span key={p.provider} className="mr-3 inline-block">
-                    <strong>{p.provider === "gmail" ? "Gmail" : "TradeIndia"}:</strong>{" "}
-                    {p.status === "reauth_required" ? (p.provider === "gmail" ? "access expired — Reconnect Gmail" : "credentials rejected") : p.status === "error" ? "sync failing" : "not connected"}
+                    <strong>{p.provider === "gmail" ? "Gmail" : p.provider === "indiamart" ? "IndiaMART" : "TradeIndia"}:</strong>{" "}
+                    {p.status === "reauth_required" ? (p.provider === "gmail" ? "access expired — Reconnect Gmail" : p.provider === "indiamart" ? "key rejected" : "credentials rejected") : p.status === "error" ? "sync failing" : "not connected"}
                   </span>
                 ))}
               </span>

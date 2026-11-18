@@ -4,6 +4,14 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 18 Nov 2026 — IndiaMART API (M4, waiting for the owner to connect it)
+- **Settings → Integrations → IndiaMART:** paste the Pull API key and test it; create the push address to paste into IndiaMART's Lead Manager. Setup steps: `docs/SETUP.md` section 6a.
+- Leads then arrive within seconds (push) and are checked every 10 minutes (pull); the first pull loads the last 30 days.
+- Direct enquiries, bought Buy Leads, calls, catalogue views and WhatsApp enquiries are labelled on each lead.
+- The same enquiry by API and by notification email is one lead.
+- **Dashboard → API and email today** counts how leads arrived per portal and flags leads the API missed.
+- Database: migration 0009.
+
 ### 18 Nov 2026 — Run Inquira on your own computer (M2)
 - **`docker compose up -d`** starts Inquira with its own database, sign-in and scheduler; open http://localhost:3000. The first time, you create the owner account with a password. Guide: `docs/SELF_HOSTING.md`.
 - A fictional example company is loaded by default; `SEED_DIR=seed/stdm` loads your own products, prices and terms.

@@ -107,6 +107,7 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 | `addLeadNote`, `updateLead`, `createManualLead`, `deleteLead` (soft) | Lead editing from the UI. |
 | `listLeadsNeedingAction` | For Claude: new leads + stale open leads. |
 | `leadStatsInternal`, `countLeadsByChannelSinceInternal` | Dashboard counts (by arrival time `received_at`). |
+| `arrivalRoutesInternal`, `countBoughtBuyLeadsSinceInternal` | Today's portal leads by API and by email (G-SRC-7); Buy Leads bought today by either route. |
 | `findLeadByThreadInternal`, `findRecentLeadByContactInternal`, `touchLeadInternal` | Link follow-up emails to existing leads. |
 | `types.ts`: `LEAD_STATUSES`, `LEAD_SOURCES`, `STATUS_LABELS`, `SOURCE_LABELS`, `NormalizedLead`, `listLeadsInput` | Shared lead vocabulary. |
 
@@ -191,6 +192,17 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 | `registerOAuthClient`, `validateAuthorizeRequest`, `issueAuthorizationCode`, `tokenEndpoint`, `redirectMatches`, `validRedirectUri`, `getOAuthClient`, `OAuthError` | OAuth 2.1 (DCR + PKCE, rotating refresh tokens) for claude.ai custom connectors. |
 
 ### sources (`sources/*`) — external lead sources
+
+IndiaMART (`sources/indiamart/*`, ADR-030):
+
+| Function | What it does |
+|---|---|
+| `client.ts`: `IndiaMartClient.list(from, to)`, `indiaMartTime`, `IndiaMartAuthError`, `IndiaMartRateLimited` | Pull API call for up to 7 days; IST times `DD-Mon-YYYYHH:MM:SS`; 204 = no leads; 401 / 429 as errors. The key is in the URL, which is never logged. |
+| `normalize.ts`: `normalizeIndiaMart`, `indiaMartQueryTime` | IndiaMART lead → `NormalizedLead`; channel `indiamart_api_<w|b|p|biz|wa>`; drops the "IndiaMART Buyer" placeholder. |
+| `service.ts`: `saveIndiaMartKey`, `testIndiaMartConnection` / `testIndiaMartInternal` | Save the Pull key (encrypted); test it (counts as the 5-minute call). |
+| `service.ts`: `createIndiaMartPushAddress`, `receiveIndiaMartPush` | A new push address (secret shown once, hash stored); store one pushed lead (null for an unknown secret). |
+| `service.ts`: `syncIndiaMart` | One Pull call per run: first 30 days a week at a time, then incremental with a 5-minute overlap; never twice within 5 minutes. Job `indiamart.sync`. |
+
 | Function | File | What it does |
 |---|---|---|
 | `tick(opts)` | `sources/jobs.ts` | Cron entry: enqueue Gmail + TradeIndia syncs for every org, then run due jobs one at a time (stops starting jobs after 20 s). When a handler returns `{ more: true }`, a follow-up job is queued after the job completes and runs on the next tick. |
@@ -223,7 +235,7 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `/templates` | `(app)/templates/page.tsx` | `(app)/templates/actions.ts`: `saveTemplateAction`; `components/templates/editor.tsx` |
 | `/documents` Documents | `(app)/documents/page.tsx` | `(app)/documents/actions.ts`: `uploadDocumentAction` (form with the file), `removeDocumentAction`; `components/documents/upload-form.tsx`, `remove-document.tsx`. Filters by product and type (URL). |
 | `/indiamart` Buy-lead log | `(app)/indiamart/page.tsx` | — |
-| `/settings?tab=…` | `(app)/settings/page.tsx` | `(app)/settings/actions.ts`: TradeIndia save/test, Sync now, Gmail save/connect/disconnect, MCP tokens, email rules, buy-lead rules, org settings, members (`inviteMemberAction`, `changeMemberRoleAction`, `removeMemberAction`, `setMemberAccessAction`; `components/settings/members.tsx`); components in `components/settings/*` |
+| `/settings?tab=…` | `(app)/settings/page.tsx` | `(app)/settings/actions.ts`: TradeIndia save/test, IndiaMART key/test/push address (`IndiaMartCard` in `components/settings/integrations.tsx`), Sync now, Gmail save/connect/disconnect, MCP tokens, email rules, buy-lead rules, org settings, members (`inviteMemberAction`, `changeMemberRoleAction`, `removeMemberAction`, `setMemberAccessAction`; `components/settings/members.tsx`); components in `components/settings/*` |
 | `/login` | `login/page.tsx` | `login/actions.ts`: `signIn`, `sendReset` (first password / reset email), `updatePassword`, `devSignIn` (local only), `signOut`; `login/forms.tsx`; local sign-in: `localSignIn`, `createFirstOwnerAction`, `setPasswordWithLinkAction`, forms `LocalLoginForm`, `FirstOwnerForm`, `SetPasswordForm` |
 | `/login/set-password?token=` | `login/set-password/page.tsx` | Opened from a one-time sign-in link (local sign-in): choose a password, then signed in. |
 | `/auth/callback` | `auth/callback/route.ts` | Email links (PKCE `code` or `token_hash`) → session → set password |
@@ -240,6 +252,7 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `POST/GET/DELETE /api/mcp` | `api/mcp/route.ts` | MCP endpoint (stateless Streamable HTTP, bearer auth, rate limited). |
 | `POST /api/oauth/register` | `api/oauth/register/route.ts` | OAuth Dynamic Client Registration. |
 | `POST /api/oauth/token` | `api/oauth/token/route.ts` | OAuth token endpoint (code + refresh grants). |
+| `POST /api/webhooks/indiamart/[secret]` | `api/webhooks/indiamart/[secret]/route.ts` | IndiaMART Push API: stores one lead; 200 / 404 / 400 / 413 / 429 / 500 (see docs/API.md). |
 | `GET /api/documents/[id]` | `api/documents/[id]/route.ts` | Downloads a document. Checks the session itself (signed out → `/login`, no permission → 403, other company → 404); always a download with `nosniff`. |
 | `/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server` | `api/well-known/*/route.ts` (rewrites in `next.config.ts`) | OAuth discovery for Claude. |
 
@@ -302,7 +315,7 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `scripts/rates-import.ts` (`rates:import`) | Prints what a price list file would change; writes only with `--confirm`. `--map` uses another mapping, `--save-map` keeps it, `--org` picks the company. |
 | `scripts/fetch-website-products.ts` (`seed:website`) | Diff the company website's catalogue vs `SEED_DIR/products.json`. |
 | `scripts/gen-keys.ts` (`gen:keys`) | Generate `APP_ENCRYPTION_KEY` and `CRON_SECRET`. |
-| `drizzle/` | Migrations (0000 init, 0001 RLS + grants + triggers, 0002 storage bucket, 0003 payment terms, 0004 price list mapping, 0005 documents, 0006 documents RLS, 0007 roles and custom access, 0008 permission-based access rules). Never edit an applied one. |
+| `drizzle/` | Migrations (0000 init, 0001 RLS + grants + triggers, 0002 storage bucket, 0003 payment terms, 0004 price list mapping, 0005 documents, 0006 documents RLS, 0007 roles and custom access, 0008 permission-based access rules, 0009 IndiaMART provider). Never edit an applied one. |
 | `seed/example/` | Fictional example company (the default `SEED_DIR`): 9 products, a price list, mapping and terms. Every name and number is made up. |
 | `seed/stdm/` | The first company's data (also `website_url` for `seed:website`): `settings.json` (name, payment terms, price basis), `products.json` (catalogue, aliases, website links), `price-lists/<date>.txt` (the list as received, one item per line), `price-list-map.json` (headings → GST and pack size, list names → product and grade, MOQ and price basis). |
 | `fixtures/emails/*.json` | Anonymised real email formats with `expected` parse results. |
@@ -311,6 +324,7 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `tests/rls.test.ts` | Org isolation and append-only rules at the database level. |
 | `tests/sync-resume.test.ts` | TradeIndia sync resumes after a time-budget stop or a killed run, uses IST dates, and does not pass a window with failed leads; a Gmail backlog is picked up on the next tick. |
 | `tests/price-list-import.test.ts` | Price list import as owner under RLS (rates appended, history kept, renames, aliases, audit), refused for sales and viewers; every folder in `seed/` loads and its own list then shows nothing left to change. |
+| `tests/indiamart.test.ts` | IndiaMART against a fake: field reading, push endpoint (once only, wrong secret, bad bodies), pull timing (30 days a week per run, never twice in 5 minutes, overlap), 401/429, key never stored in logs, API + email merge and counts. |
 | `tests/local-auth.test.ts` | Local sign-in: passwords, signed sessions (tamper, expiry, password change), first-run owner (once, local only, concurrent), one-time links. |
 | `tests/no-company-data.test.ts` | Fails if `src/`, `scripts/` or `drizzle/` names a company (AGENTS rule 6). |
 | `tests/roles.test.ts` | Roles and abilities are consistent; SQL role defaults equal the code's; switching an ability on or off changes what a member can do in the app and under RLS; who may change whose access. |

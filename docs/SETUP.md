@@ -188,6 +188,24 @@ If you ever see the red **Reconnect Gmail** banner (password changed, access rem
 
 Not everything about TradeIndia's API is documented publicly (limits, some field names). See [TRADEINDIA_API.md](TRADEINDIA_API.md). If the test fails, the exact error appears on the card.
 
+## 6a. Connect IndiaMART (Lead Manager API)
+
+Two parts. Do both; each covers what the other might miss.
+
+**Pull (history and safety net):**
+1. In IndiaMART, open **Lead Manager → ⋮ → Import/Export Leads → Pull API** and generate the key. Generating a new key ends the old one.
+2. In Inquira: **Settings → Integrations → IndiaMART**, paste the key, **Save key**, then **Test connection**.
+3. Inquira then reads the last 30 days, one week every 10 minutes (IndiaMART allows one call every 5 minutes), and afterwards every 10 minutes.
+
+**Push (each lead within seconds):**
+1. **Settings → Integrations → IndiaMART → Create push address**. Copy the address; it is shown once.
+2. In IndiaMART: **Lead Manager → ⋮ → Import/Export Leads → Push API**, choose **Other**, enter "Inquira" as the platform and paste the address as the **Webhook Listener URL**. Confirm with the OTP sent to your mobile.
+3. The card then shows "last lead received" after the next lead.
+
+If you ever lose the address or think someone else has it, click **New push address** and paste the new one into IndiaMART at once; the old one stops working.
+
+The dashboard card **API and email today** compares how leads arrived. "API missed" means a lead came only by notification email although the API is connected: check the IndiaMART card for errors.
+
 ## 7. Connect Claude (MCP server)
 
 Inquira has a built-in MCP server at `https://YOUR-APP/api/mcp`.

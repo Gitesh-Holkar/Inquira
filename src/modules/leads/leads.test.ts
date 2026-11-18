@@ -39,6 +39,7 @@ describe("leads: upsert + dedupe", () => {
     expect(api).toMatchObject({ leadId: email.leadId, duplicate: true, method: "contact_time_window" });
     const [row] = await getDb().select().from(leads);
     expect(row!.sourceRef).toBe("900000009"); // upgraded to the real id
+    expect(row!.channel).toBe("tradeindia_api"); // and to the route that carries it; the email stays an alternate
     expect(row!.alternateRefs).toEqual([{ source: "tradeindia_email", ref: "gmail:msg1", method: "contact_time_window" }]);
   });
 

@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { startOfTodayIST } from "@/lib/format";
 import { defineService } from "@/modules/core/service-kit";
-import { getIntegrationInternal } from "@/modules/core/service";
-import { countLeadsByChannelSinceInternal, leadStatsInternal } from "@/modules/leads/service";
+import { findIntegrationInternal, getIntegrationInternal } from "@/modules/core/service";
+import { arrivalRoutesInternal, countBoughtBuyLeadsSinceInternal, leadStatsInternal } from "@/modules/leads/service";
 import { reconciliationInternal } from "@/modules/email/service";
 import { getRulesInternal, todayDecisionCountsInternal } from "@/modules/buyleads/service";
 
@@ -19,7 +19,10 @@ export const getDashboard = defineService({
     const ti = await getIntegrationInternal(tx, ctx.orgId, "tradeindia");
     const rules = await getRulesInternal(tx, ctx);
     const dc = await todayDecisionCountsInternal(tx, ctx.orgId);
-    const arrived = await countLeadsByChannelSinceInternal(tx, ctx.orgId, "indiamart_buylead", today);
+    const im = await findIntegrationInternal(tx, ctx.orgId, "indiamart");
+    const arrived = await countBoughtBuyLeadsSinceInternal(tx, ctx.orgId, today);
+    const routes = await arrivalRoutesInternal(tx, ctx.orgId, today);
+    const apiOn = { indiamart: im?.status === "connected" || !!im?.config.lastPushAt, tradeindia: ti.status === "connected" };
     const health = (i: typeof gmail) => ({ provider: i.provider, status: i.status, lastSyncAt: i.lastSyncAt, lastSuccessAt: i.lastSuccessAt, lastError: i.lastError, lastErrorAt: i.lastErrorAt, account: i.accountEmail });
     return {
       newToday: Object.fromEntries(stats.bySource.map((s) => [s.source, s.n])) as Record<string, number>,
@@ -27,8 +30,9 @@ export const getDashboard = defineService({
       needingAction: stats.needingAction,
       international: stats.international,
       reconciliation: rec,
-      integrations: [health(gmail), health(ti)],
+      integrations: [health(gmail), health(ti), ...(im ? [health(im)] : [])],
       indiamart: { ...dc, arrivedByEmail: arrived, dailyCap: rules.dailyCap },
+      routes: routes.map((r) => ({ ...r, apiConnected: apiOn[r.portal] })),
     };
   },
 });

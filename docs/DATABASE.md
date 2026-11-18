@@ -22,7 +22,7 @@ Postgres with Drizzle ORM. Every table is in the private schema **`app`** (see [
 | `audit_logs` | **Append-only.** One row per write | `actor`, `action`, `entity_type`, `entity_id`, `changes` (json) |
 | `events` | Domain event outbox | `type`, `entity_type`, `entity_id`, `payload`, `processed_at` |
 | `jobs` | Background work queue | `type`, `payload`, `status`, `run_after`, `attempts`, `max_attempts`, `locked_at`, `dedupe_key`; unique `(org_id, dedupe_key)` |
-| `integrations` | Non-secret state of each external connection | `provider` (`gmail`, `tradeindia`), `status`, `config`, `cursor`, `account_email`, sync and error timestamps, `backoff_until`; unique `(org_id, provider)` |
+| `integrations` | Non-secret state of each external connection | `provider` (`gmail`, `tradeindia`, `indiamart`), `status`, `config`, `cursor`, `account_email`, sync and error timestamps, `backoff_until`; unique `(org_id, provider)` |
 | `integration_secrets` | Encrypted credentials (AES-256-GCM). **System only.** | `integration_id` (unique), `ciphertext`, `key_version` |
 | `sync_runs` | Log of each sync run | `provider`, `kind`, `status`, `fetched`, `created`, `duplicates`, `errors`, `error_message`, `meta` |
 
@@ -140,6 +140,7 @@ Every list the app shows has an index on its filter: leads by `(org_id, status, 
 | `0006_documents_rls.sql` | Row-level security, grants and the `updated_at` trigger for `documents` |
 | `0007_roles_and_access.sql` | Roles `qa` and `accounts`; `memberships.granted` and `memberships.revoked` |
 | `0008_access_rules.sql` | Permission-based write rules (`app.role_default`, `app.can`, `app.can_any`, `app.can_work`) replacing the role-based ones |
+| `0009_indiamart_provider.sql` | Adds `indiamart` to the `integration_provider` enum |
 
 Rules: generate with `npm run db:generate`; never edit an applied migration; a new table needs base columns, `org_id`, and a migration that enables RLS with policies, plus a case in `tests/rls.test.ts`. Apply with `npm run db:migrate` (TCP) or `npm run db:remote:apply` (HTTPS).
 
