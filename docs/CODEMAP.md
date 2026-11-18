@@ -100,16 +100,21 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 | Function | What it does |
 |---|---|
 | `upsertLeadInternal(tx, ctx, NormalizedLead)` | **Core of lead capture.** Idempotent insert: same `source`+`source_ref` → same lead; else same phone/email + product within 48 h → merge; else new lead + contact. |
-| `detectInternational`, `isIndia`, `quantityToKg` | Helpers: international detection (country or non-+91 phone), "1 Ton" → 1000 kg. |
-| `listLeads` | Inbox query: filters, search (incl. phone digits), pagination. |
+| `detectInternational`, `isIndia` | International detection (country or non-+91 phone). |
+| `understanding.ts`: `quantityToKg`, `mentionsWeight`, `intentByRules`, `belowMoq` | G-UND-3/4 rules: "10 MT" → 10000 kg, "4 bags of 25 kg" → 100, "1 Jar" → empty; intent from the buyer's message (complaint, order, sample, documents; portal and manual leads are new enquiries); below-MOQ only when both sides are known. |
+| `openFields(lead)` | Which of product, intent and quantity the rules left for AI (quantity only when the text states a weight). |
+| `fillLeadDetailsInternal(tx, ctx, leadId, found, by)` | Writes product / intent / kg into **empty** fields only and records who filled them (`filled_by`); used by rules, the AI job and the connector. |
+| `leadsAwaitingUnderstandingInternal`, `countLeadsAwaitingUnderstandingInternal`, `markLeadUnderstoodInternal` | The AI job's queue (`understood_at` null) and its end mark. |
+| `listLeadsNeedingDetails`, `submitLeadDetails`, `countLeadsNeedingDetailsInternal` | The review queue (no product or no intent after rules and AI): for the connector and the dashboard. Low confidence from the connector only leaves a note. |
+| `listLeads` | Inbox query: filters (incl. intent, `needsDetails`), search (incl. phone digits), pagination; adds `moqKg` and `belowMoq` per lead. |
 | `getLead` / `getLeadInternal` | One lead with notes and status history. |
 | `updateLeadStatus`, `markQuotedInternal` | Status changes (+ history row, audit, event); quotes move new/contacted → quoted. |
-| `addLeadNote`, `updateLead`, `createManualLead`, `deleteLead` (soft) | Lead editing from the UI. |
+| `addLeadNote`, `updateLead`, `createManualLead`, `deleteLead` (soft) | Lead editing from the UI. `updateLead` sets intent and kg too, records `filled_by`, and marks an AI decision corrected when a person changes what AI filled. |
 | `listLeadsNeedingAction` | For Claude: new leads + stale open leads. |
 | `leadStatsInternal`, `countLeadsByChannelSinceInternal` | Dashboard counts (by arrival time `received_at`). |
 | `arrivalRoutesInternal`, `countBoughtBuyLeadsSinceInternal` | Today's portal leads by API and by email (G-SRC-7); Buy Leads bought today by either route. |
 | `findLeadByThreadInternal`, `findRecentLeadByContactInternal`, `touchLeadInternal` | Link follow-up emails to existing leads. |
-| `types.ts`: `LEAD_STATUSES`, `LEAD_SOURCES`, `STATUS_LABELS`, `SOURCE_LABELS`, `NormalizedLead`, `listLeadsInput` | Shared lead vocabulary. |
+| `types.ts`: `LEAD_STATUSES`, `LEAD_SOURCES`, `LEAD_INTENTS`, `STATUS_LABELS`, `SOURCE_LABELS`, `INTENT_LABELS`, `LeadFilledBy`, `NormalizedLead`, `listLeadsInput` | Shared lead vocabulary. |
 
 ### contacts (`contacts/service.ts`)
 | `cleanEmail(raw)` | Normalise an email; drop portal placeholder addresses. |
@@ -124,7 +129,8 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 | `classifyEmail(msg, ctx)` (`classify.ts`) | Deterministic classification, in order: own mail → team rules → portal parsers → replies in a lead's thread → OTP/bank/newsletter noise → else `needs_review`. |
 | `ruleMatches(rule, msg, body)` (`classify.ts`) | Does a classification rule match this email. |
 | `listEmailsNeedingReview` | Review queue (UI and MCP). |
-| `submitEmailClassification` | Classify a review email (person or Claude); low-confidence MCP answers stay in review as suggestions. |
+| `submitEmailClassification` → `classifyEmailInternal(tx, ctx, input)` | Classify a review email (person, Claude or the Advanced AI tier); low-confidence answers from MCP or AI stay in review as suggestions; a person's change to an AI classification marks it corrected. |
+| `reviewEmailsAwaitingAiInternal`, `markEmailAiCheckedInternal` | Review emails the Advanced tier has not looked at (`ai_checked_at`). |
 | `listEmailsForLead` | Email thread on the lead page. |
 | `listClassificationRules`, `createClassificationRule` (can clear matching review emails, audited), `updateClassificationRule`, `getClassificationRulesCompact` | Email rules; refuses domain rules for public mail providers (`FREE_MAIL_DOMAINS`). |
 | `reconciliationInternal` / `getReconciliation` | "X received, Y classified, Z pending" numbers. |
@@ -179,17 +185,31 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 | `dropProductTermsInternal`, `addProductTermsInternal` | Remove or add one product's match terms when it is removed from or restored to the catalogue. |
 
 ### dashboard (`dashboard/service.ts`)
-| `getDashboard` | All dashboard numbers in one call: new today by source, needing action, review queue, international, integration health, IndiaMART card. |
+| `getDashboard` | All dashboard numbers in one call: new today by source, needing action, review queue, international, integration health, IndiaMART card, AI accuracy per tier, leads needing details. |
 |---|---|
 
 ### mcp (`mcp/server.ts`, `mcp/service.ts`) — Claude connector
 | Function | What it does |
 |---|---|
-| `buildMcpServer(ctx)` | Registers the 12 MCP tools (`MCP_TOOL_NAMES`); each calls a service and is audited. |
+| `buildMcpServer(ctx)` | Registers the 14 MCP tools (`MCP_TOOL_NAMES`); each calls a service and is audited. |
 | `untrusted(id, body)`, `UNTRUSTED_NOTE` | Wrap email text in delimiters (prompt-injection defence). |
 | `authenticateBearer(token)` | Bearer token → MCP actor context. |
 | `createMcpToken`, `listMcpTokens`, `revokeMcpToken` | Manual tokens (Settings → Claude / MCP). |
 | `registerOAuthClient`, `validateAuthorizeRequest`, `issueAuthorizationCode`, `tokenEndpoint`, `redirectMatches`, `validRedirectUri`, `getOAuthClient`, `OAuthError` | OAuth 2.1 (DCR + PKCE, rotating refresh tokens) for claude.ai custom connectors. |
+
+### ai (`ai/*`) — AI tiers (GOAL G-AI-*, ADR-031)
+| Function | What it does |
+|---|---|
+| `providers/types.ts`: `AiProvider`, `AiProviderError` (kinds `rate_limited`, `unavailable`, `network`, `auth`, `bad_request`, `refused`, `truncated`), `postJson` | The provider interface; one HTTPS POST with error mapping and the key scrubbed from messages. |
+| `providers/gemini.ts`, `providers/anthropic.ts`, `providers/openai-compatible.ts`, `providers/index.ts` (`PROVIDERS`) | One adapter per provider. **Add a provider:** a new file here plus one line in `index.ts` and `AI_PROVIDERS`. |
+| `redact.ts`: `redactForBasic(text, known)` | Removes emails, phones, links, tax ids and the buyer's name, company and city before any Basic call. |
+| `tasks.ts`: `leadPrompt`, `LEAD_SCHEMA` / `leadReplySchema`, `emailPrompt`, `EMAIL_SCHEMA` / `emailReplySchema`, `parseReply`, `untrustedBlock` | The fixed answer formats (JSON schema for the provider, zod for the check) and the prompts; buyer text sits in markers it cannot close. |
+| `service.ts`: `getAiSettings`, `saveAiTier`, `removeAiKey`, `testAiTier` / `testAiTierInternal` | Settings → AI (keys encrypted in `integration_secrets`; never returned). |
+| `service.ts`: `runAiWork(ctx, opts)` | Job `ai.work`: leads waiting (`understood_at` null, last 7 days) go rules → Basic → Advanced → review; then review emails to Advanced. Skips a tier that is off, backing off or at its daily limit. Time budget 15 s. |
+| `service.ts`: `judgeLeadReply` | Code decides: only open fields, known refs, confident values. |
+| `service.ts`: `aiAccuracyInternal` / `getAiAccuracy`, `decisionsForInternal` | Accuracy per tier (dashboard); decisions about one lead or email. |
+| `corrections.ts`: `markAiCorrectedInternal` | Marks the latest applied decision corrected when a person or the connector changes the value (called by leads and email). |
+| `types.ts`: `AI_TIERS`, `AI_PROVIDERS`, `AI_TASKS`, `AI_OUTCOMES`, `AI_DEFAULTS`, `TIER_INTEGRATION` | Vocabulary and the defaults offered in Settings. |
 
 ### sources (`sources/*`) — external lead sources
 
@@ -205,7 +225,7 @@ IndiaMART (`sources/indiamart/*`, ADR-030):
 
 | Function | File | What it does |
 |---|---|---|
-| `tick(opts)` | `sources/jobs.ts` | Cron entry: enqueue Gmail + TradeIndia syncs for every org, then run due jobs one at a time (stops starting jobs after 20 s). When a handler returns `{ more: true }`, a follow-up job is queued after the job completes and runs on the next tick. |
+| `tick(opts)` | `sources/jobs.ts` | Cron entry: enqueue Gmail, TradeIndia, IndiaMART syncs and `ai.work` for every org, then run due jobs one at a time (stops starting jobs after 20 s). When a handler returns `{ more: true }`, a follow-up job is queued after the job completes and runs on the next tick. |
 | `JOB_HANDLERS` | `sources/jobs.ts` | Job type → function. Register new background work here. |
 | `syncGmail(ctx, opts)` | `gmail/service.ts` | Incremental Gmail sync (history id; date resync fallback; backlog; skips stored ids; 35 s budget). |
 | `saveGmailClient`, `startGmailConnect`, `completeGmailConnect` / `completeConnectInternal`, `disconnectGmail` | `gmail/service.ts` | Settings → Gmail: save OAuth client, consent URL (PKCE + hashed state), finish OAuth, disconnect. |
@@ -227,15 +247,15 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | Route | Page file | Actions file / components |
 |---|---|---|
 | `/` Dashboard | `(app)/page.tsx` | — |
-| `/leads` Inbox (+ International tab) | `(app)/leads/page.tsx` | `components/leads/inbox-list.tsx` (keyboard j/k/e/w/q/?), `new-lead.tsx` |
-| `/leads/[id]` Lead detail | `(app)/leads/[id]/page.tsx` | `(app)/leads/actions.ts`: `setStatusAction`, `addNoteAction`, `quoteAction`, `whatsappTextAction`, `updateLeadAction`, `createLeadAction`, `deleteLeadAction` (owners and admins; `DeleteLeadButton` in `detail-client.tsx`); components `leads/actions.tsx` (Copy/Call/WhatsApp/Quote buttons), `leads/detail-client.tsx` (status, notes, edit) |
+| `/leads` Inbox (+ Needs details and International tabs; intent filter) | `(app)/leads/page.tsx` | `components/leads/inbox-list.tsx` (keyboard j/k/e/w/q/?; intent, below-MOQ and needs-details badges), `new-lead.tsx` |
+| `/leads/[id]` Lead detail | `(app)/leads/[id]/page.tsx` | `(app)/leads/actions.ts`: `setStatusAction`, `addNoteAction`, `quoteAction`, `whatsappTextAction`, `updateLeadAction`, `createLeadAction`, `deleteLeadAction` (owners and admins; `DeleteLeadButton` in `detail-client.tsx`); components `leads/actions.tsx` (Copy/Call/WhatsApp/Quote buttons), `leads/detail-client.tsx` (status, notes, edit incl. intent and kg), `leads/labels.ts` (`filledByLabel`: who filled product, intent, quantity) |
 | `/review` Review queue | `(app)/review/page.tsx` | `(app)/review/actions.ts`: `classifyAction`; `components/review/review-item.tsx` |
 | `/rates` Rates | `(app)/rates/page.tsx` | `(app)/rates/actions.ts`: `saveRatesAction`, `rateHistoryAction`, `addProductAction`, `updateProductAction`, `removeProductAction`, `restoreProductAction`; `components/rates/rates-editor.tsx`, `add-product.tsx`, `edit-product.tsx` (incl. Remove), `removed-products.tsx` (Restore) |
 | `/rates/import` Import price list | `(app)/rates/import/page.tsx` | `(app)/rates/actions.ts`: `planPriceListAction` (reads only), `applyPriceListAction`, `savePriceListMapAction`; `components/rates/price-list-import.tsx` (list, folded mapping editor, preview) |
 | `/templates` | `(app)/templates/page.tsx` | `(app)/templates/actions.ts`: `saveTemplateAction`; `components/templates/editor.tsx` |
 | `/documents` Documents | `(app)/documents/page.tsx` | `(app)/documents/actions.ts`: `uploadDocumentAction` (form with the file), `removeDocumentAction`; `components/documents/upload-form.tsx`, `remove-document.tsx`. Filters by product and type (URL). |
 | `/indiamart` Buy-lead log | `(app)/indiamart/page.tsx` | — |
-| `/settings?tab=…` | `(app)/settings/page.tsx` | `(app)/settings/actions.ts`: TradeIndia save/test, IndiaMART key/test/push address (`IndiaMartCard` in `components/settings/integrations.tsx`), Sync now, Gmail save/connect/disconnect, MCP tokens, email rules, buy-lead rules, org settings, members (`inviteMemberAction`, `changeMemberRoleAction`, `removeMemberAction`, `setMemberAccessAction`; `components/settings/members.tsx`); components in `components/settings/*` |
+| `/settings?tab=…` | `(app)/settings/page.tsx` | `(app)/settings/actions.ts`: TradeIndia save/test, IndiaMART key/test/push address (`IndiaMartCard` in `components/settings/integrations.tsx`), Sync now, Gmail save/connect/disconnect, MCP tokens, email rules, buy-lead rules, org settings, members (`inviteMemberAction`, `changeMemberRoleAction`, `removeMemberAction`, `setMemberAccessAction`; `components/settings/members.tsx`), AI tiers (`saveAiTierAction`, `testAiTierAction`, `removeAiKeyAction`; `AiTierCard`, `AiIntro` in `components/settings/ai.tsx`); components in `components/settings/*` |
 | `/login` | `login/page.tsx` | `login/actions.ts`: `signIn`, `sendReset` (first password / reset email), `updatePassword`, `devSignIn` (local only), `signOut`; `login/forms.tsx`; local sign-in: `localSignIn`, `createFirstOwnerAction`, `setPasswordWithLinkAction`, forms `LocalLoginForm`, `FirstOwnerForm`, `SetPasswordForm` |
 | `/login/set-password?token=` | `login/set-password/page.tsx` | Opened from a one-time sign-in link (local sign-in): choose a password, then signed in. |
 | `/auth/callback` | `auth/callback/route.ts` | Email links (PKCE `code` or `token_hash`) → session → set password |
@@ -331,7 +351,9 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `tests/members.test.ts` | Members as signed-in roles under RLS: add, restore, roles, last owner, other company; Supabase accounts fake. |
 | `tests/documents.test.ts` | Documents: upload rules, who may do what, latest valid, attachments on quote drafts (expired never), both storage adapters. |
 | `tests/sync-and-quotes.test.ts` | Gmail/TradeIndia sync, dedupe, quotes, review queue (Google faked in `tests/helpers/fake-google.ts`, which throws on any send). |
-| `tests/mcp.test.ts` | MCP tools, tokens, OAuth flow. |
+| `tests/mcp.test.ts` | MCP tools (incl. the needs-details queue), tokens, OAuth flow. |
+| `tests/ai.test.ts` | AI tiers against `tests/helpers/fake-ai.ts`: every key off, redaction (nothing personal reaches Basic), confident / unsure / malformed answers, Basic → Advanced, rate limit and backoff, daily limit, review emails, injection, corrections and accuracy, keys never shown. |
+| `src/modules/ai/ai.test.ts`, `src/modules/leads/understanding.test.ts` | Redaction, reply checks, the three adapters' requests and error mapping; quantity units, intent rules, below MOQ. |
 | `src/**/*.test.ts` | Unit tests next to the code (parsers, catalog, leads, lib). |
 | `e2e/local-mode.spec.ts` + `playwright.local.config.ts` (`test:e2e:local`) | A fresh local install end to end: create owner, example data, document on disk, teammate link, sign in. Runs against `docker compose up`. |
 | `e2e/smoke.spec.ts` | Playwright: main flows on desktop 1440 and phone 390, sign-in messages, screenshots → `docs/screenshots/`. |

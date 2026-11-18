@@ -103,11 +103,12 @@ export function overridesFor(role: Role, on: Iterable<AbilityId>): { granted: Pe
 }
 
 /**
- * MCP tokens are deliberately narrow (brief §6.8): read, classify, update lead status/notes,
- * create quote drafts, read/log buy-lead data. No deletes, no rates/settings, no credentials.
+ * MCP tokens are deliberately narrow (brief §6.8): read, classify, update lead status/notes, fill a lead's
+ * empty product, intent or quantity (the only tool with leads.edit is submit_lead_details), create quote
+ * drafts, read/log buy-lead data. No deletes, no rates/settings, no credentials.
  */
 export const MCP_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
-  "leads.read", "leads.update_status", "notes.write",
+  "leads.read", "leads.update_status", "notes.write", "leads.edit",
   "emails.read", "emails.classify",
   "quotes.create", "quotes.read", "catalog.read", "templates.read", "rules.read",
   "buylead.rules.read", "buylead.decisions.write", "buylead.decisions.read", "dashboard.read",
@@ -121,6 +122,10 @@ export function can(ctx: Ctx, perm: Permission): boolean {
       return MCP_PERMISSIONS.has(perm);
     case "system":
       return true;
+    case "ai":
+      // AI advises, code decides (AGENTS rule 9): an AI actor passes no permission check, so it can call no
+      // public service. The AI job applies schema-checked answers through internal functions only.
+      return false;
   }
 }
 

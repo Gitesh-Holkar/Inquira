@@ -2,7 +2,8 @@ import { z } from "zod";
 import { startOfTodayIST } from "@/lib/format";
 import { defineService } from "@/modules/core/service-kit";
 import { findIntegrationInternal, getIntegrationInternal } from "@/modules/core/service";
-import { arrivalRoutesInternal, countBoughtBuyLeadsSinceInternal, leadStatsInternal } from "@/modules/leads/service";
+import { arrivalRoutesInternal, countBoughtBuyLeadsSinceInternal, countLeadsNeedingDetailsInternal, leadStatsInternal } from "@/modules/leads/service";
+import { aiAccuracyInternal } from "@/modules/ai/service";
 import { reconciliationInternal } from "@/modules/email/service";
 import { getRulesInternal, todayDecisionCountsInternal } from "@/modules/buyleads/service";
 
@@ -33,6 +34,9 @@ export const getDashboard = defineService({
       integrations: [health(gmail), health(ti), ...(im ? [health(im)] : [])],
       indiamart: { ...dc, arrivedByEmail: arrived, dailyCap: rules.dailyCap },
       routes: routes.map((r) => ({ ...r, apiConnected: apiOn[r.portal] })),
+      // G-AI-9: how often a person had to correct what each AI tier filled, last 30 days.
+      ai: await aiAccuracyInternal(tx, ctx.orgId, 30),
+      needsDetails: await countLeadsNeedingDetailsInternal(tx, ctx.orgId),
     };
   },
 });

@@ -2,11 +2,12 @@
 
 Lead management for B2B ingredient suppliers.
 
-- **Captures** inquiries from TradeIndia (API + email), IndiaMART (email, plus Buy Leads a person buys with Claude's suggestions) and direct email.
+- **Captures** inquiries from TradeIndia (API + email), IndiaMART (Push and Pull API + email, plus Buy Leads a person buys with Claude's suggestions) and direct email.
 - **De-duplicates** buyers and inquiries, so the same TradeIndia inquiry arriving by API and by email becomes one lead.
 - **Keeps** an append-only rate book in ₹ with GST shown separately.
 - **Turns** a lead into a quotation **Gmail draft** in the same thread, with your real signature. A human always clicks Send.
 - **Works with Claude** through a built-in, authenticated MCP server: triage, classification, notes and quote drafts. Every action is audited.
+- **Optional AI tiers** (your own keys: Gemini, Claude or any OpenAI-compatible API) fill product, request type and quantity when rules cannot, and sort unclear emails. The free tier never sees personal data; answers are checked by code; everything works with AI off.
 
 Mobile-first, light/dark mode, keyboard shortcuts on desktop. Next.js 16 + Postgres + Drizzle. Runs on your own computer with Docker, or in the cloud on Supabase and Vercel.
 

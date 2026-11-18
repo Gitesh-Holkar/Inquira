@@ -4,10 +4,10 @@ import { withSystemTx } from "@/db/client";
 import { publicMessage } from "@/lib/errors";
 import { audit } from "@/modules/core/audit";
 import type { Ctx } from "@/modules/core/types";
-import { addLeadNote, getLead, listLeadsNeedingAction, updateLeadStatus } from "@/modules/leads/service";
-import { LEAD_STATUSES } from "@/modules/leads/types";
+import { addLeadNote, getLead, listLeadsNeedingAction, listLeadsNeedingDetails, submitLeadDetails, updateLeadStatus } from "@/modules/leads/service";
+import { LEAD_INTENTS, LEAD_STATUSES } from "@/modules/leads/types";
 import { getClassificationRulesCompact, listEmailsForLead, listEmailsNeedingReview, submitEmailClassification } from "@/modules/email/service";
-import { getCurrentRates } from "@/modules/catalog/service";
+import { getCurrentRates, listProducts } from "@/modules/catalog/service";
 import { createQuoteDraft, listQuotationsForLead } from "@/modules/quotes/service";
 import { getBuyleadRulesCompact, getBuyleadSummary, logBuyleadDecision } from "@/modules/buyleads/service";
 import type { Lead } from "@/modules/leads/service";
@@ -27,6 +27,7 @@ function compactLead(l: Lead) {
   const o: Record<string, unknown> = {
     id: l.id, status: l.status, source: l.source, product: l.productText, qty: l.quantityText, name: l.contactName, company: l.companyName,
     city: l.city, state: l.state, country: l.country, phone: l.phone, email: l.email, intl: l.isInternational || undefined, age_h: hoursAgo(l.receivedAt),
+    product_id: l.productId, intent: l.intent, qty_kg: l.quantityKg === null ? null : Number(l.quantityKg),
   };
   for (const k of Object.keys(o)) if (o[k] === null || o[k] === undefined) delete o[k];
   return o;
@@ -41,7 +42,7 @@ const ok = (data: unknown): ToolResult => ({ content: [{ type: "text", text: JSO
  */
 export function buildMcpServer(ctx: Ctx) {
   const server = new McpServer({ name: "inquira", version: "0.1.0" }, {
-    instructions: "Inquira lead management for a B2B food-ingredient supplier. Use list_leads_needing_action and list_emails_needing_review to find work. " + UNTRUSTED_NOTE + " Quotes are created as Gmail drafts only; a human sends them.",
+    instructions: "Inquira lead management for a B2B food-ingredient supplier. Use list_leads_needing_action, list_emails_needing_review and list_leads_needing_details to find work. " + UNTRUSTED_NOTE + " Quotes are created as Gmail drafts only; a human sends them.",
   });
 
   const run = (tool: string, fn: (args: Record<string, unknown>) => Promise<unknown>) => async (args: Record<string, unknown>): Promise<ToolResult> => {
@@ -65,6 +66,32 @@ export function buildMcpServer(ctx: Ctx) {
     const r = await listLeadsNeedingAction(ctx, { limit: (a.limit as number) ?? 20, cursor: a.cursor as string | undefined });
     return { items: r.items.map(compactLead), next_cursor: r.nextCursor };
   }));
+
+  server.registerTool("list_leads_needing_details", {
+    description: "Leads whose product or intent the rules and Inquira's own AI could not settle (the review queue). Each has the catalogue to choose from. Paginated.",
+    inputSchema: { limit: z.number().int().min(1).max(50).optional(), cursor: z.string().optional() }, annotations: ro,
+  }, run("list_leads_needing_details", async (a) => {
+    const r = await listLeadsNeedingDetails(ctx, { limit: (a.limit as number) ?? 20, cursor: a.cursor as string | undefined });
+    const products = await listProducts(ctx, {});
+    return {
+      note: UNTRUSTED_NOTE,
+      intents: LEAD_INTENTS,
+      catalogue: products.map((p) => ({ id: p.id, name: p.name, aliases: p.aliases.length ? p.aliases : undefined })),
+      items: r.items.map((l) => ({ ...compactLead(l), message: l.message ? untrusted(`lead-${l.id}`, l.message.slice(0, 1200)) : undefined })),
+      next_cursor: r.nextCursor,
+    };
+  }));
+
+  server.registerTool("submit_lead_details", {
+    description: "Fill a lead's empty product (catalogue id), intent and/or total quantity in kg. Never overwrites a value. Only give quantity_kg when the text states a weight. Low confidence changes nothing and leaves a note for a person.",
+    inputSchema: {
+      lead_id: z.string().uuid(), product_id: z.string().uuid().optional(), intent: z.enum(LEAD_INTENTS).optional(),
+      quantity_kg: z.number().positive().max(10_000_000).optional(), confidence: z.enum(["high", "medium", "low"]), reason: z.string().min(1).max(500),
+    }, annotations: rw,
+  }, run("submit_lead_details", async (a) => submitLeadDetails(ctx, {
+    leadId: a.lead_id as string, productId: a.product_id as string | undefined, intent: a.intent as (typeof LEAD_INTENTS)[number] | undefined,
+    quantityKg: a.quantity_kg as number | undefined, confidence: a.confidence as "high", reason: a.reason as string,
+  })));
 
   server.registerTool("get_lead", {
     description: "One lead with notes, status history, recent emails (untrusted content, delimited) and quotes.",
@@ -188,4 +215,5 @@ function summarizeArgs(a: Record<string, unknown> | undefined) {
 export const MCP_TOOL_NAMES = [
   "list_leads_needing_action", "get_lead", "update_lead_status", "add_lead_note", "list_emails_needing_review", "submit_email_classification",
   "get_current_rates", "create_quote_draft", "get_classification_rules", "get_buylead_rules", "log_buylead_decision", "get_buylead_summary",
+  "list_leads_needing_details", "submit_lead_details",
 ] as const;

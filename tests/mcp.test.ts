@@ -61,7 +61,7 @@ describe("MCP server", () => {
     expect(init.status).toBe(200);
     const list = (await (await rpc(token, "tools/list")).json()) as { result: { tools: { name: string }[] } };
     expect(list.result.tools.map((t) => t.name).sort()).toEqual([...MCP_TOOL_NAMES].sort());
-    expect(MCP_TOOL_NAMES).toHaveLength(12);
+    expect(MCP_TOOL_NAMES).toHaveLength(14);
 
     const { leadId } = await withSystemTx((tx) => upsertLeadInternal(tx, systemCtx(org.id), {
       source: "tradeindia", sourceRef: "1", channel: "tradeindia_api", contactName: "Vikram", phone: "+919000000707", productText: "Pea Protein",
@@ -90,6 +90,27 @@ describe("MCP server", () => {
     const audits = await getDb().select().from(auditLogs).where(eq(auditLogs.actor, "mcp:claude-desktop"));
     const calls = audits.filter((a) => a.action === "mcp.call").map((a) => (a.changes as { tool: string }).tool);
     expect(calls).toEqual(expect.arrayContaining(["list_leads_needing_action", "get_lead", "update_lead_status", "add_lead_note", "log_buylead_decision"]));
+  });
+
+  it("serves the needs-details queue: fills empty fields only, through the tool (G-AI-6, G-AI-10)", async () => {
+    const { org, ctx } = await setupOrgWithUser("owner");
+    const { token } = await createMcpToken(ctx, { name: "tok" });
+    const { createProduct } = await import("@/modules/catalog/service");
+    const { runAiWork } = await import("@/modules/ai/service");
+    const { product } = await createProduct(ctx, { name: "Sample Protein Isolate" });
+    const { leadId } = await withSystemTx((tx) => upsertLeadInternal(tx, systemCtx(org.id), {
+      source: "gmail", sourceRef: "gmail:x1", channel: "direct_email", contactName: "Test Buyer", email: "b@example.com", productText: "plant protein",
+      message: "Need protein for bakery, 200 kg", receivedAt: new Date(),
+    }));
+    await runAiWork(systemCtx(org.id)); // every AI key is off: straight to the review queue
+    const q = await call(token, "list_leads_needing_details");
+    expect(q.data.items.map((l: { id: string }) => l.id)).toEqual([leadId]);
+    expect(q.data.catalogue).toEqual([{ id: product.id, name: "Sample Protein Isolate" }]);
+    expect(q.data.items[0].message).toMatch(/^<<<UNTRUSTED_EMAIL/);
+    const r = await call(token, "submit_lead_details", { lead_id: leadId, product_id: product.id, intent: "new_enquiry", confidence: "high", reason: "Asks for protein" });
+    expect(r.data).toMatchObject({ status: "filled", written: ["product", "intent"] });
+    expect((await call(token, "submit_lead_details", { lead_id: leadId, intent: "complaint", confidence: "high", reason: "x" })).data).toMatchObject({ status: "nothing_to_fill" });
+    expect((await call(token, "list_leads_needing_details")).data.items).toHaveLength(0);
   });
 
   it("wraps review-queue email bodies as untrusted", async () => {

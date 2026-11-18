@@ -4,6 +4,15 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 18 Nov 2026 — AI that fills in leads (M5, waiting for the owner's key)
+- **Settings → AI:** two optional tiers. Basic (for example a free Gemini key) finds the product when the name matches no alias and fills what the buyer wants and the quantity in kg; it never sees the buyer's email, phone, name, company or city. Advanced (for example a Claude API key) does the same for what Basic could not settle and sorts emails waiting in Review. Choose provider and model, set how sure it must be and how many calls a day it may make; **Test connection** checks the key. Steps: `docs/SETUP.md` section 6b.
+- **Leads** now show what the buyer wants (new enquiry, documents, sample, price negotiation, order, complaint, not a buyer), the quantity in kg with **Below MOQ** when it is under the product's MOQ, and who filled each of these (rule, AI or a person). Filter by request type; edit both on the lead.
+- **Leads → Needs details:** leads without a product or request type after rules and AI, for you or Claude to finish.
+- AI only fills empty fields and never sends or prices anything. With both tiers off everything works on rules alone.
+- **Dashboard → AI, last 30 days:** how many fields each tier filled and how many you corrected.
+- Claude connector: two new tools for the Needs details queue.
+- Database: migrations 0010 and 0011.
+
 ### 18 Nov 2026 — IndiaMART API (M4, waiting for the owner to connect it)
 - **Settings → Integrations → IndiaMART:** paste the Pull API key and test it; create the push address to paste into IndiaMART's Lead Manager. Setup steps: `docs/SETUP.md` section 6a.
 - Leads then arrive within seconds (push) and are checked every 10 minutes (pull); the first pull loads the last 30 days.

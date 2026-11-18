@@ -85,10 +85,29 @@ Details of what was probed and what is assumed: [`docs/TRADEINDIA_API.md`](TRADE
 
 Inquira is the server here, not the client. See [`docs/API.md`](API.md) for the endpoint and tools, and [ADR-013](decisions/ADR-013-mcp-authentication.md) for authentication.
 
+## AI providers (Gemini, Anthropic, OpenAI-compatible)
+
+Inquira calls these itself for the Basic and Advanced tiers (GOAL G-AI-1 to G-AI-10, [ADR-031](decisions/ADR-031-ai-tiers.md)). Code: `src/modules/ai/providers/`.
+
+| | Gemini | Anthropic | OpenAI-compatible |
+| --- | --- | --- | --- |
+| Endpoint | `POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent` | `POST https://api.anthropic.com/v1/messages` | `POST {address}/chat/completions` |
+| Key | header `x-goog-api-key` | header `x-api-key`, plus `anthropic-version: 2026-10-21` | header `Authorization: Bearer …` |
+| JSON answer | `generationConfig.responseMimeType: application/json` + `responseJsonSchema` | `output_config.format: {type: "json_schema", schema}` | `response_format: {type: "json_object"}` (the schema is in the prompt) |
+| Reply text | `candidates[0].content.parts[].text` | `content[]` blocks of type `text`; `stop_reason` `refusal` / `max_tokens` are errors | `choices[0].message.content` |
+| Source | Google's Gemini API reference, checked 18 Nov 2026 | Anthropic's Messages API reference | the common chat-completions format |
+
+- **Settings, not code:** provider, model name, address, confidence threshold (0.5–1, default 0.8), daily calls (default Basic 200, Advanced 50) and on/off per tier are on Settings → AI. No environment variables.
+- **Keys:** encrypted in `integration_secrets` (integration rows `ai_basic`, `ai_advanced`), never returned to the browser, audit rows or errors; a provider error that repeats the key is scrubbed.
+- **Errors:** 429 and 402 → rate limited; 401 and 403 → key refused; 408 and 5xx → unavailable; other 4xx → bad request (often a wrong model name); no answer within 15 s → network. Any of these makes the tier wait (10 min, doubling to 6 h) and the item goes to the next step at once. A refusal or a cut-off answer affects only that item.
+- **Limits:** Inquira counts calls per tier per IST day and stops at the company's limit, whatever the provider allows. Providers' own free-tier limits change; set the daily limit at or below them.
+- **Privacy:** Basic gets redacted text only (no email, phone, link, buyer name, company, city), so a free key is acceptable. Advanced reads review emails in full: use a paid key whose terms keep data private.
+- **Replace or add a provider:** one adapter file in `src/modules/ai/providers/` implementing `AiProvider`, one line in `providers/index.ts`, and its id in `AI_PROVIDERS` (`ai/types.ts`). A model that runs on the same computer (local mode) can be used through the OpenAI-compatible adapter with an `http://localhost` address.
+- **Checked live by:** the owner, with Settings → AI → Test connection (one call with fixed text, no company or buyer data).
+
 ## Planned
 
 | Service | Requirement | Milestone |
 | --- | --- | --- |
-| AI providers (Gemini, Anthropic, OpenAI-compatible) | GOAL G-AI-1 | M5 |
 | Gmail sending | GOAL G-OUT-6 | M7 |
 | WhatsApp Cloud API | GOAL G-OUT-8 | Later, after the owner approves the cost |

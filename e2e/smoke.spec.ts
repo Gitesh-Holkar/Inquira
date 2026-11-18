@@ -295,6 +295,42 @@ test("documents: add, download and attach to a quote; members: add, change role,
   await expect(page.getByRole("list", { name: "Members" })).not.toContainText(email);
 });
 
+test("AI: set up a tier (no call is made), dashboard card, Needs details view, request type on a lead", async ({ page }) => {
+  await signIn(page);
+  await expect(page.getByTestId("ai-card")).toBeVisible();
+  await page.goto("/settings?tab=ai");
+  const basic = page.locator("form").filter({ has: page.getByLabel("Model name") }).first();
+  await expect(page.getByRole("heading", { name: "Basic AI" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Advanced AI" })).toBeVisible();
+  // Saving stores settings only; "Test connection" (which would call the provider) is never clicked here.
+  await expect(async () => {
+    await basic.getByLabel("Model name").fill("e2e-test-model");
+    await basic.getByLabel("API key").fill("e2e-fake-key-not-real");
+    await basic.getByLabel(/Use Basic AI/).check();
+    await basic.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText(/Saved\. Click Test connection/)).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
+  await page.reload();
+  await expect(page.getByText("On, not tested yet").first()).toBeVisible();
+  await expect(page.getByText("e2e-fake-key-not-real")).toHaveCount(0);
+  await noHorizontalScroll(page);
+  await shot(page, "13-settings-ai");
+
+  await page.goto("/");
+  await expect(page.getByTestId("ai-card")).toContainText("Basic");
+  await page.goto("/leads?view=details");
+  await expect(page.getByRole("tab", { name: "Needs details" })).toHaveAttribute("aria-selected", "true");
+  await noHorizontalScroll(page);
+
+  await page.goto("/leads");
+  await expect(async () => {
+    if (!/\/leads\/[0-9a-f-]{36}/.test(page.url())) await page.getByRole("link", { name: /Chickpea Isolate Protein/ }).first().click();
+    await expect(page).toHaveURL(/\/leads\/[0-9a-f-]{36}/, { timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
+  await expect(page.getByText("Wants", { exact: true })).toBeVisible();
+  await expect(page.getByText(/New enquiry/).first()).toBeVisible();
+});
+
 test("an Accounts member sees no Settings and cannot open it", async ({ page }) => {
   await signIn(page);
   const email = `accounts-${test.info().project.name}@example.com`;

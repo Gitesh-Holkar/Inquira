@@ -2,10 +2,15 @@ import { boolean, index, jsonb, numeric, text, timestamp, uniqueIndex, uuid } fr
 import { app, baseColumns, softDelete } from "@/db/pg-schema";
 import { organizations } from "@/modules/core/schema";
 import { contacts } from "@/modules/contacts/schema";
+import type { LeadFilledBy } from "./types";
 
 export const leadSourceEnum = app.enum("lead_source", ["tradeindia", "indiamart", "gmail", "manual"]);
 export const leadStatusEnum = app.enum("lead_status", [
   "new", "contacted", "quoted", "negotiating", "won", "lost", "not_relevant",
+]);
+
+export const leadIntentEnum = app.enum("lead_intent", [
+  "new_enquiry", "document_request", "sample_request", "price_negotiation", "order", "complaint", "not_buyer", "other",
 ]);
 
 export const leads = app.table("leads", {
@@ -32,6 +37,12 @@ export const leads = app.table("leads", {
   productId: uuid(),
   quantityText: text(),
   quantityKg: numeric({ precision: 14, scale: 3 }),
+  /** What the buyer wants (G-UND-3): rules, else AI, else empty for review. */
+  intent: leadIntentEnum(),
+  /** Who filled product, intent and quantity (alias, rule:…, ai:basic, ai:advanced, mcp:…, human:…). */
+  filledBy: jsonb().$type<LeadFilledBy>().notNull().default({}),
+  /** When rules and AI finished with this lead; null = still waiting for the AI job (src/modules/ai). */
+  understoodAt: timestamp({ withTimezone: true }),
   message: text(),
   rawPayload: jsonb().$type<unknown>(),
   receivedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -48,6 +59,7 @@ export const leads = app.table("leads", {
   index("leads_org_phone_idx").on(t.orgId, t.phone),
   index("leads_org_email_idx").on(t.orgId, t.email),
   index("leads_org_thread_idx").on(t.orgId, t.gmailThreadId),
+  index("leads_org_understood_idx").on(t.orgId, t.understoodAt),
 ]);
 
 export const leadNotes = app.table("lead_notes", {

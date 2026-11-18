@@ -10,6 +10,8 @@ import { createMcpToken, revokeMcpToken } from "@/modules/mcp/service";
 import { createClassificationRule, updateClassificationRule } from "@/modules/email/service";
 import { updateBuyleadRules } from "@/modules/buyleads/service";
 import { authorize } from "@/modules/core/permissions";
+import { removeAiKey, saveAiTier, testAiTier, type saveAiTierInput } from "@/modules/ai/service";
+import type { z } from "zod";
 import { changeMemberRole, createSignInLink, inviteMember, removeMember, setMemberAccess } from "@/modules/core/members";
 import type { AbilityId } from "@/modules/core/permissions";
 import type { Role } from "@/modules/core/types";
@@ -111,3 +113,15 @@ export async function createIndiaMartPushAddressAction() {
   return done(await runAction(() => createIndiaMartPushAddress(s.ctx, {})));
 }
 
+export async function saveAiTierAction(input: z.input<typeof saveAiTierInput>) {
+  const s = await requireSession("integrations.manage");
+  return done(await runAction(() => saveAiTier(s.ctx, input)));
+}
+export async function testAiTierAction(tier: "basic" | "advanced") {
+  const s = await requireSession("integrations.manage");
+  return done(await runAction(() => testAiTier(s.ctx, { tier })));
+}
+export async function removeAiKeyAction(tier: "basic" | "advanced") {
+  const s = await requireSession("integrations.manage");
+  return done(await runAction(() => removeAiKey(s.ctx, { tier })));
+}

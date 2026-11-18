@@ -36,10 +36,11 @@ export async function whatsappTextAction(leadId: string) {
   return runAction(() => whatsappForLead(s.ctx, { leadId }));
 }
 
-export async function updateLeadAction(leadId: string, fields: Record<string, string | boolean | null>) {
+export async function updateLeadAction(leadId: string, fields: Record<string, string | boolean | null>, quantityKg?: number | null) {
   const s = await requireSession();
   const clean: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(fields)) clean[k] = v === "" ? null : v;
+  if (quantityKg !== undefined) clean.quantityKg = quantityKg;
   const r = await runAction(() => updateLead(s.ctx, { leadId, fields: clean }), "Lead saved");
   revalidatePath(`/leads/${leadId}`);
   return r.ok ? { ok: true as const, message: r.message } : r;

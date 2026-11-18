@@ -18,12 +18,15 @@ import { RulesEditor } from "@/components/settings/rules";
 import { BuyleadRulesEditor } from "@/components/settings/buylead-rules";
 import { OrgForm } from "@/components/settings/org-form";
 import { Members } from "@/components/settings/members";
+import { AiIntro, AiTierCard } from "@/components/settings/ai";
+import { getAiSettings } from "@/modules/ai/service";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Settings" };
 
 const TABS = [
   ["integrations", "Integrations"],
+  ["ai", "AI"],
   ["mcp", "Claude / MCP"],
   ["rules", "Email rules"],
   ["buyleads", "IndiaMART rules"],
@@ -71,6 +74,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         ))}
       </nav>
       {tab === "integrations" ? <IntegrationsTab ctx={s.ctx} admin={admin} /> : null}
+      {tab === "ai" ? <AiTab ctx={s.ctx} canManage={can(s.ctx, "integrations.manage")} /> : null}
       {tab === "mcp" ? (
         can(s.ctx, "mcp_tokens.manage") ? <McpTab ctx={s.ctx} /> : <Alert tone="neutral" title="Only owners and admins can manage Claude / MCP access." />
       ) : null}
@@ -123,6 +127,20 @@ async function IntegrationsTab({ ctx, admin }: { ctx: Ctx; admin: boolean }) {
           />
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+async function AiTab({ ctx, canManage }: { ctx: Ctx; canManage: boolean }) {
+  const ai = await getAiSettings(ctx, {});
+  const iso = (d: Date | null) => d?.toISOString() ?? null;
+  return (
+    <div className="grid gap-4">
+      <AiIntro waitingLeads={ai.waitingLeads} anyOn={ai.tiers.some((t) => t.enabled)} />
+      {ai.tiers.map((t) => (
+        <AiTierCard key={t.tier} canManage={canManage} providers={ai.providers}
+          t={{ ...t, lastErrorAt: iso(t.lastErrorAt), lastSuccessAt: iso(t.lastSuccessAt), backoffUntil: iso(t.backoffUntil) }} />
+      ))}
     </div>
   );
 }

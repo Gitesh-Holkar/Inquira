@@ -36,11 +36,11 @@ Each file has: Context, Problem, Options, Decision, Reasoning, Consequences, Sta
 | [ADR-028](ADR-028-permission-based-access.md) | Access is decided by permissions, with custom access per member | Accepted | 18 Nov 2026 |
 | [ADR-029](ADR-029-local-mode.md) | Local mode runs in Docker with its own sign-in, scheduler and file storage | Accepted | 18 Nov 2026 |
 | [ADR-030](ADR-030-indiamart-push-and-pull.md) | IndiaMART through Push plus Pull, with email as the cross-check | Accepted | 18 Nov 2026 |
+| [ADR-031](ADR-031-ai-tiers.md) | AI tiers behind one provider interface, rules first, code decides | Accepted | 18 Nov 2026 |
 
 ## To be written when the work reaches them
 
 | Decision | Planned status | Milestone |
 | --- | --- | --- |
 | Open-source licence | Deferred by the owner on 17 Nov 2026 (`QUESTIONS.md` Q-016) | M1, later |
-| AI tiers, provider interface, redaction for the Basic tier | Accepted | M5 |
 | Outbound pipeline with hold rules and modes | Accepted; marks ADR-010 Superseded | M7 |

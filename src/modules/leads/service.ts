@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, ilike, inArray, isNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, notInArray, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { Tx } from "@/db/client";
 import { notFound, AppError } from "@/lib/errors";
@@ -7,9 +7,14 @@ import { audit, emit } from "@/modules/core/audit";
 import { defineService } from "@/modules/core/service-kit";
 import { actorString, type Ctx } from "@/modules/core/types";
 import { resolveContactInternal, cleanEmail } from "@/modules/contacts/service";
-import { matchProduct, productMatcherCatalog, productNameById } from "@/modules/catalog/service";
+import { matchProduct, moqByProductInternal, productMatcherCatalog, productNameById } from "@/modules/catalog/service";
+import { enqueueJobInternal } from "@/modules/core/service";
+import { markAiCorrectedInternal } from "@/modules/ai/corrections";
 import { leadNotes, leads, leadStatusChanges } from "./schema";
-import { LEAD_STATUSES, listLeadsInput, type NormalizedLead } from "./types";
+import { LEAD_INTENTS, LEAD_STATUSES, listLeadsInput, type LeadFilledBy, type LeadIntent, type NormalizedLead } from "./types";
+import { belowMoq, intentByRules, mentionsWeight, quantityToKg } from "./understanding";
+
+export { quantityToKg } from "./understanding";
 
 export type Lead = typeof leads.$inferSelect;
 
@@ -27,17 +32,6 @@ export function detectInternational(l: Pick<NormalizedLead, "country" | "phone" 
     if (pc && pc !== "IN") return true;
   }
   return false;
-}
-
-/** "25 Kg", "1 Ton", "500kg" → kilograms (best effort). */
-export function quantityToKg(text: string | null | undefined): string | null {
-  if (!text) return null;
-  const m = text.replace(/,/g, "").match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|ton|tons|tonne|tonnes|mt|metric ton|g|gm|gram|grams)\b/i);
-  if (!m) return null;
-  const n = Number(m[1]);
-  const unit = m[2]!.toLowerCase();
-  const kg = /^(ton|tons|tonne|tonnes|mt|metric ton)$/.test(unit) ? n * 1000 : /^(g|gm|gram|grams)$/.test(unit) ? n / 1000 : n;
-  return String(Math.round(kg * 1000) / 1000);
 }
 
 const DUP_WINDOW_HOURS = 48;
@@ -102,6 +96,13 @@ export async function upsertLeadInternal(tx: Tx, ctx: Ctx, input: NormalizedLead
   const contact = await resolveContactInternal(tx, ctx, {
     name: input.contactName, email, phone, companyName: input.companyName, city: input.city, state: input.state, country: input.country,
   });
+  // Rules first (G-AI-6): alias match, intent rules, quantity units. What they leave open goes to the AI job.
+  const intent = intentByRules(input);
+  const quantityKg = quantityToKg(input.quantityText);
+  const filledBy: LeadFilledBy = {
+    ...(product ? { product: "alias" } : {}), ...(intent ? { intent: intent.by } : {}), ...(quantityKg ? { quantity: "rule:units" } : {}),
+  };
+  const open = openFields({ productId: product?.id ?? null, productText: input.productText ?? null, message: input.message ?? null, intent: intent?.intent ?? null, quantityKg, quantityText: input.quantityText ?? null });
   const [row] = await tx
     .insert(leads)
     .values({
@@ -121,7 +122,10 @@ export async function upsertLeadInternal(tx: Tx, ctx: Ctx, input: NormalizedLead
       productText: input.productText?.trim() || null,
       productId: product?.id ?? null,
       quantityText: input.quantityText?.trim() || null,
-      quantityKg: quantityToKg(input.quantityText),
+      quantityKg,
+      intent: intent?.intent ?? null,
+      filledBy,
+      understoodAt: open.length ? null : new Date(),
       message: input.message?.slice(0, 5000) ?? null,
       rawPayload: input.rawPayload ?? null,
       receivedAt: input.receivedAt,
@@ -134,7 +138,22 @@ export async function upsertLeadInternal(tx: Tx, ctx: Ctx, input: NormalizedLead
   await tx.insert(leadStatusChanges).values({ orgId: ctx.orgId, leadId: row!.id, fromStatus: null, toStatus: "new", createdBy: actorString(ctx.actor), reason: `Imported from ${input.channel}` });
   await audit(tx, ctx, { action: "lead.create", entityType: "lead", entityId: row!.id, changes: { source: input.source, sourceRef: input.sourceRef, channel: input.channel, international } });
   await emit(tx, ctx, { type: "lead.created", entityType: "lead", entityId: row!.id, payload: { source: input.source, channel: input.channel, international, productId: product?.id ?? null } });
+  // One job per company drains every waiting lead (dedupe key), so a burst of leads is one AI run.
+  if (open.length) await enqueueJobInternal(tx, ctx, { type: "ai.work", dedupeKey: "ai.work" });
   return { leadId: row!.id, created: true, duplicate: false, method: null };
+}
+
+/**
+ * Which of product, intent and quantity the rules left open for AI: no product although there is product
+ * or requirement text; no intent; no kg although the text states a weight ("1 Jar" is not open: it has no
+ * weight to read, G-UND-4).
+ */
+export function openFields(l: { productId: string | null; productText: string | null; message: string | null; intent: string | null; quantityKg: string | null; quantityText: string | null }): ("product" | "intent" | "quantity")[] {
+  const out: ("product" | "intent" | "quantity")[] = [];
+  if (!l.productId && (l.productText || l.message)) out.push("product");
+  if (!l.intent) out.push("intent");
+  if (!l.quantityKg && (mentionsWeight(l.quantityText) || (!l.quantityText && mentionsWeight(l.message)))) out.push("quantity");
+  return out;
 }
 
 function sameProductText(a: string | null | undefined, b: string | null | undefined): boolean {
@@ -173,6 +192,10 @@ function listWhere(orgId: string, input: z.output<typeof listLeadsInput>): SQL |
   if (input.statuses?.length) conds.push(inArray(leads.status, input.statuses));
   if (input.source) conds.push(eq(leads.source, input.source));
   if (input.productId) conds.push(eq(leads.productId, input.productId));
+  if (input.intent) conds.push(eq(leads.intent, input.intent));
+  if (input.needsDetails) {
+    conds.push(isNotNull(leads.understoodAt), or(isNull(leads.productId), isNull(leads.intent)), notInArray(leads.status, ["won", "lost", "not_relevant"]));
+  }
   if (input.international === "exclude") conds.push(eq(leads.isInternational, false));
   if (input.international === "only") conds.push(eq(leads.isInternational, true));
   if (input.from) conds.push(gte(leads.receivedAt, new Date(input.from)));
@@ -204,9 +227,16 @@ export const listLeads = defineService({
       .orderBy(desc(leads.receivedAt))
       .limit(input.pageSize)
       .offset((input.page - 1) * input.pageSize);
-    return { items, total, page: input.page, pageSize: input.pageSize };
+    const moq = await moqByProductInternal(tx, ctx.orgId, [...new Set(items.map((l) => l.productId).filter((id): id is string => !!id))]);
+    return { items: items.map((l) => withMoq(l, moq)), total, page: input.page, pageSize: input.pageSize };
   },
 });
+
+/** Adds the product's MOQ and the below-MOQ flag (G-UND-4); both null when unknown. */
+function withMoq(l: Lead, moq: Map<string, number>) {
+  const moqKg = l.productId ? moq.get(l.productId) ?? null : null;
+  return { ...l, moqKg, belowMoq: belowMoq(l.quantityKg, moqKg) };
+}
 
 export async function getLeadInternal(tx: Tx, orgId: string, id: string) {
   const [l] = await tx.select().from(leads).where(and(eq(leads.orgId, orgId), eq(leads.id, id), isNull(leads.deletedAt)));
@@ -222,7 +252,8 @@ export const getLead = defineService({
     if (!lead) throw notFound("Lead");
     const notes = await tx.select().from(leadNotes).where(and(eq(leadNotes.leadId, lead.id), eq(leadNotes.orgId, ctx.orgId), isNull(leadNotes.deletedAt))).orderBy(desc(leadNotes.createdAt));
     const statusChanges = await tx.select().from(leadStatusChanges).where(and(eq(leadStatusChanges.leadId, lead.id), eq(leadStatusChanges.orgId, ctx.orgId))).orderBy(desc(leadStatusChanges.createdAt));
-    return { lead, notes, statusChanges };
+    const moq = await moqByProductInternal(tx, ctx.orgId, lead.productId ? [lead.productId] : []);
+    return { lead: withMoq(lead, moq), notes, statusChanges };
   },
 });
 
@@ -278,6 +309,9 @@ const editableFields = z.object({
   productText: z.string().trim().max(300).nullish(),
   productId: z.string().uuid().nullish(),
   quantityText: z.string().trim().max(100).nullish(),
+  intent: z.enum(LEAD_INTENTS).nullish(),
+  /** Total kg, when a person knows it better than the text says ("4 drums" of a known size). */
+  quantityKg: z.number().positive().max(10_000_000).nullish(),
   isInternational: z.boolean().optional(),
 });
 
@@ -301,10 +335,29 @@ export const updateLead = defineService({
       if (f.email && !e) throw new AppError("VALIDATION", "That email doesn't look valid", { fieldErrors: { email: ["Invalid email"] } });
       patch.email = e;
     }
-    if (f.quantityText !== undefined) patch.quantityKg = quantityToKg(f.quantityText);
+    // Kg follows the quantity text only when the text changed, so saving another field keeps a kg value
+    // that AI or a person filled; a kg value typed in wins over both.
+    if (f.quantityKg !== undefined) patch.quantityKg = f.quantityKg === null ? null : String(f.quantityKg);
+    else if (f.quantityText !== undefined && (f.quantityText || null) !== (lead.quantityText || null)) patch.quantityKg = quantityToKg(f.quantityText);
+    else delete patch.quantityKg;
+    // A person's value is the answer: record who set it, and count it against the AI if the AI set it before.
+    const by = actorString(ctx.actor);
+    const filledBy: LeadFilledBy = { ...lead.filledBy };
+    const touched: [keyof LeadFilledBy, "lead.product" | "lead.intent" | "lead.quantity", unknown, unknown][] = [
+      ["product", "lead.product", lead.productId, patch.productId],
+      ["intent", "lead.intent", lead.intent, patch.intent],
+      ["quantity", "lead.quantity", lead.quantityKg === null ? null : Number(lead.quantityKg), patch.quantityKg === undefined ? undefined : patch.quantityKg === null ? null : Number(patch.quantityKg)],
+    ];
+    for (const [key, task, before, after] of touched) {
+      if (after === undefined || JSON.stringify(before) === JSON.stringify(after)) continue;
+      if (after === null) delete filledBy[key];
+      else filledBy[key] = by;
+      await markAiCorrectedInternal(tx, ctx, { entityType: "lead", entityId: lead.id, task, correctedValue: after });
+    }
+    patch.filledBy = filledBy;
     const [updated] = await tx.update(leads).set(patch).where(and(eq(leads.id, lead.id), eq(leads.orgId, ctx.orgId))).returning();
     const changes: Record<string, unknown> = {};
-    for (const k of Object.keys(patch) as (keyof Lead)[]) if (JSON.stringify(lead[k]) !== JSON.stringify(updated![k])) changes[k] = [lead[k], updated![k]];
+    for (const k of Object.keys(patch) as (keyof Lead)[]) if (k !== "filledBy" && JSON.stringify(lead[k]) !== JSON.stringify(updated![k])) changes[k] = [lead[k], updated![k]];
     await audit(tx, ctx, { action: "lead.update", entityType: "lead", entityId: lead.id, changes });
     await emit(tx, ctx, { type: "lead.updated", entityType: "lead", entityId: lead.id, payload: { fields: Object.keys(changes) } });
     return updated!;
@@ -436,3 +489,99 @@ export async function countBoughtBuyLeadsSinceInternal(tx: Tx, orgId: string, si
   return r?.n ?? 0;
 }
 
+
+// ---------- understanding: rules → AI → review (GOAL G-AI-6, src/modules/ai) ----------
+
+/** Leads the AI job has not finished with, oldest first, received in the last `days` days. */
+export async function leadsAwaitingUnderstandingInternal(tx: Tx, orgId: string, opts: { limit: number; days: number }) {
+  const since = new Date(Date.now() - opts.days * 86400_000);
+  return tx.select().from(leads)
+    .where(and(eq(leads.orgId, orgId), isNull(leads.deletedAt), isNull(leads.understoodAt), gte(leads.receivedAt, since)))
+    .orderBy(asc(leads.receivedAt)).limit(opts.limit);
+}
+
+export async function countLeadsAwaitingUnderstandingInternal(tx: Tx, orgId: string, days: number): Promise<number> {
+  const since = new Date(Date.now() - days * 86400_000);
+  const [r] = await tx.select({ n: sql<number>`count(*)::int` }).from(leads)
+    .where(and(eq(leads.orgId, orgId), isNull(leads.deletedAt), isNull(leads.understoodAt), gte(leads.receivedAt, since)));
+  return r?.n ?? 0;
+}
+
+/**
+ * Writes what rules or AI found, only into fields that are still empty: a person's edit made while the
+ * model was thinking always wins. `by` is `rule:<name>`, `ai:basic`, `ai:advanced` or `mcp:<token>`.
+ * Returns the fields actually written.
+ */
+export async function fillLeadDetailsInternal(tx: Tx, ctx: Ctx, leadId: string, found: { productId?: string; intent?: LeadIntent; quantityKg?: number }, by: string | { product?: string; intent?: string; quantity?: string }) {
+  const lead = await getLeadInternal(tx, ctx.orgId, leadId);
+  if (!lead) return [];
+  const who = (k: keyof LeadFilledBy) => (typeof by === "string" ? by : by[k] ?? actorString(ctx.actor));
+  const patch: Partial<typeof leads.$inferInsert> = {};
+  const filledBy: LeadFilledBy = { ...lead.filledBy };
+  const written: ("product" | "intent" | "quantity")[] = [];
+  if (found.productId && !lead.productId && (await productNameById(tx, ctx.orgId, found.productId))) {
+    patch.productId = found.productId; filledBy.product = who("product"); written.push("product");
+  }
+  if (found.intent && !lead.intent) { patch.intent = found.intent; filledBy.intent = who("intent"); written.push("intent"); }
+  if (found.quantityKg && !lead.quantityKg) { patch.quantityKg = String(Math.round(found.quantityKg * 1000) / 1000); filledBy.quantity = who("quantity"); written.push("quantity"); }
+  if (!written.length) return [];
+  await tx.update(leads).set({ ...patch, filledBy }).where(and(eq(leads.id, lead.id), eq(leads.orgId, ctx.orgId)));
+  await audit(tx, ctx, { action: "lead.understood", entityType: "lead", entityId: lead.id, changes: { ...Object.fromEntries(written.map((k) => [k, filledBy[k]])), productId: patch.productId, intent: patch.intent, quantityKg: patch.quantityKg } });
+  await emit(tx, ctx, { type: "lead.updated", entityType: "lead", entityId: lead.id, payload: { fields: written, by: written.map((k) => filledBy[k]) } });
+  return written;
+}
+
+/** Open leads in the review queue (no product or no intent after rules and AI), for the dashboard. */
+export async function countLeadsNeedingDetailsInternal(tx: Tx, orgId: string): Promise<number> {
+  const [r] = await tx.select({ n: sql<number>`count(*)::int` }).from(leads)
+    .where(listWhere(orgId, { needsDetails: true, international: "exclude", page: 1, pageSize: 1 }));
+  return r?.n ?? 0;
+}
+
+/** The AI job is done with this lead: anything still empty is now in the review queue (`needsDetails`). */
+export async function markLeadUnderstoodInternal(tx: Tx, orgId: string, leadId: string) {
+  await tx.update(leads).set({ understoodAt: new Date() }).where(and(eq(leads.id, leadId), eq(leads.orgId, orgId), isNull(leads.understoodAt)));
+}
+
+/** For the Claude connector: leads whose product or intent rules and AI could not settle. */
+export const listLeadsNeedingDetails = defineService({
+  name: "leads.needingDetails",
+  input: z.object({ limit: z.number().int().min(1).max(50).default(20), cursor: z.string().regex(/^\d+$/).optional() }),
+  permission: "leads.read",
+  handler: async (ctx, input, tx) => {
+    const offset = Number(input.cursor ?? 0);
+    const where = listWhere(ctx.orgId, { needsDetails: true, international: "all", page: 1, pageSize: 1 });
+    const rows = await tx.select().from(leads).where(where).orderBy(desc(leads.receivedAt)).limit(input.limit + 1).offset(offset);
+    const more = rows.length > input.limit;
+    return { items: rows.slice(0, input.limit), nextCursor: more ? String(offset + input.limit) : null };
+  },
+});
+
+/**
+ * The Claude connector answers the review queue (G-AI-6, G-AI-10): it may fill an empty product, intent or
+ * quantity, never overwrite one. Low confidence changes nothing and leaves a note for a person.
+ */
+export const submitLeadDetails = defineService({
+  name: "leads.submitDetails",
+  input: z.object({
+    leadId: z.string().uuid(),
+    productId: z.string().uuid().optional(),
+    intent: z.enum(LEAD_INTENTS).optional(),
+    quantityKg: z.number().positive().max(10_000_000).optional(),
+    confidence: z.enum(["high", "medium", "low"]),
+    reason: z.string().trim().min(1).max(500),
+  }),
+  permission: "leads.edit",
+  handler: async (ctx, input, tx) => {
+    const lead = await getLeadInternal(tx, ctx.orgId, input.leadId);
+    if (!lead) throw notFound("Lead");
+    if (input.productId && !(await productNameById(tx, ctx.orgId, input.productId))) throw notFound("Product");
+    if (input.confidence === "low") {
+      const [note] = await tx.insert(leadNotes).values({ orgId: ctx.orgId, leadId: lead.id, createdBy: actorString(ctx.actor), body: `Suggestion (low confidence, not applied): ${input.reason}` }).returning();
+      await audit(tx, ctx, { action: "lead.suggest", entityType: "lead", entityId: lead.id, changes: { noteId: note!.id, productId: input.productId, intent: input.intent, quantityKg: input.quantityKg } });
+      return { status: "kept_for_review" as const, written: [] };
+    }
+    const written = await fillLeadDetailsInternal(tx, ctx, lead.id, { productId: input.productId, intent: input.intent, quantityKg: input.quantityKg }, actorString(ctx.actor));
+    return { status: written.length ? ("filled" as const) : ("nothing_to_fill" as const), written };
+  },
+});

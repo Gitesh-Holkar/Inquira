@@ -36,6 +36,8 @@ export const emailMessages = app.table("email_messages", {
   parsed: jsonb().$type<Record<string, unknown>>(),
   confidence: text(),
   leadId: uuid(),
+  /** When the Advanced AI tier looked at this review email (null = not yet); see src/modules/ai. */
+  aiCheckedAt: timestamp({ withTimezone: true }),
 }, (t) => [
   uniqueIndex("email_org_msg_uq").on(t.orgId, t.gmailMessageId),
   index("email_org_class_idx").on(t.orgId, t.classification, t.receivedAt),

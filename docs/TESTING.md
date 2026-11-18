@@ -35,7 +35,10 @@ External services are never called from tests. Fakes live in `tests/helpers/` an
 | Fake | Replaces | Throws when |
 | --- | --- | --- |
 | `fakeGoogle()` in `tests/helpers/fake-google.ts` | Gmail API and Google's token endpoint | Any send endpoint is called |
-| A `fetch` stub per test | TradeIndia's inquiry endpoint | — |
+| A `fetch` stub per test | TradeIndia's inquiry endpoint, IndiaMART's Pull API | Any other address |
+| `fakeAi(reply)` in `tests/helpers/fake-ai.ts` | Gemini, Anthropic and OpenAI-compatible APIs; records every request body so tests can check what would leave the app | Any address that is not one of the three providers |
+
+`tests/setup.ts` also replaces the global `fetch` for every test: anything but `localhost` throws "Test tried to reach …", so a missing fake fails the test instead of reaching a live service (AGENTS rule 13).
 
 `tests/helpers/db.ts` has `resetDb`, `setupOrgWithUser(role)`, `createUser`, `addMember`, `systemCtx` and `mcpCtx`.
 

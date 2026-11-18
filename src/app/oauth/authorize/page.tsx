@@ -15,6 +15,7 @@ const CAN = [
   "Read leads, emails waiting for review, rates and rules",
   "Classify review emails and create leads from them",
   "Update lead status and add notes",
+  "Fill a lead's empty product, request type and quantity (never overwrite)",
   "Create quotation drafts in Gmail (a person always clicks Send)",
   "Read and log IndiaMART Buy Lead decisions",
 ];

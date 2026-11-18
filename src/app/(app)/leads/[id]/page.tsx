@@ -13,7 +13,8 @@ import { documentsForProduct } from "@/modules/documents/service";
 import { listAudit } from "@/modules/core/service";
 import { listProducts } from "@/modules/catalog/service";
 import { can } from "@/modules/core/permissions";
-import { STATUS_LABELS } from "@/modules/leads/types";
+import { INTENT_LABELS, STATUS_LABELS } from "@/modules/leads/types";
+import { filledByLabel } from "@/components/leads/labels";
 import { Alert, Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 import { EMAIL_CLASS_LABEL, SourceBadge, StatusBadge } from "@/components/status";
@@ -23,6 +24,7 @@ import { DeleteLeadButton, EditLeadButton, NoteForm, StatusChanger } from "@/com
 export const metadata: Metadata = { title: "Lead" };
 
 function actorLabel(a: string) {
+  if (a.startsWith("ai:")) return a === "ai:basic" ? "AI (Basic)" : "AI (Advanced)";
   if (a.startsWith("mcp:")) return `Claude (${a.slice(4)})`;
   if (a.startsWith("system:")) return `System (${a.slice(7)})`;
   if (a.startsWith("human:")) return "Team member";
@@ -62,6 +64,9 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
             <StatusBadge status={lead.status} />
             <SourceBadge source={lead.source} channel={lead.channel} />
             {lead.isInternational ? <Badge tone="warning"><Globe2 className="size-3" />International</Badge> : null}
+            {lead.intent ? <Badge tone="info">{INTENT_LABELS[lead.intent]}</Badge> : null}
+            {lead.belowMoq ? <Badge tone="warning">Below MOQ</Badge> : null}
+            {!lead.understoodAt ? <Badge tone="neutral">AI checking</Badge> : !lead.productId || !lead.intent ? <Badge tone="warning">Needs details</Badge> : null}
           </div>
           <h1 className="mt-2 break-words text-xl font-semibold sm:text-2xl">{lead.productText ?? "Product not stated"}{lead.quantityText ? <span className="font-normal text-muted"> · {lead.quantityText}</span> : null}</h1>
           <p className="text-sm text-muted" title={formatDateTime(lead.receivedAt)}>Received {formatDateTime(lead.receivedAt)} ({formatRelative(lead.receivedAt)}) · ref {lead.sourceRef.startsWith("gmail:") ? "email" : lead.sourceRef}</p>
@@ -69,7 +74,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         <div className="flex flex-wrap gap-2">
           {can(s.ctx, "leads.edit") ? (
             <EditLeadButton leadId={lead.id} products={products.map((p) => ({ id: p.id, name: p.name }))}
-              lead={{ contactName: lead.contactName, companyName: lead.companyName, phone: lead.phone, email: lead.email, city: lead.city, state: lead.state, country: lead.country, productText: lead.productText, quantityText: lead.quantityText, productId: lead.productId, isInternational: lead.isInternational }} />
+              lead={{ contactName: lead.contactName, companyName: lead.companyName, phone: lead.phone, email: lead.email, city: lead.city, state: lead.state, country: lead.country, productText: lead.productText, quantityText: lead.quantityText, productId: lead.productId, isInternational: lead.isInternational, intent: lead.intent, quantityKg: lead.quantityKg === null ? null : String(Number(lead.quantityKg)) }} />
           ) : null}
           {can(s.ctx, "leads.delete") ? <DeleteLeadButton leadId={lead.id} /> : null}
         </div>
@@ -96,7 +101,10 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                     </dd>
                   </>
                 ) : null}
-                <dt className="text-muted">Product</dt><dd>{product ? <Link className="text-primary underline-offset-4 hover:underline" href={`/rates?q=${encodeURIComponent(product.name)}`}>{product.name}</Link> : <span className="text-muted">Not matched to catalog — use Edit</span>}</dd>
+                <dt className="text-muted">Product</dt><dd>{product ? <><Link className="text-primary underline-offset-4 hover:underline" href={`/rates?q=${encodeURIComponent(product.name)}`}>{product.name}</Link><FilledBy by={lead.filledBy.product} /></> : <span className="text-muted">Not matched to catalog — use Edit</span>}</dd>
+                <dt className="text-muted">Wants</dt><dd>{lead.intent ? <>{INTENT_LABELS[lead.intent]}<FilledBy by={lead.filledBy.intent} /></> : <span className="text-muted">Not set — use Edit</span>}</dd>
+                <dt className="text-muted">Quantity</dt>
+                <dd>{lead.quantityKg ? <>{formatNumber(lead.quantityKg)} kg<FilledBy by={lead.filledBy.quantity} />{lead.moqKg ? <span className={lead.belowMoq ? "ml-1 text-warning" : "ml-1 text-muted"}>({lead.belowMoq ? "below" : "meets"} MOQ {formatNumber(lead.moqKg)} kg)</span> : null}</> : <span className="text-muted">{lead.quantityText ? `“${lead.quantityText}” has no weight` : "Not stated"}</span>}</dd>
               </dl>
               <div className="flex flex-wrap gap-2">
                 {lead.phone ? <><WhatsAppButton leadId={lead.id} phone={lead.phone} /><CallButton phone={lead.phone} /><CopyButton value={formatPhone(lead.phone)} label="phone" /></> : null}
@@ -199,4 +207,10 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
       </div>
     </>
   );
+}
+
+/** Who filled a field: shown so a person knows what to double-check. */
+function FilledBy({ by }: { by?: string }) {
+  const label = filledByLabel(by);
+  return label ? <span className="ml-1.5 text-xs text-muted">· {label}</span> : null;
 }

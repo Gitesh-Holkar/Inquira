@@ -102,7 +102,7 @@ export const jobs = app.table("jobs", {
   uniqueIndex("jobs_dedupe_uq").on(t.orgId, t.dedupeKey),
 ]);
 
-export const integrationProviderEnum = app.enum("integration_provider", ["gmail", "tradeindia", "indiamart"]);
+export const integrationProviderEnum = app.enum("integration_provider", ["gmail", "tradeindia", "indiamart", "ai_basic", "ai_advanced"]);
 export const integrationStatusEnum = app.enum("integration_status", [
   "not_connected", "configured", "connected", "error", "reauth_required",
 ]);

@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Tx } from "@/db/client";
 import { AppError, notFound } from "@/lib/errors";
@@ -6,6 +6,8 @@ import { startOfTodayIST } from "@/lib/format";
 import { audit, emit } from "@/modules/core/audit";
 import { defineService } from "@/modules/core/service-kit";
 import { actorString, type Ctx } from "@/modules/core/types";
+import { enqueueJobInternal } from "@/modules/core/service";
+import { markAiCorrectedInternal } from "@/modules/ai/corrections";
 import { findLeadByThreadInternal, findRecentLeadByContactInternal, getLeadInternal, touchLeadInternal, upsertLeadInternal } from "@/modules/leads/service";
 import type { LeadSource, NormalizedLead } from "@/modules/leads/types";
 import { classificationRules, emailMessages } from "./schema";
@@ -67,6 +69,8 @@ export async function ingestMessageInternal(tx: Tx, ctx: Ctx, m: IngestMessage, 
   }).returning();
 
   const { leadId, leadCreated } = await applyClassification(tx, ctx, row!, r, threadLead?.id ?? null);
+  // Emails the rules could not settle go to the Advanced AI tier first, if the company turned it on (G-AI-6).
+  if (r.classification === "needs_review") await enqueueJobInternal(tx, ctx, { type: "ai.work", dedupeKey: "ai.work" });
   await audit(tx, ctx, { action: "email.ingest", entityType: "email_message", entityId: row!.id, changes: { classification: r.classification, by: r.by, leadId } });
   await emit(tx, ctx, { type: "email.received", entityType: "email_message", entityId: row!.id, payload: { from: m.fromEmail, subject: m.subject.slice(0, 200) } });
   await emit(tx, ctx, { type: "email.classified", entityType: "email_message", entityId: row!.id, payload: { classification: r.classification, by: r.by, leadId } });
@@ -163,67 +167,81 @@ const leadFieldsInput = z.object({
   message: z.string().trim().max(4000).nullish(),
 });
 
+const classificationInput = z.object({
+  emailId: z.string().uuid(),
+  classification: z.enum(EMAIL_CLASSES),
+  confidence: z.enum(["high", "medium", "low"]),
+  reason: z.string().trim().min(1).max(500),
+  lead: leadFieldsInput.optional(),
+  leadId: z.string().uuid().optional(),
+});
+export type EmailClassificationInput = z.output<typeof classificationInput>;
+
 export const submitEmailClassification = defineService({
   name: "email.submitClassification",
-  input: z.object({
-    emailId: z.string().uuid(),
-    classification: z.enum(EMAIL_CLASSES),
-    confidence: z.enum(["high", "medium", "low"]),
-    reason: z.string().trim().min(1).max(500),
-    lead: leadFieldsInput.optional(),
-    leadId: z.string().uuid().optional(),
-  }),
+  input: classificationInput,
   permission: "emails.classify",
-  handler: async (ctx, input, tx) => {
-    const [row] = await tx.select().from(emailMessages).where(and(eq(emailMessages.orgId, ctx.orgId), eq(emailMessages.id, input.emailId)));
-    if (!row) throw notFound("Email");
-    const isMcp = ctx.actor.kind === "mcp";
-    if (isMcp && !["needs_review", "pending"].includes(row.classification)) {
-      throw new AppError("CONFLICT", `Email is already classified as ${row.classification}; only emails in review can be classified via MCP.`);
-    }
-    const by = actorString(ctx.actor);
-    const parsed = (row.parsed ?? {}) as Record<string, unknown>;
-
-    // Low confidence stays in review for a person (brief §7.6); the suggestion is shown in the queue.
-    if (isMcp && input.confidence === "low") {
-      await tx.update(emailMessages).set({ parsed: { ...parsed, suggestion: { ...input, by, at: new Date().toISOString() } } }).where(eq(emailMessages.id, row.id));
-      await audit(tx, ctx, { action: "email.suggest", entityType: "email_message", entityId: row.id, changes: { suggested: input.classification, confidence: "low" } });
-      return { status: "kept_for_review" as const, emailId: row.id, leadId: null };
-    }
-
-    let leadId: string | null = null;
-    let leadCreated = false;
-    if (input.classification === "inquiry" || input.classification === "international") {
-      const f = input.lead ?? {};
-      const n: NormalizedLead = {
-        contactName: f.contactName ?? row.fromName, companyName: f.companyName, phone: f.phone, email: f.email ?? row.fromEmail,
-        city: f.city, state: f.state, country: f.country, productText: f.productText ?? row.subject, quantityText: f.quantityText,
-        message: f.message ?? row.bodyText?.slice(0, 2000) ?? null,
-        source: portalSource(row.fromEmail), sourceRef: (parsed as { sourceRef?: string | null }).sourceRef ?? `gmail:${row.gmailMessageId}`,
-        channel: portalSource(row.fromEmail) === "gmail" ? "direct_email" : "review", isInternational: input.classification === "international",
-        receivedAt: row.receivedAt, gmailThreadId: row.gmailThreadId, gmailMessageId: row.gmailMessageId,
-        rawPayload: { email: { id: row.gmailMessageId, subject: row.subject, from: row.fromEmail }, classifiedBy: by },
-      };
-      const res = await upsertLeadInternal(tx, ctx, n);
-      leadId = res.leadId;
-      leadCreated = res.created;
-    } else if (input.classification === "conversation") {
-      leadId = input.leadId ?? (await findLeadByThreadInternal(tx, ctx.orgId, row.gmailThreadId))?.id
-        ?? (await findRecentLeadByContactInternal(tx, ctx.orgId, { email: input.lead?.email ?? row.fromEmail, phone: input.lead?.phone }))?.id ?? null;
-      if (!leadId) throw new AppError("VALIDATION", "Conversation needs a leadId (no lead matches this thread or sender).");
-      if (!(await getLeadInternal(tx, ctx.orgId, leadId))) throw notFound("Lead");
-      await touchLeadInternal(tx, ctx.orgId, leadId);
-    }
-
-    await tx.update(emailMessages).set({
-      classification: input.classification, classificationReason: input.reason, classifiedBy: by, classifiedAt: new Date(),
-      confidence: input.confidence, leadId, parsed: { ...parsed, suggestion: null },
-    }).where(eq(emailMessages.id, row.id));
-    await audit(tx, ctx, { action: "email.classify", entityType: "email_message", entityId: row.id, changes: { classification: [row.classification, input.classification], confidence: input.confidence, leadId } });
-    await emit(tx, ctx, { type: "email.classified", entityType: "email_message", entityId: row.id, payload: { classification: input.classification, by, leadId } });
-    return { status: "classified" as const, emailId: row.id, leadId, leadCreated };
-  },
+  handler: (ctx, input, tx) => classifyEmailInternal(tx, ctx, input),
 });
+
+/**
+ * Classifies one stored email: by a person, by the Claude connector (MCP) or by the Advanced AI tier.
+ * Automated actors (MCP, AI) may only classify emails still in review, and a low-confidence answer only
+ * leaves a suggestion for a person. When a person or the connector changes what the AI decided, the AI's
+ * decision is marked corrected (G-AI-9).
+ */
+export async function classifyEmailInternal(tx: Tx, ctx: Ctx, input: EmailClassificationInput) {
+  const [row] = await tx.select().from(emailMessages).where(and(eq(emailMessages.orgId, ctx.orgId), eq(emailMessages.id, input.emailId)));
+  if (!row) throw notFound("Email");
+  const automated = ctx.actor.kind === "mcp" || ctx.actor.kind === "ai";
+  if (automated && !["needs_review", "pending"].includes(row.classification)) {
+    throw new AppError("CONFLICT", `Email is already classified as ${row.classification}; only emails in review can be classified automatically.`);
+  }
+  const by = actorString(ctx.actor);
+  const parsed = (row.parsed ?? {}) as Record<string, unknown>;
+
+  // Low confidence stays in review for a person (brief §7.6); the suggestion is shown in the queue.
+  if (automated && input.confidence === "low") {
+    await tx.update(emailMessages).set({ parsed: { ...parsed, suggestion: { ...input, by, at: new Date().toISOString() } } }).where(eq(emailMessages.id, row.id));
+    await audit(tx, ctx, { action: "email.suggest", entityType: "email_message", entityId: row.id, changes: { suggested: input.classification, confidence: "low" } });
+    return { status: "kept_for_review" as const, emailId: row.id, leadId: null, leadCreated: false };
+  }
+  if (row.classifiedBy?.startsWith("ai:") && !automated) {
+    await markAiCorrectedInternal(tx, ctx, { entityType: "email_message", entityId: row.id, task: "email.classify", correctedValue: input.classification });
+  }
+
+  let leadId: string | null = null;
+  let leadCreated = false;
+  if (input.classification === "inquiry" || input.classification === "international") {
+    const f = input.lead ?? {};
+    const n: NormalizedLead = {
+      contactName: f.contactName ?? row.fromName, companyName: f.companyName, phone: f.phone, email: f.email ?? row.fromEmail,
+      city: f.city, state: f.state, country: f.country, productText: f.productText ?? row.subject, quantityText: f.quantityText,
+      message: f.message ?? row.bodyText?.slice(0, 2000) ?? null,
+      source: portalSource(row.fromEmail), sourceRef: (parsed as { sourceRef?: string | null }).sourceRef ?? `gmail:${row.gmailMessageId}`,
+      channel: portalSource(row.fromEmail) === "gmail" ? "direct_email" : "review", isInternational: input.classification === "international",
+      receivedAt: row.receivedAt, gmailThreadId: row.gmailThreadId, gmailMessageId: row.gmailMessageId,
+      rawPayload: { email: { id: row.gmailMessageId, subject: row.subject, from: row.fromEmail }, classifiedBy: by },
+    };
+    const res = await upsertLeadInternal(tx, ctx, n);
+    leadId = res.leadId;
+    leadCreated = res.created;
+  } else if (input.classification === "conversation") {
+    leadId = input.leadId ?? (await findLeadByThreadInternal(tx, ctx.orgId, row.gmailThreadId))?.id
+      ?? (await findRecentLeadByContactInternal(tx, ctx.orgId, { email: input.lead?.email ?? row.fromEmail, phone: input.lead?.phone }))?.id ?? null;
+    if (!leadId) throw new AppError("VALIDATION", "Conversation needs a leadId (no lead matches this thread or sender).");
+    if (!(await getLeadInternal(tx, ctx.orgId, leadId))) throw notFound("Lead");
+    await touchLeadInternal(tx, ctx.orgId, leadId);
+  }
+
+  await tx.update(emailMessages).set({
+    classification: input.classification, classificationReason: input.reason, classifiedBy: by, classifiedAt: new Date(),
+    confidence: input.confidence, leadId, parsed: { ...parsed, suggestion: null },
+  }).where(eq(emailMessages.id, row.id));
+  await audit(tx, ctx, { action: "email.classify", entityType: "email_message", entityId: row.id, changes: { classification: [row.classification, input.classification], confidence: input.confidence, leadId } });
+  await emit(tx, ctx, { type: "email.classified", entityType: "email_message", entityId: row.id, payload: { classification: input.classification, by, leadId } });
+  return { status: "classified" as const, emailId: row.id, leadId, leadCreated };
+}
 
 // ---------- rules ----------
 
@@ -351,4 +369,19 @@ export async function getMessageMetaInternal(tx: Tx, orgId: string, gmailMessage
   const [m] = await tx.select({ subject: emailMessages.subject, rfcMessageId: emailMessages.rfcMessageId, headers: emailMessages.headers })
     .from(emailMessages).where(and(eq(emailMessages.orgId, orgId), eq(emailMessages.gmailMessageId, gmailMessageId)));
   return m ? { subject: m.subject, rfcMessageId: m.rfcMessageId, references: m.headers["references"] ?? null } : null;
+}
+
+// ---------- Advanced AI tier (src/modules/ai) ----------
+
+/** Review emails the Advanced tier has not looked at, oldest first, received in the last `days` days. */
+export async function reviewEmailsAwaitingAiInternal(tx: Tx, orgId: string, opts: { limit: number; days: number }) {
+  const since = new Date(Date.now() - opts.days * 86400_000);
+  return tx.select().from(emailMessages)
+    .where(and(eq(emailMessages.orgId, orgId), eq(emailMessages.classification, "needs_review"), isNull(emailMessages.aiCheckedAt),
+      eq(emailMessages.isOutgoing, false), gte(emailMessages.receivedAt, since)))
+    .orderBy(asc(emailMessages.receivedAt)).limit(opts.limit);
+}
+
+export async function markEmailAiCheckedInternal(tx: Tx, orgId: string, emailId: string) {
+  await tx.update(emailMessages).set({ aiCheckedAt: new Date() }).where(and(eq(emailMessages.id, emailId), eq(emailMessages.orgId, orgId)));
 }

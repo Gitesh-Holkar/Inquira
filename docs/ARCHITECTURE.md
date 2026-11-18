@@ -63,8 +63,9 @@ tests/, e2e/              Vitest integration tests; Playwright smoke tests
 | `buyleads` | buylead_rules, buylead_decisions | rules (full + compact), log decision (cap enforced), summary |
 | `dashboard` | (no tables) | one-shot dashboard data |
 | `documents` | documents | upload (checked by content), list, download, latest valid per type, attachments for quotation drafts; file storage adapter `storage.ts` (Supabase bucket or disk) |
+| `ai` | ai_decisions (tier settings are `integrations` rows `ai_basic` / `ai_advanced`) | provider adapters (Gemini, Anthropic, OpenAI-compatible), redaction, task schemas, settings, the `ai.work` job, accuracy (see "AI tiers" below) |
 
-**Common columns** (brief §6.3): every table has `id uuid`, `created_at`, `updated_at` (trigger), `created_by` (actor string `human:<uuid>` / `mcp:<token>` / `system:<job>`), and `org_id`. `deleted_at` exists where soft delete makes sense.
+**Common columns** (brief §6.3): every table has `id uuid`, `created_at`, `updated_at` (trigger), `created_by` (actor string `human:<uuid>` / `mcp:<token>` / `system:<job>` / `ai:<tier>`), and `org_id`. `deleted_at` exists where soft delete makes sense.
 
 Two tables are exceptions:
 - `organizations` — the org itself.
@@ -148,9 +149,11 @@ Every source implements the same three steps: **fetch → normalize to `Normaliz
 |---|---|---|
 | `gmail.sync` | historyId incremental sync. Falls back to a date resync if the historyId has expired. At most 150 messages per run; the rest wait in a backlog. | enqueued by every tick, and right after connect |
 | `tradeindia.sync` | 30-day backfill on first run, then (last success − 2d) → now in 7-day windows | every tick, and after a successful Test connection |
+| `indiamart.sync` | One Pull API call per run (ADR-030) | every tick |
+| `ai.work` | Leads the rules left open go to Basic, then Advanced, then the review queue; review emails go to Advanced (ADR-031). 15 s budget, 10 items per run; `{ more: true }` queues a follow-up | when a lead or review email arrives that rules could not settle, and every tick |
 
 `/api/cron/tick`:
-1. Enqueues both job types for each org. `dedupe_key` keeps at most one queued job per org per type.
+1. Enqueues the sync jobs and `ai.work` for each org. `dedupe_key` keeps at most one queued job per org per type.
 2. Claims due jobs with `SKIP LOCKED`.
 3. Runs them. Failures retry with backoff; after 5 attempts the job is `failed`.
 4. Integration errors also set `integrations.backoff_until`, and the dashboard shows the last error.
@@ -191,6 +194,22 @@ Two seams keep cloud and local mode on the same code (GOAL G-PLT-6):
 - **File storage** (`src/modules/documents/storage.ts`): `fileStore()` with `put`, `get`, `remove`. The private Supabase bucket `documents` in cloud mode, a folder (`FILE_STORAGE_DIR`) locally. Chosen by `FILE_STORAGE`, else by what is configured.
 
 Both are network calls, so services call them outside database transactions: `inviteMember` creates the account first and then the membership; `uploadDocument` stores the file first, then saves the row, and removes the file if the row cannot be saved.
+
+## AI tiers
+
+```
+lead arrives ──► rules (alias match, intent wording, weight units) ──► all settled? ──► done
+                                                                        │ no
+                                                                        ▼
+                         ai.work job: Basic (redacted text) ──► Advanced ──► Leads → Needs details
+review email ─────────────────────────────────────────────────► Advanced ──► Emails → Review
+```
+
+- A tier is skipped when it is off, has no key, is backing off after a provider error, or has used its daily calls (counted by Inquira in `ai_decisions`). The item moves to the next step in the same run.
+- Replies must match a fixed JSON schema (`ai/tasks.ts`); code accepts a field only when it was empty, the value exists and the confidence reaches the company's threshold. AI writes are audited as `ai:basic` / `ai:advanced`; that actor passes no permission check, so a model can never call a public service.
+- Basic sees only redacted product and requirement text (`ai/redact.ts`). Buyer text is wrapped in markers it cannot close and the system prompt says it is data.
+- Every decision is logged in `ai_decisions`; a person's later change marks it corrected, and the dashboard shows accuracy per tier.
+- The Claude connector serves the same review queue with `list_leads_needing_details` and `submit_lead_details` (fills empty fields only).
 
 ## Who may do what
 

@@ -76,6 +76,21 @@ export async function currentRatesInternal(tx: Tx, orgId: string, opts: { produc
   }));
 }
 
+/**
+ * MOQ per product: the smallest MOQ among its grades' current rates (GOAL G-UND-4). A product whose
+ * rates carry no MOQ is missing from the map, so "below MOQ" stays unknown rather than guessed.
+ */
+export async function moqByProductInternal(tx: Tx, orgId: string, productIds: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (!productIds.length) return out;
+  for (const r of await currentRatesInternal(tx, orgId, { productIds })) {
+    if (r.moqKg === null || r.moqKg === undefined) continue;
+    const m = Number(r.moqKg);
+    if (!out.has(r.productId) || m < out.get(r.productId)!) out.set(r.productId, m);
+  }
+  return out;
+}
+
 export const getCurrentRates = defineService({
   name: "catalog.getCurrentRates",
   input: z.object({ productIds: z.array(z.string().uuid()).optional(), query: z.string().trim().max(100).optional() }),

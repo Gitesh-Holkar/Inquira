@@ -22,7 +22,7 @@ Postgres with Drizzle ORM. Every table is in the private schema **`app`** (see [
 | `audit_logs` | **Append-only.** One row per write | `actor`, `action`, `entity_type`, `entity_id`, `changes` (json) |
 | `events` | Domain event outbox | `type`, `entity_type`, `entity_id`, `payload`, `processed_at` |
 | `jobs` | Background work queue | `type`, `payload`, `status`, `run_after`, `attempts`, `max_attempts`, `locked_at`, `dedupe_key`; unique `(org_id, dedupe_key)` |
-| `integrations` | Non-secret state of each external connection | `provider` (`gmail`, `tradeindia`, `indiamart`), `status`, `config`, `cursor`, `account_email`, sync and error timestamps, `backoff_until`; unique `(org_id, provider)` |
+| `integrations` | Non-secret state of each external connection, and the settings of each AI tier | `provider` (`gmail`, `tradeindia`, `indiamart`, `ai_basic`, `ai_advanced`; an AI tier's `config` holds provider, model, address, threshold and daily limit), `status`, `config`, `cursor`, `account_email`, sync and error timestamps, `backoff_until`; unique `(org_id, provider)` |
 | `integration_secrets` | Encrypted credentials (AES-256-GCM). **System only.** | `integration_id` (unique), `ciphertext`, `key_version` |
 | `sync_runs` | Log of each sync run | `provider`, `kind`, `status`, `fetched`, `created`, `duplicates`, `errors`, `error_message`, `meta` |
 
@@ -31,7 +31,7 @@ Postgres with Drizzle ORM. Every table is in the private schema **`app`** (see [
 | Table | Purpose | Notable columns |
 | --- | --- | --- |
 | `contacts` (soft delete) | A buyer, matched by email then phone | `name`, `email`, `phone` (E.164), `company_name`, `city`, `state`, `country` |
-| `leads` (soft delete) | One enquiry | `contact_id`, `source` (`tradeindia`, `indiamart`, `gmail`, `manual`), `source_ref`, `channel`, `status`, `is_international`, buyer fields, `product_text`, `product_id`, `quantity_text`, `quantity_kg`, `message`, `raw_payload`, `received_at`, `last_activity_at`, `gmail_thread_id`, `gmail_message_id`, `alternate_refs`; unique `(org_id, source, source_ref)` |
+| `leads` (soft delete) | One enquiry | `contact_id`, `source` (`tradeindia`, `indiamart`, `gmail`, `manual`), `source_ref`, `channel`, `status`, `is_international`, buyer fields, `product_text`, `product_id`, `quantity_text`, `quantity_kg`, `intent` (`new_enquiry`, `document_request`, `sample_request`, `price_negotiation`, `order`, `complaint`, `not_buyer`, `other`; empty = not settled), `filled_by` (json: who filled product, intent and quantity: `alias`, `rule:…`, `ai:basic`, `ai:advanced`, `mcp:…`, `human:…`), `understood_at` (when rules and AI finished; empty = waiting for the AI job), `message`, `raw_payload`, `received_at`, `last_activity_at`, `gmail_thread_id`, `gmail_message_id`, `alternate_refs`; unique `(org_id, source, source_ref)` |
 | `lead_notes` (soft delete) | Notes on a lead | `lead_id`, `body` |
 | `lead_status_changes` | **Append-only** status history | `lead_id`, `from_status`, `to_status`, `reason` |
 
@@ -41,7 +41,7 @@ Postgres with Drizzle ORM. Every table is in the private schema **`app`** (see [
 
 | Table | Purpose | Notable columns |
 | --- | --- | --- |
-| `email_messages` | Every synced Gmail message | `gmail_message_id` (unique per company), `gmail_thread_id`, sender and recipients, `subject`, `body_text`, `body_html` (kept only when the text part is unusable), `received_at`, `is_outgoing`, `classification`, `classification_reason`, `classified_by`, `parser_format`, `parsed` (json), `confidence`, `lead_id` |
+| `email_messages` | Every synced Gmail message | `gmail_message_id` (unique per company), `gmail_thread_id`, sender and recipients, `subject`, `body_text`, `body_html` (kept only when the text part is unusable), `received_at`, `is_outgoing`, `classification`, `classification_reason`, `classified_by`, `parser_format`, `parsed` (json), `confidence`, `lead_id`, `ai_checked_at` (when the Advanced AI tier looked at a review email) |
 | `classification_rules` (soft delete) | The team's email rules | `match_type`, `pattern`, `action`, `priority`, `enabled`, `hit_count` |
 
 ### Catalogue and rates (`catalog/schema.ts`)
@@ -95,6 +95,12 @@ organizations ─┬─ org_settings (1:1)        ─┬─ products ── prod
                └─ mcp_tokens ── oauth_refresh_tokens (access_token_id)
 ```
 
+### AI (`ai/schema.ts`)
+
+| Table | Purpose | Notable columns |
+| --- | --- | --- |
+| `ai_decisions` | One row per AI decision (GOAL G-AI-9). Written only by the AI job; one model call (`call_id`) can give several rows | `call_id`, `task` (`lead.product`, `lead.intent`, `lead.quantity`, `email.classify`), `tier`, `provider`, `model`, `entity_type`, `entity_id`, `outcome` (`applied`, `not_confident`, `invalid`, `error`), `confidence`, `value` (what the model proposed), `detail`, `latency_ms`, `input_tokens`, `output_tokens`, `corrected_at`, `corrected_by`, `corrected_value`. Indexes `(org_id, tier, created_at)` (daily limit, accuracy) and `(org_id, entity_type, entity_id)`. RLS: members read; update (marking a correction) with `leads.edit` or `emails.classify`; no insert or delete for signed-in people (`0011`) |
+
 ## Policies (`drizzle/0001_rls_policies.sql`, rewritten by `drizzle/0008_access_rules.sql`)
 
 Since 0008, writes are allowed by **permission**, not by role name. Helper functions, all `SECURITY DEFINER` with an empty search path, reading `auth.uid()`:
@@ -116,6 +122,7 @@ Since 0008, writes are allowed by **permission**, not by role name. Helper funct
 | Templates and rules | `templates`, `classification_rules`, `buylead_rules` | members | `templates.write`; `rules.write`; `buylead.rules.write` or `catalog.write` | same |
 | Connections | `integrations` | members | `integrations.manage` | same |
 | Documents | `documents` | members | `documents.write` | same |
+| AI log | `ai_decisions` | members | update only: `leads.edit` or `emails.classify` (insert by the AI job, as system) | — |
 | Tokens | `mcp_tokens` | `mcp_tokens.manage` | `mcp_tokens.manage` | `mcp_tokens.manage` |
 | System only | `integration_secrets`, `oauth_clients`, `oauth_codes`, `oauth_refresh_tokens` | none | none | none |
 
@@ -125,7 +132,7 @@ Append-only triggers reject UPDATE and DELETE on `price_entries`, `audit_logs` a
 
 ## Indexes
 
-Every list the app shows has an index on its filter: leads by `(org_id, status, received_at)`, `(org_id, received_at)`, phone, email and thread; emails by `(org_id, classification, received_at)`, thread and received time; price entries by `(grade_id, valid_from, created_at)`; jobs by `(status, run_after)`; audit rows by entity and by time. Unique indexes are listed with their tables above.
+Every list the app shows has an index on its filter: leads by `(org_id, status, received_at)`, `(org_id, received_at)`, phone, email, thread and `(org_id, understood_at)` (the AI job's queue); emails by `(org_id, classification, received_at)`, thread and received time; price entries by `(grade_id, valid_from, created_at)`; jobs by `(status, run_after)`; audit rows by entity and by time. Unique indexes are listed with their tables above.
 
 ## Migrations (`drizzle/`)
 
@@ -141,6 +148,8 @@ Every list the app shows has an index on its filter: leads by `(org_id, status, 
 | `0007_roles_and_access.sql` | Roles `qa` and `accounts`; `memberships.granted` and `memberships.revoked` |
 | `0008_access_rules.sql` | Permission-based write rules (`app.role_default`, `app.can`, `app.can_any`, `app.can_work`) replacing the role-based ones |
 | `0009_indiamart_provider.sql` | Adds `indiamart` to the `integration_provider` enum |
+| `0010_ai_layer.sql` | Enum `lead_intent`; providers `ai_basic`, `ai_advanced`; table `ai_decisions`; `leads.intent`, `leads.filled_by`, `leads.understood_at`; `email_messages.ai_checked_at` |
+| `0011_ai_decisions_rls.sql` | Row-level security, grants and the `updated_at` trigger for `ai_decisions` |
 
 Rules: generate with `npm run db:generate`; never edit an applied migration; a new table needs base columns, `org_id`, and a migration that enables RLS with policies, plus a case in `tests/rls.test.ts`. Apply with `npm run db:migrate` (TCP) or `npm run db:remote:apply` (HTTPS).
 

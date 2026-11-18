@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { AlertCircle, CheckCircle2, Inbox, ListChecks, Mail, ShoppingCart, Globe2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Inbox, ListChecks, Mail, ShoppingCart, Globe2, Sparkles } from "lucide-react";
+import { can } from "@/modules/core/permissions";
 import { requireSession } from "@/lib/auth";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { getDashboard } from "@/modules/dashboard/service";
@@ -123,6 +124,25 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             </p>
             <p className="mt-1 text-xs text-muted">Up to {d.indiamart.dailyCap} suggestions a day. A person buys on IndiaMART.</p>
             <Link href="/indiamart" className="mt-2 inline-block text-sm text-primary underline-offset-4 hover:underline">Decision log</Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>AI, last 30 days</CardTitle><Sparkles className="size-4 text-muted" aria-hidden /></CardHeader>
+          <CardContent className="grid gap-3 text-sm" data-testid="ai-card">
+            {d.ai.some((t) => t.enabled || t.calls) ? d.ai.map((t) => (
+              <div key={t.tier}>
+                <p className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{t.tier === "basic" ? "Basic" : "Advanced"}</span>
+                  <Badge tone={t.enabled ? "success" : "neutral"}>{t.enabled ? "On" : "Off"}</Badge>
+                  {t.accuracy !== null ? <span><strong>{Math.round(t.accuracy * 100)}%</strong> right</span> : null}
+                </p>
+                <p className="text-muted">
+                  {t.applied} filled, {t.corrected} corrected by a person, {t.notConfident} left for review{t.invalid ? `, ${t.invalid} unusable answers` : ""}{t.errors ? `, ${t.errors} failed calls` : ""}.
+                </p>
+              </div>
+            )) : <p className="text-muted">AI is off. Rules fill what they can and the rest waits under Leads → Needs details.{can(s.ctx, "integrations.manage") ? <> <Link href="/settings?tab=ai" className="text-primary underline-offset-4 hover:underline">Set up AI</Link></> : null}</p>}
+            <p><Link href="/leads?view=details" className="text-primary underline-offset-4 hover:underline">{d.needsDetails} lead{d.needsDetails === 1 ? "" : "s"} need{d.needsDetails === 1 ? "s" : ""} details</Link></p>
           </CardContent>
         </Card>
       </div>

@@ -6,7 +6,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog, Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/primitives";
-import { LEAD_STATUSES, STATUS_LABELS, type LeadStatus } from "@/modules/leads/types";
+import { INTENT_LABELS, LEAD_INTENTS, LEAD_STATUSES, STATUS_LABELS, type LeadStatus } from "@/modules/leads/types";
 import { addNoteAction, deleteLeadAction, setStatusAction, updateLeadAction } from "@/app/(app)/leads/actions";
 
 /** For spam, tests and duplicates. A real enquiry that went nowhere should be marked Lost or Not relevant instead. */
@@ -82,9 +82,13 @@ export function EditLeadButton({ leadId, lead, products }: { leadId: string; lea
           const fields: Record<string, string | boolean | null> = {};
           for (const [k] of FIELDS) fields[k] = String(fd.get(k) ?? "");
           fields.productId = String(fd.get("productId") ?? "") || null;
+          fields.intent = String(fd.get("intent") ?? "") || null;
           fields.isInternational = fd.get("isInternational") === "on";
+          // Send kg only when it was changed here; otherwise it follows the quantity text.
+          const kg = String(fd.get("quantityKg") ?? "").trim();
+          const sentKg: number | null | undefined = kg === String(lead.quantityKg ?? "") ? undefined : kg ? Number(kg) : null;
           start(async () => {
-            const r = await updateLeadAction(leadId, fields);
+            const r = await updateLeadAction(leadId, fields, sentKg);
             if (r.ok) { toast.success("Lead saved"); setOpen(false); setErrors({}); } else { setErrors(r.fieldErrors ?? {}); toast.error(r.error); }
           });
         }}>
@@ -93,6 +97,15 @@ export function EditLeadButton({ leadId, lead, products }: { leadId: string; lea
               <option value="">— Not matched —</option>
               {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </Select>
+          </Field>
+          <Field label="What the buyer wants" htmlFor="el-intent">
+            <Select id="el-intent" name="intent" defaultValue={String(lead.intent ?? "")}>
+              <option value="">— Not set —</option>
+              {LEAD_INTENTS.map((i) => <option key={i} value={i}>{INTENT_LABELS[i]}</option>)}
+            </Select>
+          </Field>
+          <Field label="Quantity in kg" htmlFor="el-kg" error={errors.quantityKg} hint="Filled from the quantity text when it states a weight.">
+            <Input id="el-kg" name="quantityKg" type="number" inputMode="decimal" min="0" step="any" defaultValue={String(lead.quantityKg ?? "")} />
           </Field>
           {FIELDS.map(([k, label]) => (
             <Field key={k} label={label} htmlFor={`el-${k}`} error={errors[k]}>

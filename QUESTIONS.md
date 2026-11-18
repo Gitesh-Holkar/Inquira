@@ -152,3 +152,12 @@ Each item lists the question, what I assumed so the build could continue, and wh
   4. The first load reads 30 days, not the full 365, so months-old leads do not appear as new. Say if you want more.
 - **Please:** after connecting, open one IndiaMART lead in Inquira and compare it with the same lead in IndiaMART's Lead Manager.
 
+## Q-020 — AI tiers: key, model and limits (18 Nov 2026)
+- **Needed:** a Gemini API key from Google AI Studio for Basic AI (free tier is fine; Basic never receives personal data). Optional: a Claude API key for Advanced AI.
+- **Model names are yours to choose** (Settings → AI). Inquira ships with none, so it never depends on a name that a provider retires. Pick a current model from the provider's list.
+- **Assumed, please check once it runs:**
+  1. Defaults: confidence 0.8; Basic 200 calls a day, Advanced 50. Set Basic at or below the free tier's daily limit shown in AI Studio.
+  2. Leads older than 7 days are not sent to AI.
+  3. The OpenAI-compatible adapter uses JSON mode (`response_format: json_object`); a provider without it will answer "bad request" on Test connection.
+- **Please:** after a day, look at the dashboard's AI card and correct any wrong product or request type on the lead page; tell me if a tier is often wrong.
+

@@ -9,7 +9,7 @@ import { can } from "./permissions";
 import { actorString, type Ctx } from "./types";
 import { auditLogs, integrations, integrationSecrets, jobs, memberships, organizations, orgSettings, syncRuns } from "./schema";
 
-export type Provider = "gmail" | "tradeindia" | "indiamart";
+export type Provider = "gmail" | "tradeindia" | "indiamart" | "ai_basic" | "ai_advanced";
 export type Integration = typeof integrations.$inferSelect;
 
 // ---------- org + membership lookups (used by auth) ----------

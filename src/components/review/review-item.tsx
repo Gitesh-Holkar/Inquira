@@ -45,7 +45,7 @@ export function ReviewItem({ e, canClassify, canRule }: { e: ReviewEmail; canCla
         {e.hint ? <Badge tone="warning">Mentions {e.hint}</Badge> : null}
       </div>
       <p className="mt-1 break-words font-semibold">{e.subject}</p>
-      {e.suggestion ? <p className="mt-1 text-xs text-info">Claude suggests: <strong>{e.suggestion.classification}</strong> (low confidence) — {e.suggestion.reason}</p> : null}
+      {e.suggestion ? <p className="mt-1 text-xs text-info">{e.suggestion.by?.startsWith("ai:") ? `AI (${e.suggestion.by === "ai:basic" ? "Basic" : "Advanced"})` : "Claude"} suggests: <strong>{e.suggestion.classification}</strong> (not sure enough to apply) — {e.suggestion.reason.replace(/^AI \((basic|advanced)\): /, "")}</p> : null}
       <details className="mt-2">
         <summary className="cursor-pointer text-sm text-muted">Show email ({e.reason})</summary>
         <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-surface-2 p-2 font-sans text-sm">{e.body}</pre>

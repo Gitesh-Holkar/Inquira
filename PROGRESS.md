@@ -3,10 +3,10 @@
 **Resume prompt** (use this if a session is interrupted):
 > Continue Inquira in this repository only. Read `AGENTS.md`, then this file and `QUESTIONS.md`, then `docs/INDEX.md`. Work on the first milestone below that is not done. The goal is `docs/GOAL.md`.
 
-## Current state (17 Nov 2026)
+## Current state (18 Nov 2026)
 
 - **Goal:** `docs/GOAL.md` (requirement IDs `G-…`). **Rules:** `AGENTS.md`. **Where things are:** `docs/INDEX.md`, `docs/CODEMAP.md`.
-- **Working on:** M4 (IndiaMART API) is built and waits at its owner gate (connect it, SETUP 6a). Next: M5 (AI layer), which needs a Gemini key from the owner for its live check; M1 stays deferred (Q-016).
+- **Working on:** M5 (AI layer) is built and waits at its owner gate: a Gemini key on Settings → AI (SETUP 6b) for the live check. M4 waits at its gate too (SETUP 6a). Next: M6 (knowledge base and lead score); M1 stays deferred (Q-016).
 - **Live site:** deployed on Vercel from this branch. Sign-in is on again. The live database still has the September rates and has **not** had migrations `0003` and `0004` applied.
 - **Order note:** the owner sent the November price list and quotation terms on 16 Nov and asked for them, so M3 was done before M1 and M2. Its one dependency on M1 (seed folders) was done with it: `seed/stdm/` and `SEED_DIR`. The fictional `seed/example` and the "nothing in `src/` names the company" test are still M1.
 
@@ -35,7 +35,7 @@ Work in order, one at a time. Stop at every **OWNER GATE**.
 | M2 | Local mode: adapters, local sign-in, Docker packaging, self-hosting guide | G-PLT-5, G-PLT-6 | **Done 18 Nov 2026.** Verified from a fresh install in Docker (`npm run test:e2e:local`), restart keeps keys and data |
 | M3 | New price list: import screen and command, diff (**OWNER GATE** before anything is written to a live database); quotation terms | G-KB-6, part of G-KB-2 | Built and tested (17 Nov). **Waiting for the owner:** Q-015 |
 | M4 | IndiaMART API: Push, Pull, reconciliation | G-SRC-1, G-SRC-2, G-SRC-6 to G-SRC-8 | **Built 18 Nov 2026, tested against a fake.** OWNER GATE: paste the Pull key and register the push address (SETUP 6a); then compare one lead (Q-019) |
-| M5 | AI layer: provider interface, tiers, redaction | G-AI-1 to G-AI-10, G-UND-3, G-UND-4 | Not started |
+| M5 | AI layer: provider interface, tiers, redaction | G-AI-1 to G-AI-10, G-UND-3, G-UND-4 | **Built 18 Nov 2026, tested against fake providers** (ADR-031). OWNER GATE: Gemini key on Settings → AI, Test connection, then watch the dashboard's AI card for a day (SETUP 6b, Q-020). Left for later milestones: Advanced reading conversations and drafting replies (G-CNV-3, M7), Advanced suggesting Buy Leads (the connector does it today) |
 | M6 | Knowledge base: commercial terms, rate validity, document library, sample policy, lead score | G-KB-2 to G-KB-5, G-UND-6 | Not started |
 | M7 | Outbound pipeline: hold rules, modes, sending (**OWNER GATE**: stays in `shadow`) | G-TPL-*, G-OUT-1 to G-OUT-7, G-OUT-9, G-OUT-10 | Not started |
 | M8 | Operations: follow-ups, time to first reply, members screen, backups | G-FUP-1, G-RPT-*, G-PLT-2, G-PLT-7 | Not started |
@@ -80,6 +80,7 @@ Every service, screen and setting was checked against the rule in `AGENTS.md` se
 4. Rates → Import price list: save the mapping (`seed/stdm/price-list-map.json`), paste the November list, Apply. The live site still has the September prices.
 5. Sign in again and revoke the Claude tokens issued while sign-in was off (`docs/RUNBOOK.md` section 1).
 6. IndiaMART: paste the Pull API key and register the push address (`docs/SETUP.md` section 6a); then compare one lead with IndiaMART (Q-019).
+7. AI: create a Gemini key in Google AI Studio and turn on Basic AI (`docs/SETUP.md` section 6b, Q-020). Optional: a Claude API key for Advanced.
 
 ## Notes for the owner
 
@@ -210,3 +211,11 @@ The whole MVP from the brief (§7) is built, tested and pushed to branch `claude
   - **Cleanup:** removed dead functions (getEmail, getContact, addGrade, previewTemplate, countEventsSinceInternal, diff, conflict, truncate, collapseWhitespace, DialogTrigger/Close) and 9 unused npm packages. `npm audit --omit=dev`: 0 vulnerabilities.
   - **Docs:** new `docs/CODEMAP.md` (every file/function/route/job → purpose, plus "I want to change X → edit Y"); CLAUDE.md requires keeping it current.
   - Checks: typecheck, lint, 109 tests, `next build`, 10/10 Playwright all green.
+- **18 Nov 2026 — M5 AI layer.**
+  - New module `src/modules/ai`: one provider interface with adapters for Gemini, Anthropic and any OpenAI-compatible API (plain HTTPS, no new dependency); Settings → AI per tier (provider, model, key, on/off, threshold, daily limit); keys encrypted like the TradeIndia key.
+  - Leads: request type (intent) by rules, quantity units (MT, quintal, packs of N kg; "1 Jar" stays empty), below-MOQ flag from current rates, who filled each field. What rules leave open goes Basic (redacted) → Advanced → Leads → Needs details. Advanced also sorts review emails.
+  - Code checks every answer (schema, known values, threshold, empty fields only); provider errors make the tier wait and the item moves on; daily limits counted by Inquira; every decision logged with corrections; dashboard shows accuracy per tier.
+  - Claude connector: `list_leads_needing_details`, `submit_lead_details` (fills empty fields only).
+  - Fixed while building: a product named "Sample …" would have been read as a sample request (rules now read only the buyer's message); editing any lead field would have reset a kg value AI had filled.
+  - Tests: 252 unit/integration (incl. redaction, injection, malformed answers, escalation, rate limit, daily limit, corrections), 16 browser tests on desktop and phone; every test now fails if it tries to reach anything but localhost. Migrations 0010 and 0011.
+

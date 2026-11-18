@@ -206,6 +206,24 @@ If you ever lose the address or think someone else has it, click **New push addr
 
 The dashboard card **API and email today** compares how leads arrived. "API missed" means a lead came only by notification email although the API is connected: check the IndiaMART card for errors.
 
+## 6b. Turn on AI (optional)
+
+Inquira works without AI: rules fill what they can and the rest waits under **Leads → Needs details** for you or Claude. AI fills product, request type and quantity on leads the rules could not settle, and (Advanced only) sorts emails waiting in Review. It never sends anything and never sets a price.
+
+**Basic (free key, recommended first):**
+1. Open Google AI Studio (aistudio.google.com) with the company's Google account and create an API key. The free tier is enough to start.
+2. Note a current model name from AI Studio's model list (for example a "Flash" model). Inquira does not choose one for you; you can change it any time.
+3. In Inquira: **Settings → AI → Basic AI**. Provider **Google Gemini**, paste the model name and the key, keep **Confidence needed** at 0.8 and **Calls per day** at or below the free tier's daily limit, tick **Use Basic AI on new leads**, **Save**.
+4. Click **Test connection**. "Connected. The model answered in the expected format." means it works. If it says the model did not follow the format, try another model.
+
+Basic never receives a buyer's email, phone, name, company or city: Inquira removes them before every call.
+
+**Advanced (paid key, optional):** same steps under **Advanced AI**, for example with a Claude API key from console.anthropic.com (provider **Anthropic Claude**). Advanced reads the full text of review emails, so use a paid key whose terms keep your data private. Set **Calls per day** to what you are happy to pay for.
+
+**What to check after a day:** the dashboard card **AI, last 30 days** shows how many fields each tier filled and how many you corrected. Correct a wrong product or request type on the lead (Edit): that counts against the tier, so the percentage is honest. If a tier is often wrong, raise **Confidence needed** or change the model.
+
+**If it stops:** the card shows "Paused after an error" with the provider's message. Common causes: daily free limit reached (it resumes by itself), a wrong model name, or a key that was deleted. Leads keep flowing to the next step meanwhile.
+
 ## 7. Connect Claude (MCP server)
 
 Inquira has a built-in MCP server at `https://YOUR-APP/api/mcp`.

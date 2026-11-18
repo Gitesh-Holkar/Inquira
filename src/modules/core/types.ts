@@ -4,7 +4,9 @@ export type Actor =
   /** `granted` and `revoked` are this member's custom access on top of the role (Settings → Members → Access). */
   | { kind: "human"; userId: string; email: string; role: Role; granted?: readonly string[]; revoked?: readonly string[] }
   | { kind: "mcp"; tokenId: string; tokenName: string; scopes: string[] }
-  | { kind: "system"; job: string };
+  | { kind: "system"; job: string }
+  /** An AI tier's decision applied by code (src/modules/ai). AI actors call no public service. */
+  | { kind: "ai"; tier: "basic" | "advanced" };
 
 /** Every service call carries the org it acts on and who is acting. */
 export type Ctx = { orgId: string; actor: Actor };
@@ -17,6 +19,8 @@ export function actorString(actor: Actor): string {
       return `mcp:${actor.tokenName}`;
     case "system":
       return `system:${actor.job}`;
+    case "ai":
+      return `ai:${actor.tier}`;
   }
 }
 
