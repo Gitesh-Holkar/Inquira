@@ -74,6 +74,8 @@ How a request flows: **page or server action** (`src/app`) → **service** (`src
 | `listMembers` | Active members with role and date added. |
 | `inviteMember(ctx, {email, role}, deps?)` | Finds or creates the sign-in account (`lib/accounts.ts`, outside any transaction), then adds the membership, or restores a removed one with the new role. |
 | `setMemberAccess(ctx, {memberId, abilities})` | Switches abilities on or off for one member on top of their role. Only abilities the editor has; not for owners or yourself; adds required abilities (for example "See settings"). Audited as `member.access`. |
+| `createSignInLink` | Local sign-in only: a one-time link for a member to set a password (Members → Sign-in link). Same rules as changing access. |
+| `isFirstRun`, `firstRunOpen`, `claimFirstOwner` | Fresh local install: while a company has no members, the sign-in page creates the owner account (advisory lock; closed in every other case). |
 | `changeMemberRole`, `removeMember` | Owners and admins manage members; only an owner touches owners and admins; nobody changes or removes themselves; the last owner stays. Removal is a soft delete. A role change resets custom access. |
 
 ### documents (`documents/service.ts`, `storage.ts`, `types.ts`) — document library (GOAL G-KB-4)
@@ -222,7 +224,8 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `/documents` Documents | `(app)/documents/page.tsx` | `(app)/documents/actions.ts`: `uploadDocumentAction` (form with the file), `removeDocumentAction`; `components/documents/upload-form.tsx`, `remove-document.tsx`. Filters by product and type (URL). |
 | `/indiamart` Buy-lead log | `(app)/indiamart/page.tsx` | — |
 | `/settings?tab=…` | `(app)/settings/page.tsx` | `(app)/settings/actions.ts`: TradeIndia save/test, Sync now, Gmail save/connect/disconnect, MCP tokens, email rules, buy-lead rules, org settings, members (`inviteMemberAction`, `changeMemberRoleAction`, `removeMemberAction`, `setMemberAccessAction`; `components/settings/members.tsx`); components in `components/settings/*` |
-| `/login` | `login/page.tsx` | `login/actions.ts`: `signIn`, `sendReset` (first password / reset email), `updatePassword`, `devSignIn` (local only), `signOut`; `login/forms.tsx` |
+| `/login` | `login/page.tsx` | `login/actions.ts`: `signIn`, `sendReset` (first password / reset email), `updatePassword`, `devSignIn` (local only), `signOut`; `login/forms.tsx`; local sign-in: `localSignIn`, `createFirstOwnerAction`, `setPasswordWithLinkAction`, forms `LocalLoginForm`, `FirstOwnerForm`, `SetPasswordForm` |
+| `/login/set-password?token=` | `login/set-password/page.tsx` | Opened from a one-time sign-in link (local sign-in): choose a password, then signed in. |
 | `/auth/callback` | `auth/callback/route.ts` | Email links (PKCE `code` or `token_hash`) → session → set password |
 | `/auth/update-password` | `auth/update-password/page.tsx` | Uses `updatePassword` |
 | `/oauth/authorize` | `oauth/authorize/page.tsx` | `oauth/authorize/actions.ts`: `approveAction`, `denyAction` (Claude connector consent) |
@@ -266,9 +269,10 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `app`, `baseColumns()`, `softDelete()` | `db/pg-schema.ts` | Schema `app` and standard columns. `db/schema.ts` re-exports all module tables. |
 | `getSessionUser`, `getAppSession`, `appSessionFor(user)`, `requireSession(perm?)`, `devUserIdByEmail`, `ORG_COOKIE` | `lib/auth.ts` | Current user and org context; redirect to /login. |
 | `supabaseServer`, `supabaseConfigured` | `lib/supabase/server.ts` | Supabase client bound to request cookies. |
-| `accountDirectory`, `accountKind`, `findOrCreateSupabaseUser` | `lib/accounts.ts` | Sign-in accounts adapter: finds or creates the account for an email (Supabase Auth admin API, or the local table in development). Never sets a password. |
+| `accountDirectory`, `accountKind`, `findOrCreateSupabaseUser` | `lib/accounts.ts` | Sign-in accounts adapter: finds or creates the account for an email (`supabase`: Auth admin API; `local`: local table, password set with a one-time link; `dev`: local table, no password). Never sets a password. |
+| `hashPassword`, `verifyPassword`, `signSession`, `verifySession`, `createSetupLink`, `redeemSetupLink`, `setLocalPassword`, `findLocalUserBy*`, `SESSION_COOKIE` | `lib/local-auth.ts` | Local sign-in (`AUTH_MODE=local`): scrypt passwords in `auth.users.encrypted_password`, a session cookie signed over user id, expiry and a password fingerprint, one-time sign-in links (hashed, 7 days). |
 | `signDevSession`, `verifyDevSession`, `DEV_COOKIE` | `lib/dev-auth.ts` | Local-only dev sign-in (refused on Vercel/production). |
-| `env()`, `appUrl()`, `isDevAuth()`, `resetEnvCache` | `lib/env.ts` | Validated environment (empty strings = unset). |
+| `env()`, `appUrl()`, `isDevAuth()`, `isLocalAuth()`, `resetEnvCache` | `lib/env.ts` | Validated environment (empty strings = unset). `AUTH_MODE`: `supabase`, `local`, `dev`. |
 | `AppError`, `notFound`, `forbidden`, `publicMessage` | `lib/errors.ts` | Errors with codes; safe messages for users. |
 | `runAction(fn, message?)` | `lib/actions.ts` | Server-action wrapper: AppError → `{ok:false, error, fieldErrors}`. |
 | `errorResponse`, `checkCronSecret` | `lib/http.ts` | Route-handler errors; cron secret check. |
@@ -291,21 +295,29 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `scripts/db-remote-seed.ts` (`db:remote:seed`) | Seed a Supabase project over HTTPS only. |
 | `scripts/local-db.sh` + `scripts/local-db/supabase-shim.sql` (`db:local:up/down/reset`) | Local Postgres 16 on :54322 that mimics Supabase (`auth.uid()`, roles). |
 | `scripts/demo-data.ts` (`demo:data`) | Loads fixture emails into a LOCAL db for demos/screenshots. |
+| `scripts/local-setup.ts` (`local:setup`) | Local install start-up: keys (created once, `DATA_DIR/secrets.env`), wait for Postgres, shim, migrations, seed without an owner. Refuses Supabase databases. |
+| `scripts/worker.mjs` (`worker`) | Local scheduler: POSTs `/api/cron/tick` every `TICK_EVERY_SECONDS` (600). |
+| `scripts/local-sign-in-link.ts` (`local:sign-in-link`) | Prints a one-time password link for a member (owner who forgot the password). |
+| `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `docker/start-app.sh`, `docker/start-worker.sh` | Local mode: one image for app and worker; services `db` (Postgres 16), `app` (port 127.0.0.1:3000), `worker`; volumes `db`, `data`. |
 | `scripts/rates-import.ts` (`rates:import`) | Prints what a price list file would change; writes only with `--confirm`. `--map` uses another mapping, `--save-map` keeps it, `--org` picks the company. |
 | `scripts/fetch-website-products.ts` (`seed:website`) | Diff the company website's catalogue vs `SEED_DIR/products.json`. |
 | `scripts/gen-keys.ts` (`gen:keys`) | Generate `APP_ENCRYPTION_KEY` and `CRON_SECRET`. |
 | `drizzle/` | Migrations (0000 init, 0001 RLS + grants + triggers, 0002 storage bucket, 0003 payment terms, 0004 price list mapping, 0005 documents, 0006 documents RLS, 0007 roles and custom access, 0008 permission-based access rules). Never edit an applied one. |
-| `seed/stdm/` | The first company's data: `settings.json` (name, payment terms, price basis), `products.json` (catalogue, aliases, website links), `price-lists/<date>.txt` (the list as received, one item per line), `price-list-map.json` (headings → GST and pack size, list names → product and grade, MOQ and price basis). |
+| `seed/example/` | Fictional example company (the default `SEED_DIR`): 9 products, a price list, mapping and terms. Every name and number is made up. |
+| `seed/stdm/` | The first company's data (also `website_url` for `seed:website`): `settings.json` (name, payment terms, price basis), `products.json` (catalogue, aliases, website links), `price-lists/<date>.txt` (the list as received, one item per line), `price-list-map.json` (headings → GST and pack size, list names → product and grade, MOQ and price basis). |
 | `fixtures/emails/*.json` | Anonymised real email formats with `expected` parse results. |
 | `tests/sign-in.test.ts` | Sign-in is always on (GOAL G-PLT-1): fails if an unauthenticated request reaches a page, a server action, the OAuth consent action or a protected API route, in any environment. |
 | `tests/human-paths.test.ts` | Every service as a signed-in role under RLS (catches permission bugs system-context tests miss). |
 | `tests/rls.test.ts` | Org isolation and append-only rules at the database level. |
 | `tests/sync-resume.test.ts` | TradeIndia sync resumes after a time-budget stop or a killed run, uses IST dates, and does not pass a window with failed leads; a Gmail backlog is picked up on the next tick. |
 | `tests/price-list-import.test.ts` | Price list import as owner under RLS (rates appended, history kept, renames, aliases, audit), refused for sales and viewers; every folder in `seed/` loads and its own list then shows nothing left to change. |
+| `tests/local-auth.test.ts` | Local sign-in: passwords, signed sessions (tamper, expiry, password change), first-run owner (once, local only, concurrent), one-time links. |
+| `tests/no-company-data.test.ts` | Fails if `src/`, `scripts/` or `drizzle/` names a company (AGENTS rule 6). |
 | `tests/roles.test.ts` | Roles and abilities are consistent; SQL role defaults equal the code's; switching an ability on or off changes what a member can do in the app and under RLS; who may change whose access. |
 | `tests/members.test.ts` | Members as signed-in roles under RLS: add, restore, roles, last owner, other company; Supabase accounts fake. |
 | `tests/documents.test.ts` | Documents: upload rules, who may do what, latest valid, attachments on quote drafts (expired never), both storage adapters. |
 | `tests/sync-and-quotes.test.ts` | Gmail/TradeIndia sync, dedupe, quotes, review queue (Google faked in `tests/helpers/fake-google.ts`, which throws on any send). |
 | `tests/mcp.test.ts` | MCP tools, tokens, OAuth flow. |
 | `src/**/*.test.ts` | Unit tests next to the code (parsers, catalog, leads, lib). |
+| `e2e/local-mode.spec.ts` + `playwright.local.config.ts` (`test:e2e:local`) | A fresh local install end to end: create owner, example data, document on disk, teammate link, sign in. Runs against `docker compose up`. |
 | `e2e/smoke.spec.ts` | Playwright: main flows on desktop 1440 and phone 390, sign-in messages, screenshots → `docs/screenshots/`. |

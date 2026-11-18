@@ -25,8 +25,8 @@ export const maskEmail = (e: string) => e.replace(/^(.).*(@.*)$/, "$1***$2");
 
 const email = parseOwnerEmail(process.env.SEED_OWNER_EMAIL ?? "owner@example.com") ?? "";
 const orgName = process.env.SEED_ORG_NAME || undefined;
-/** The first company's data. Milestone M1 adds a fictional `seed/example` and makes that the default. */
-export const seedDir = path.resolve(process.env.SEED_DIR || "seed/stdm");
+/** The company's data folder. The default is the fictional example company (GOAL G-OSS-2); a real company sets SEED_DIR. */
+export const seedDir = path.resolve(process.env.SEED_DIR || "seed/example");
 
 export async function ensureSupabaseUser(emailAddr: string): Promise<string> {
   const r = await findOrCreateSupabaseUser({ url: process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY! }, emailAddr);

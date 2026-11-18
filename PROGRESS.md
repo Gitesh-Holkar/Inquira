@@ -6,7 +6,7 @@
 ## Current state (17 Nov 2026)
 
 - **Goal:** `docs/GOAL.md` (requirement IDs `G-…`). **Rules:** `AGENTS.md`. **Where things are:** `docs/INDEX.md`, `docs/CODEMAP.md`.
-- **Working on:** M3 answered (Q-015); the owner applies the list in the app. **Licence deferred** by the owner on 17 Nov 2026 (Q-016): no open-source release for now; he wants to run Inquira himself, locally. So M2 (local mode) is next; M1's licence, README for strangers and CONTRIBUTING wait. The parts of M1 local mode needs (a fictional `seed/example`, no company names in `src/`) are done with M2.
+- **Working on:** M2 (local mode) is done. Next in order: M4 (IndiaMART API), which needs the owner to register the Push URL and enter the Pull key; M1 stays deferred (Q-016).
 - **Live site:** deployed on Vercel from this branch. Sign-in is on again. The live database still has the September rates and has **not** had migrations `0003` and `0004` applied.
 - **Order note:** the owner sent the November price list and quotation terms on 16 Nov and asked for them, so M3 was done before M1 and M2. Its one dependency on M1 (seed folders) was done with it: `seed/stdm/` and `SEED_DIR`. The fictional `seed/example` and the "nothing in `src/` names the company" test are still M1.
 
@@ -32,7 +32,7 @@ Work in order, one at a time. Stop at every **OWNER GATE**.
 | --- | --- | --- | --- |
 | M0 | Safe and correct: sign-in back on, seven audit bugs, November email fixtures | G-PLT-1, G-SRC-3, G-SRC-4 | Done (17 Nov). Owner still to do `docs/RUNBOOK.md` section 1 |
 | M1 | Open-source foundation: licence, seed sets, README, CONTRIBUTING, secret scan | G-OSS-1 to G-OSS-4, P6 | **Deferred by the owner (17 Nov 2026, Q-016).** Seed folders done with M3; example data and the company-name scan come with M2 |
-| M2 | Local mode: adapters, local sign-in, Docker packaging, self-hosting guide | G-PLT-5, G-PLT-6 | Not started |
+| M2 | Local mode: adapters, local sign-in, Docker packaging, self-hosting guide | G-PLT-5, G-PLT-6 | **Done 18 Nov 2026.** Verified from a fresh install in Docker (`npm run test:e2e:local`), restart keeps keys and data |
 | M3 | New price list: import screen and command, diff (**OWNER GATE** before anything is written to a live database); quotation terms | G-KB-6, part of G-KB-2 | Built and tested (17 Nov). **Waiting for the owner:** Q-015 |
 | M4 | IndiaMART API: Push, Pull, reconciliation | G-SRC-1, G-SRC-2, G-SRC-6 to G-SRC-8 | Not started |
 | M5 | AI layer: provider interface, tiers, redaction | G-AI-1 to G-AI-10, G-UND-3, G-UND-4 | Not started |
@@ -70,7 +70,7 @@ Every service, screen and setting was checked against the rule in `AGENTS.md` se
 | A form for the price list mapping (today it is edited as text on the import screen) | M6, with commercial terms G-KB-2 |
 | Priority order of email rules (stored, no control on screen; rules apply in the order they were created) | When a second rule type needs it |
 | The `events` table records what happened but nothing consumes it yet | M7 (outbound pipeline) |
-| `npm run seed:website` reads the first company's website address from code | M1, P6 |
+| `npm run seed:website` reads the first company's website address from code | Fixed 18 Nov 2026: read from the seed folder's `settings.json` |
 
 ## Owner's to-do list (the owner asked on 18 Nov 2026 to be told about these later; repeat it in the next report)
 

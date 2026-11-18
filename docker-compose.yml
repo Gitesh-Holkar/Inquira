@@ -1,0 +1,57 @@
+# Inquira on your own computer: `docker compose up`, then open http://localhost:3000 (docs/SELF_HOSTING.md).
+# Optional settings go in a file named .env next to this one, for example:
+#   SEED_DIR=seed/stdm          # your company's data folder (default: the fictional example company)
+#   APP_URL=http://localhost:3000
+name: inquira
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: inquira-local
+      POSTGRES_DB: inquira
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d inquira"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  app:
+    build: .
+    image: inquira:local
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:inquira-local@db:5432/inquira
+      AUTH_MODE: local
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      SEED_DIR: ${SEED_DIR:-seed/example}
+      FILE_STORAGE: disk
+      FILE_STORAGE_DIR: /data/files
+      DATA_DIR: /data
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:-}
+      CRON_SECRET: ${CRON_SECRET:-}
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - data:/data
+    restart: unless-stopped
+
+  worker:
+    image: inquira:local
+    depends_on:
+      - app
+    command: ["sh", "docker/start-worker.sh"]
+    environment:
+      TICK_URL: http://app:3000/api/cron/tick
+      DATA_DIR: /data
+    volumes:
+      - data:/data
+    restart: unless-stopped
+
+volumes:
+  db:
+  data:

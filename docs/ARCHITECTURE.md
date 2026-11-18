@@ -196,3 +196,13 @@ Both are network calls, so services call them outside database transactions: `in
 
 A person's permissions are their role's defaults plus their custom access (`memberships.granted`, `memberships.revoked`), set on Settings → Members → Access as abilities (`ABILITIES` in `src/modules/core/permissions.ts`). Owners always have everything. The app checks permissions in every service (`authorize`); the database checks the same rules again for signed-in people (`app.can`, `drizzle/0008_access_rules.sql`), so a missing check in code cannot write where the person has no permission. Menus show only pages the person may open (`src/components/shell/nav-access.ts`). Claude connector tokens keep their own narrow set (`MCP_PERMISSIONS`).
 
+## Runtime modes
+
+| | Cloud | Local ([`SELF_HOSTING.md`](SELF_HOSTING.md), ADR-029) | Development and tests |
+| --- | --- | --- | --- |
+| `AUTH_MODE` | `supabase` (default) | `local` | `dev` (refused in production builds) |
+| Database | Supabase | Postgres container + shim | local Postgres + shim |
+| Accounts (`lib/accounts.ts`) | Supabase Auth admin API | local table + one-time links | local table |
+| Files (`documents/storage.ts`) | Supabase Storage | disk volume | temporary folder |
+| Scheduler | `pg_cron` → `/api/cron/tick` | `worker` container → `/api/cron/tick` | tests call `tick()` |
+

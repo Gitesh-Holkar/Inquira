@@ -123,6 +123,11 @@ Documentation and code change together, in the same commit. Create a document wh
 npm run dev                 # http://localhost:3000 (needs .env.local)
 npm run typecheck && npm run lint && npm test
 npm run test:e2e            # Playwright: own DB inquira_e2e, dev auth, port 3100
+npm run test:e2e:local      # Playwright against a fresh local install (docker compose up)
+docker compose up -d        # local mode: database, app and worker (docs/SELF_HOSTING.md)
+npm run local:setup         # keys, shim, migrations and seed for a local database (used by the Docker image)
+npm run local:sign-in-link -- <email>   # local mode: one-time link to set a password
+npm run worker              # local scheduler: calls /api/cron/tick every 10 minutes
 npm run db:local:up         # local Postgres 16 on :54322 that mimics Supabase
 npm run db:generate         # after schema.ts changes → new SQL in drizzle/
 npm run db:migrate          # apply migrations over TCP (DATABASE_URL)
@@ -160,7 +165,7 @@ drizzle/  seed/  fixtures/  scripts/  tests/  e2e/  docs/
 - `PROGRESS.md` is the project-status file (the guideline calls it `PROJECT_CONTEXT.md`).
 - `docs/CODEMAP.md` replaces per-module documents under `docs/modules/`.
 - Diagrams live inside `docs/ARCHITECTURE.md`; there is no `docs/diagrams/` folder.
-- `docs/SETUP.md` is the deployment document; `docs/SELF_HOSTING.md` covers local mode.
+- `docs/SETUP.md` is the cloud deployment document; `docs/SELF_HOSTING.md` covers local mode (Docker).
 - UI component tests are replaced by Playwright journeys.
 - `docs/GOAL.md` is added as the single statement of the end goal.
 

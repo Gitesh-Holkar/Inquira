@@ -1,7 +1,7 @@
 /**
  * Shows what a new price list would change, and writes it only when asked (GOAL G-KB-6).
  *
- *   npm run rates:import -- seed/stdm/price-lists/2026-11-16.txt             # print the changes, write nothing
+ *   npm run rates:import -- seed/<company>/price-lists/<date>.txt             # print the changes, write nothing
  *   npm run rates:import -- <list.txt> --confirm                             # apply them
  *   npm run rates:import -- <list.txt> --map <map.json> [--save-map]         # use (and keep) another mapping
  *   npm run rates:import -- <list.txt> --org <slug>                          # when the database has several companies

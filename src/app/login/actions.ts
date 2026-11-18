@@ -3,7 +3,9 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { appSessionFor, devUserIdByEmail } from "@/lib/auth";
-import { appUrl, isDevAuth } from "@/lib/env";
+import { appUrl, isDevAuth, isLocalAuth } from "@/lib/env";
+import { MIN_PASSWORD_LENGTH, SESSION_COOKIE, findLocalUserByEmail, signSession, redeemSetupLink, verifyPassword } from "@/lib/local-auth";
+import { claimFirstOwner } from "@/modules/core/members";
 import { DEV_COOKIE, signDevSession } from "@/lib/dev-auth";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { supabaseConfigured, supabaseServer } from "@/lib/supabase/server";
@@ -96,8 +98,67 @@ export async function devSignIn(_prev: AuthState, form: FormData): Promise<AuthS
   redirect(safeNext(form.get("next")));
 }
 
+/** Local sign-in: sets the signed session cookie (src/lib/local-auth.ts). */
+async function startLocalSession(userId: string, passwordHash: string) {
+  const { value, expires } = signSession(userId, passwordHash);
+  (await cookies()).set(SESSION_COOKIE, value, { httpOnly: true, sameSite: "lax", path: "/", expires, secure: appUrl().startsWith("https://") });
+}
+
+const passwordPair = (form: FormData): string | AuthState => {
+  const pw = String(form.get("password") ?? "");
+  if (pw.length < MIN_PASSWORD_LENGTH) return { error: `Use at least ${MIN_PASSWORD_LENGTH} characters.` };
+  if (pw !== String(form.get("confirm") ?? "")) return { error: "The two passwords don't match." };
+  return pw;
+};
+
+/** Local sign-in (AUTH_MODE=local): email and password checked against the local accounts. */
+export async function localSignIn(_prev: AuthState, form: FormData): Promise<AuthState> {
+  if (!isLocalAuth()) return { error: "Local sign-in is not switched on." };
+  const parsed = z.object({ email: z.string().trim().toLowerCase().email(), password: z.string().min(1).max(200) }).safeParse({ email: form.get("email"), password: form.get("password") });
+  if (!parsed.success) return { error: "Enter your email and password.", email: String(form.get("email") ?? "") };
+  if (!rateLimit(await ipKey("login"), { capacity: 10, refillPerMinute: 5 }) || !rateLimit(`login-email:${parsed.data.email}`, { capacity: 10, refillPerMinute: 2 })) {
+    return { error: "Too many attempts. Wait a minute and try again.", email: parsed.data.email };
+  }
+  const user = await findLocalUserByEmail(parsed.data.email);
+  if (!user?.passwordHash || !(await verifyPassword(parsed.data.password, user.passwordHash))) {
+    return { error: "Email or password is incorrect. If you never set a password or forgot it, ask an owner or admin for a sign-in link (Settings → Members).", email: parsed.data.email };
+  }
+  if (!(await appSessionFor({ id: user.id, email: user.email }))) return { error: `${parsed.data.email} isn't a member of this Inquira any more. Ask the owner.`, email: parsed.data.email };
+  await startLocalSession(user.id, user.passwordHash);
+  redirect(safeNext(form.get("next")));
+}
+
+/** First start of a local install: creates the owner account (only while the company has nobody in it). */
+export async function createFirstOwnerAction(_prev: AuthState, form: FormData): Promise<AuthState> {
+  const email = String(form.get("email") ?? "").trim().toLowerCase();
+  const pw = passwordPair(form);
+  if (typeof pw !== "string") return { ...pw, email };
+  if (!rateLimit(await ipKey("first-owner"), { capacity: 5, refillPerMinute: 1 })) return { error: "Too many attempts. Wait a minute and try again.", email };
+  try {
+    const owner = await claimFirstOwner({ email, password: pw });
+    await startLocalSession(owner.userId, owner.passwordHash);
+  } catch (e) {
+    return { error: e instanceof Error && "code" in e ? e.message : "The owner account could not be created.", email };
+  }
+  redirect("/");
+}
+
+/** Opens a one-time sign-in link: sets the password, then signs in. */
+export async function setPasswordWithLinkAction(_prev: AuthState, form: FormData): Promise<AuthState> {
+  if (!isLocalAuth()) return { error: "Sign-in links are for local sign-in." };
+  const pw = passwordPair(form);
+  if (typeof pw !== "string") return pw;
+  if (!rateLimit(await ipKey("set-password"), { capacity: 10, refillPerMinute: 5 })) return { error: "Too many attempts. Wait a minute and try again." };
+  const user = await redeemSetupLink(String(form.get("token") ?? ""), pw);
+  if (!user) return { error: "This link has expired or was already used. Ask an owner or admin for a new one (Settings → Members → Sign-in link)." };
+  if (!(await appSessionFor({ id: user.id, email: user.email }))) return { error: "Your password is set, but you aren't a member of this Inquira any more. Ask the owner." };
+  await startLocalSession(user.id, user.passwordHash);
+  redirect("/");
+}
+
 export async function signOut() {
-  if (isDevAuth()) (await cookies()).delete(DEV_COOKIE);
+  if (isLocalAuth()) (await cookies()).delete(SESSION_COOKIE);
+  else if (isDevAuth()) (await cookies()).delete(DEV_COOKIE);
   else if (supabaseConfigured()) await (await supabaseServer()).auth.signOut();
   redirect("/login");
 }

@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import { Alert, Card, CardContent } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 import { appSessionFor, getSessionUser } from "@/lib/auth";
-import { isDevAuth } from "@/lib/env";
-import { LoginForm } from "./forms";
+import { isDevAuth, isLocalAuth } from "@/lib/env";
+import { isFirstRun } from "@/modules/core/members";
+import { FirstOwnerForm, LocalLoginForm, LoginForm } from "./forms";
 import { signOut } from "./actions";
 import { HashSessionHandler } from "@/components/auth/hash-session";
 
@@ -22,6 +23,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const user = await getSessionUser();
   if (user && (await appSessionFor(user))) redirect(safeNext);
   const linkError = error ? (LINK_ERRORS[error] ?? LINK_ERRORS.link_expired) : null;
+  const local = isLocalAuth();
+  const firstRun = local && (await isFirstRun());
 
   return (
     <main className="grid min-h-dvh place-items-center px-4 py-10">
@@ -32,8 +35,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         </div>
         <Card>
           <CardContent className="py-5">
-            <h1 className="mb-1 text-lg font-semibold">Sign in</h1>
-            <p className="mb-4 text-sm text-muted">Leads, rates and quotations in one place.</p>
+            <h1 className="mb-1 text-lg font-semibold">{firstRun ? "Create the owner account" : "Sign in"}</h1>
+            <p className="mb-4 text-sm text-muted">{firstRun ? "Inquira is set up and has nobody in it yet. The account you create now owns it; add your team later under Settings → Members." : "Leads, rates and quotations in one place."}</p>
             <HashSessionHandler />
             {user ? (
               // Signed in to Supabase, but no organisation membership: explain instead of looping.
@@ -46,7 +49,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             ) : (
               <>
                 {linkError ? <Alert tone="danger" className="mb-4" title={linkError} /> : null}
-                <LoginForm next={safeNext} dev={isDevAuth()} />
+                {firstRun ? <FirstOwnerForm /> : local ? <LocalLoginForm next={safeNext} /> : <LoginForm next={safeNext} dev={isDevAuth()} />}
               </>
             )}
           </CardContent>

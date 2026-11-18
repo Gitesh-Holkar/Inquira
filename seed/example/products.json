@@ -1,0 +1,126 @@
+{
+  "source": "Fictional example company for trying Inquira. Every name, price and term is made up.",
+  "products": [
+    {
+      "name": "Pea Protein Isolate",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "pea protein",
+        "pea isolate protein"
+      ],
+      "source": "example"
+    },
+    {
+      "name": "Rice Protein Isolate",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "rice protein",
+        "brown rice protein"
+      ],
+      "source": "example"
+    },
+    {
+      "name": "Soy Protein Isolate",
+      "category": "Proteins",
+      "gst_percent": 18,
+      "pack_size": "20 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "soya protein isolate",
+        "soy protein"
+      ],
+      "source": "example"
+    },
+    {
+      "name": "Corn Starch",
+      "category": "Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "maize starch"
+      ],
+      "source": "example"
+    },
+    {
+      "name": "Potato Starch",
+      "category": "Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Native",
+        "Waxy"
+      ],
+      "aliases": [
+        "potato starch powder"
+      ],
+      "source": "example"
+    },
+    {
+      "name": "Tapioca Starch",
+      "category": "Starches",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "cassava starch"
+      ],
+      "source": "example"
+    },
+    {
+      "name": "Oat Fibre",
+      "category": "Fibres",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "oat fiber"
+      ],
+      "source": "example"
+    },
+    {
+      "name": "Citrus Fibre",
+      "category": "Fibres",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "citrus fiber"
+      ],
+      "source": "example"
+    },
+    {
+      "name": "Inulin Powder",
+      "category": "Sweeteners",
+      "gst_percent": 5,
+      "pack_size": "25 Kg",
+      "grades": [
+        "Standard"
+      ],
+      "aliases": [
+        "inulin"
+      ],
+      "source": "example"
+    }
+  ]
+}

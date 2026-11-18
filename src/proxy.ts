@@ -15,6 +15,9 @@ export async function proxy(request: NextRequest) {
   let signedIn = false;
   if (devMode) {
     signedIn = !!request.cookies.get("inquira_dev_session")?.value;
+  } else if (process.env.AUTH_MODE === "local") {
+    // Local sign-in: the cookie is verified on every page (src/lib/auth.ts); here it only has to exist.
+    signedIn = !!request.cookies.get("inquira_session")?.value;
   } else if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
       cookies: {

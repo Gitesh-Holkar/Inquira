@@ -16,6 +16,11 @@ create table if not exists auth.users (
   created_at timestamptz not null default now()
 );
 
+-- Local sign-in (AUTH_MODE=local, src/lib/local-auth.ts): one-time sign-in links. The password hash is
+-- kept in encrypted_password, the same column Supabase uses.
+alter table auth.users add column if not exists setup_token_hash text;
+alter table auth.users add column if not exists setup_token_expires_at timestamptz;
+
 create or replace function auth.uid() returns uuid language sql stable as $$
   select nullif(
     coalesce(current_setting('request.jwt.claim.sub', true),

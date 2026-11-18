@@ -19,8 +19,9 @@ type SeedSettings = { org_name?: string; payment_terms?: string; default_price_b
 export type SeedOptions = {
   /** Overrides `org_name` in the seed folder's settings.json. */
   orgName?: string;
-  ownerUserId: string;
-  ownerEmail: string;
+  /** The owner's sign-in account. Left out on a fresh local install, where the first person creates it (claimFirstOwner). */
+  ownerUserId?: string;
+  ownerEmail?: string;
   /** Folder with the company's data: products.json, and optionally settings.json, price-list-map.json and price-lists/*.txt. */
   seedDir: string;
   log?: (s: string) => void;
@@ -60,12 +61,14 @@ export async function seed(opts: SeedOptions) {
   const ctx: Ctx = { orgId: org!.id, actor: { kind: "system", job: "seed" } };
 
   await withSystemTx(async (tx) => {
-    const [m] = await tx.select().from(memberships).where(and(eq(memberships.orgId, ctx.orgId), eq(memberships.userId, opts.ownerUserId)));
-    if (!m) {
-      await tx.insert(memberships).values({ orgId: ctx.orgId, userId: opts.ownerUserId, email: opts.ownerEmail, role: "owner", createdBy: "system:seed" });
-      await audit(tx, ctx, { action: "org.create", entityType: "organization", entityId: ctx.orgId, changes: { name: orgName, owner: opts.ownerEmail } });
-      log(`Owner membership added for ${opts.ownerEmail.replace(/^(.).*(@.*)$/, "$1***$2")}`);
-    }
+    if (opts.ownerUserId && opts.ownerEmail) {
+      const [m] = await tx.select().from(memberships).where(and(eq(memberships.orgId, ctx.orgId), eq(memberships.userId, opts.ownerUserId)));
+      if (!m) {
+        await tx.insert(memberships).values({ orgId: ctx.orgId, userId: opts.ownerUserId, email: opts.ownerEmail, role: "owner", createdBy: "system:seed" });
+        await audit(tx, ctx, { action: "org.create", entityType: "organization", entityId: ctx.orgId, changes: { name: orgName, owner: opts.ownerEmail } });
+        log(`Owner membership added for ${opts.ownerEmail.replace(/^(.).*(@.*)$/, "$1***$2")}`);
+      }
+    } else log("No owner yet: the first person to open Inquira creates the owner account.");
     await getIntegrationInternal(tx, ctx.orgId, "gmail");
     await getIntegrationInternal(tx, ctx.orgId, "tradeindia");
     await ensureDefaultTemplatesInternal(tx, ctx);

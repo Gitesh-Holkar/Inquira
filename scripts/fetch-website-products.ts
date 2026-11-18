@@ -1,11 +1,20 @@
 /**
  * Crawls the organisation's TradeIndia-built catalogue site and prints products that are
  * missing from the seed folder's products.json (by URL). Read-only: it never writes to the database.
- *   WEBSITE_URL=https://www.stdmfood.com npm run seed:website
+ *   SEED_DIR=seed/<company> npm run seed:website   # uses "website_url" from that folder's settings.json
+ *   WEBSITE_URL=https://www.example.com npm run seed:website
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
-const base = (process.env.WEBSITE_URL ?? "https://www.stdmfood.com").replace(/\/$/, "");
+const seedDir = process.env.SEED_DIR || "seed/example";
+const settingsFile = `${seedDir}/settings.json`;
+const fromSettings = existsSync(settingsFile) ? (JSON.parse(readFileSync(settingsFile, "utf8")) as { website_url?: string }).website_url : undefined;
+const site = process.env.WEBSITE_URL || fromSettings;
+if (!site) {
+  console.error(`No website: set WEBSITE_URL, or "website_url" in ${settingsFile}.`);
+  process.exit(1);
+}
+const base = site.replace(/\/$/, "");
 const pages = ["/products.html", "/sitemap.html", "/protein-derivatives.html", "/starch-derivatives.html",
   "/modified-starch-derivatives-.html", "/dextrins-fibers.html"];
 
@@ -21,7 +30,7 @@ for (const p of pages) {
     if (title && title.length < 120 && !found.has(url)) found.set(url, title);
   }
 }
-const seed = JSON.parse(readFileSync(`${process.env.SEED_DIR || "seed/stdm"}/products.json`, "utf8")) as { products: { name: string; website_urls?: string[] }[] };
+const seed = JSON.parse(readFileSync(`${seedDir}/products.json`, "utf8")) as { products: { name: string; website_urls?: string[] }[] };
 const known = new Set(seed.products.flatMap((p) => p.website_urls ?? []));
 const missing = [...found].filter(([u]) => !known.has(u));
 const gone = [...known].filter((u) => !found.has(u));

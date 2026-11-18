@@ -1,0 +1,13 @@
+{
+  "_about": "How the example company's price list maps onto its catalogue. Fictional data.",
+  "terms": { "price_basis": "Ex-works", "moq_kg": 50 },
+  "categories": {
+    "Proteins": { "gst_percent": 18, "pack_size": "20 Kg" },
+    "Starches": { "gst_percent": 5, "pack_size": "25 Kg" },
+    "Fibres": { "gst_percent": 5, "pack_size": "25 Kg" },
+    "Sweeteners": { "gst_percent": 5, "pack_size": "25 Kg" }
+  },
+  "product_overrides": {},
+  "lines": {},
+  "footer": ["GST Rates", "18%", "Proteins – 20 Kg", "5%", "Starches – 25 Kg", "Fibres – 25 Kg", "Sweeteners – 25 Kg"]
+}

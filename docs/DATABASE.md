@@ -142,3 +142,8 @@ Every list the app shows has an index on its filter: leads by `(org_id, status, 
 | `0008_access_rules.sql` | Permission-based write rules (`app.role_default`, `app.can`, `app.can_any`, `app.can_work`) replacing the role-based ones |
 
 Rules: generate with `npm run db:generate`; never edit an applied migration; a new table needs base columns, `org_id`, and a migration that enables RLS with policies, plus a case in `tests/rls.test.ts`. Apply with `npm run db:migrate` (TCP) or `npm run db:remote:apply` (HTTPS).
+
+## Local mode only: `auth.users` (from `scripts/local-db/supabase-shim.sql`)
+
+In the cloud, Supabase Auth owns `auth.users`. In local mode and tests, the shim creates a small version of it: `id`, `email`, `encrypted_password` (scrypt hash, local sign-in), `setup_token_hash` and `setup_token_expires_at` (one-time sign-in links), `raw_user_meta_data`, `created_at`. The shim is applied by `scripts/local-setup.ts` and `npm run db:local:up`, never to a Supabase project.
+

@@ -1,0 +1,15 @@
+.git
+node_modules
+.next
+.pgdata
+.pg.log
+.data
+.tmp
+.env
+.env.*
+!.env.example
+coverage
+playwright-report
+test-results
+docs/screenshots
+*.log

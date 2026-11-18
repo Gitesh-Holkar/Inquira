@@ -9,6 +9,7 @@ export default async function globalSetup() {
   run(`psql ${admin} -q -c "drop database if exists inquira_e2e with (force)" -c "create database inquira_e2e"`);
   run(`psql ${url} -q -f scripts/local-db/supabase-shim.sql`);
   run("npx tsx scripts/db-migrate.ts", { DATABASE_URL: url });
-  run("npx tsx scripts/seed.ts", { DATABASE_URL: url, SEED_OWNER_EMAIL: "owner@example.com", SEED_LOCAL_AUTH: "1", NEXT_PUBLIC_SUPABASE_URL: "", SUPABASE_SERVICE_ROLE_KEY: "" });
+  // The journeys use the first company's catalogue (product names in the email fixtures).
+  run("npx tsx scripts/seed.ts", { DATABASE_URL: url, SEED_DIR: "seed/stdm", SEED_OWNER_EMAIL: "owner@example.com", SEED_LOCAL_AUTH: "1", NEXT_PUBLIC_SUPABASE_URL: "", SUPABASE_SERVICE_ROLE_KEY: "" });
   run("npx tsx scripts/demo-data.ts", { DATABASE_URL: url });
 }

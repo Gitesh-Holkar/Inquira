@@ -257,6 +257,8 @@ Look for `status_code` **200**. A **401** means the secret doesn't match `CRON_S
 
 ## 9. Run on your own computer (optional)
 
+**To use Inquira on your own computer without Supabase or Vercel, follow [`SELF_HOSTING.md`](SELF_HOSTING.md) instead** (Docker, one command). This section is for working on the cloud setup from your computer.
+
 You need Node.js 22+.
 
 ```bash

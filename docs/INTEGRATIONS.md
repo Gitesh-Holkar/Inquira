@@ -61,7 +61,7 @@ Details of what was probed and what is assumed: [`docs/TRADEINDIA_API.md`](TRADE
 | **Limits** | 60 seconds per function, so every background job has a time budget and a saved position. No always-on worker; the scheduler is the database cron calling `/api/cron/tick` ([ADR-007](decisions/ADR-007-jobs-and-one-cron-endpoint.md)). |
 | **Build check** | A production build stops if the database is missing a migration, so new code never runs against an old schema ([ADR-026](decisions/ADR-026-build-stops-when-database-is-behind.md)). It reads `DATABASE_URL` at build time; `CHECK_MIGRATIONS=1` turns the same check on for another host. |
 | **Status** | Deployed by the owner. Agents never deploy (`AGENTS.md` rule 12). |
-| **If replaced** | Any Node host works. Local mode uses Docker. |
+| **If replaced** | Any Node host works. Local mode runs the same app in Docker (`docs/SELF_HOSTING.md`). |
 
 ## Claude connector (MCP)
 

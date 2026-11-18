@@ -7,6 +7,7 @@ const PORT = 3100;
 
 export default defineConfig({
   testDir: "e2e",
+  testIgnore: "local-mode.spec.ts", // runs against a real local install: npm run test:e2e:local
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,

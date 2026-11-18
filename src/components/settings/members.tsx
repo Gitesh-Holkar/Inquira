@@ -1,12 +1,12 @@
 "use client";
 import { useState, useTransition } from "react";
-import { KeyRound, UserMinus, UserPlus } from "lucide-react";
+import { Copy, KeyRound, Link2, UserMinus, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog, Dialog, DialogContent } from "@/components/ui/dialog";
 import { Alert, Badge, Field, Input, Select } from "@/components/ui/primitives";
 import { formatDate } from "@/lib/format";
-import { changeMemberRoleAction, inviteMemberAction, removeMemberAction, setMemberAccessAction } from "@/app/(app)/settings/actions";
+import { changeMemberRoleAction, createSignInLinkAction, inviteMemberAction, removeMemberAction, setMemberAccessAction } from "@/app/(app)/settings/actions";
 import { ABILITIES, abilitiesFor, withRequirements, type AbilityId } from "@/modules/core/permissions";
 import type { Role } from "@/modules/core/types";
 
@@ -29,10 +29,10 @@ const privileged = (r: Role) => r === "owner" || r === "admin";
  * sign-in accounts, so adding is hidden and the reason shown). The same rules are enforced by the service.
  */
 export function Members({ members, me, myRole, canManage, accountKind, loginUrl }: {
-  members: MemberView[]; me: string; myRole: Role; canManage: boolean; accountKind: "supabase" | "local" | null; loginUrl: string;
+  members: MemberView[]; me: string; myRole: Role; canManage: boolean; accountKind: "supabase" | "local" | "dev" | null; loginUrl: string;
 }) {
   const [pending, start] = useTransition();
-  const [added, setAdded] = useState<{ email: string; kind: "supabase" | "local" } | null>(null);
+  const [added, setAdded] = useState<{ email: string; kind: "supabase" | "local" | "dev"; link: string | null } | null>(null);
   const assignable = ROLE_ORDER.filter((r) => myRole === "owner" || !privileged(r));
   const mayTouch = (m: MemberView) => canManage && m.userId !== me && (myRole === "owner" || !privileged(m.role));
 
@@ -48,7 +48,7 @@ export function Members({ members, me, myRole, canManage, accountKind, loginUrl 
             const r = await inviteMemberAction({ email, role: String(f.get("role")) as Role });
             if (!r.ok) return void toast.error(r.error);
             toast.success(`${email} added`);
-            setAdded({ email: email.trim().toLowerCase(), kind: r.data.accountKind });
+            setAdded({ email: email.trim().toLowerCase(), kind: r.data.accountKind, link: r.data.setupLink });
             form.reset();
           });
         }}>
@@ -66,7 +66,9 @@ export function Members({ members, me, myRole, canManage, accountKind, loginUrl 
         <Alert tone="success" title={`Next step for ${added.email}`}>
           {added.kind === "supabase"
             ? <>Send them this: open {loginUrl}, click “Forgot password? / First time here?”, enter {added.email}, and set a password from the email that arrives.</>
-            : <>They can sign in now on this computer with the development sign-in.</>}
+            : added.kind === "local" && added.link
+              ? <SignInLink url={added.link} text={`Send ${added.email} this link. It lets them set a password once and works for 7 days:`} />
+              : <>They can sign in now on this computer with the development sign-in.</>}
         </Alert>
       ) : null}
 
@@ -90,6 +92,7 @@ export function Members({ members, me, myRole, canManage, accountKind, loginUrl 
                   {ROLE_ORDER.filter((r) => r === m.role || assignable.includes(r)).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
                 </Select>
                 {m.role !== "owner" ? <AccessButton member={m} /> : null}
+                {accountKind === "local" ? <NewLinkButton member={m} /> : null}
                 <ConfirmDialog danger title={`Remove ${m.email}?`} confirmLabel="Remove member"
                   description="They lose access at their next click. Everything they did stays in the history. You can add them again later."
                   trigger={<Button variant="outline" size="sm" disabled={pending} aria-label={`Remove ${m.email}`}><UserMinus />Remove</Button>}
@@ -153,6 +156,37 @@ function AccessButton({ member }: { member: MemberView }) {
             })}>{pending ? "Saving…" : "Save access"}</Button>
           </div>
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SignInLink({ url, text }: { url: string; text: string }) {
+  return (
+    <span className="mt-1 grid gap-2">
+      <span>{text}</span>
+      <span className="flex flex-wrap items-center gap-2">
+        <code className="min-w-0 flex-1 break-all rounded bg-surface px-2 py-1 text-xs">{url}</code>
+        <Button type="button" variant="outline" size="sm" onClick={async () => {
+          try { await navigator.clipboard.writeText(url); toast.success("Link copied"); } catch { toast.error("Couldn't copy. Select the link and copy it."); }
+        }}><Copy />Copy link</Button>
+      </span>
+    </span>
+  );
+}
+
+/** Local sign-in: a fresh one-time link for this member (new member who lost the first link, or a forgotten password). */
+function NewLinkButton({ member }: { member: MemberView }) {
+  const [pending, start] = useTransition();
+  const [link, setLink] = useState<string | null>(null);
+  return (
+    <Dialog open={!!link} onOpenChange={(o) => { if (!o) setLink(null); }}>
+      <Button variant="outline" size="sm" disabled={pending} aria-label={`New sign-in link for ${member.email}`} onClick={() => start(async () => {
+        const r = await createSignInLinkAction(member.id);
+        if (r.ok) setLink(r.data.url); else toast.error(r.error);
+      })}><Link2 />Sign-in link</Button>
+      <DialogContent title={`Sign-in link for ${member.email}`} description="Use it once to set a new password. It works for 7 days and replaces any earlier link. Their current password keeps working until they use it.">
+        {link ? <SignInLink url={link} text="Send this link to them:" /> : null}
       </DialogContent>
     </Dialog>
   );

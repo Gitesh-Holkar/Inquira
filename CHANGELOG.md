@@ -4,6 +4,13 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 18 Nov 2026 — Run Inquira on your own computer (M2)
+- **`docker compose up -d`** starts Inquira with its own database, sign-in and scheduler; open http://localhost:3000. The first time, you create the owner account with a password. Guide: `docs/SELF_HOSTING.md`.
+- A fictional example company is loaded by default; `SEED_DIR=seed/stdm` loads your own products, prices and terms.
+- In local mode there is no email: adding a teammate shows a one-time link that lets them set a password. **Sign-in link** on the Members screen makes a new one for a forgotten password; the owner has a recovery command.
+- Uploaded documents are kept on disk; keys are created on the first start and kept between restarts.
+- The cloud version is unchanged.
+
 ### 18 Nov 2026 — Roles QA and Accounts; custom access per person
 - **New roles:** QA (adds and removes product documents, views everything else) and Accounts (views leads, quotations, prices and documents; no settings).
 - **Settings → Members → Access:** owners and admins switch single abilities on or off for a person on top of their role, for example let QA change prices, or take quotation drafts away from someone. You can only give what you have; owners always keep full access.

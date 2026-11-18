@@ -30,6 +30,7 @@ Every document, what it is for, and when to read it. Open only the ones your tas
 | `SECURITY.md` | Threat model, controls, known limits | Touching sign-in, tokens, secrets or public endpoints |
 | `RUNBOOK.md` | Operator procedures (for example revoking tokens) | Something needs doing on the live system |
 | `SETUP.md` | Cloud deployment, step by step, for the owner | Changing deployment or environment variables |
+| `SELF_HOSTING.md` | Running Inquira on your own computer with Docker (local mode) | Changing local mode, Docker files, local sign-in or the worker |
 | `BUSINESS.md` | The first company's sales process, as observed | Understanding why a feature exists |
 | `REQUIREMENTS.md` | History: requirements of the first version | Only to understand earlier choices |
 | `COWORK_INDIAMART_TASK.md` | Using Claude for Buy Lead suggestions | Working on Buy Leads; note ADR-020 |

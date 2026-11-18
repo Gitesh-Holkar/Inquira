@@ -9,7 +9,7 @@ import { createMcpToken, revokeMcpToken } from "@/modules/mcp/service";
 import { createClassificationRule, updateClassificationRule } from "@/modules/email/service";
 import { updateBuyleadRules } from "@/modules/buyleads/service";
 import { authorize } from "@/modules/core/permissions";
-import { changeMemberRole, inviteMember, removeMember, setMemberAccess } from "@/modules/core/members";
+import { changeMemberRole, createSignInLink, inviteMember, removeMember, setMemberAccess } from "@/modules/core/members";
 import type { AbilityId } from "@/modules/core/permissions";
 import type { Role } from "@/modules/core/types";
 
@@ -72,7 +72,7 @@ export async function inviteMemberAction(input: { email: string; role: Role }) {
   const s = await requireSession("members.manage");
   const r = await runAction(() => inviteMember(s.ctx, input));
   revalidatePath("/settings");
-  return r.ok ? { ok: true as const, data: { accountKind: r.data.accountKind } } : r;
+  return r.ok ? { ok: true as const, data: { accountKind: r.data.accountKind, setupLink: r.data.setupLink } } : r;
 }
 export async function changeMemberRoleAction(memberId: string, role: Role) {
   const s = await requireSession("members.manage");
@@ -91,5 +91,10 @@ export async function setMemberAccessAction(memberId: string, abilities: Ability
   const r = await runAction(() => setMemberAccess(s.ctx, { memberId, abilities }));
   revalidatePath("/settings");
   return r.ok ? { ok: true as const } : r;
+}
+export async function createSignInLinkAction(memberId: string) {
+  const s = await requireSession("members.manage");
+  const r = await runAction(() => createSignInLink(s.ctx, { memberId }));
+  return r.ok ? { ok: true as const, data: { url: r.data.url, expires: r.data.expires.toISOString() } } : r;
 }
 

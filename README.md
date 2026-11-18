@@ -8,11 +8,12 @@ Lead management for B2B ingredient suppliers.
 - **Turns** a lead into a quotation **Gmail draft** in the same thread, with your real signature. A human always clicks Send.
 - **Works with Claude** through a built-in, authenticated MCP server: triage, classification, notes and quote drafts. Every action is audited.
 
-Mobile-first, light/dark mode, keyboard shortcuts on desktop. Next.js 16 + Supabase (Mumbai) + Drizzle; runs serverless on Vercel.
+Mobile-first, light/dark mode, keyboard shortcuts on desktop. Next.js 16 + Postgres + Drizzle. Runs on your own computer with Docker, or in the cloud on Supabase and Vercel.
 
 | | |
 |---|---|
-| **Set it up** | [docs/SETUP.md](docs/SETUP.md) — Supabase, Vercel, Gmail OAuth, TradeIndia, Claude, cron |
+| **Run it on your computer** | [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) — `docker compose up -d`, then open http://localhost:3000 |
+| **Set it up in the cloud** | [docs/SETUP.md](docs/SETUP.md) — Supabase, Vercel, Gmail OAuth, TradeIndia, Claude, cron |
 | **Status / handover** | [PROGRESS.md](PROGRESS.md) · open questions in [QUESTIONS.md](QUESTIONS.md) |
 | **How it works** | [ARCHITECTURE](docs/ARCHITECTURE.md) · [CODEMAP](docs/CODEMAP.md) (every file and function) · [DECISIONS](docs/decisions/README.md) · [SECURITY](docs/SECURITY.md) |
 | **What & why** | [REQUIREMENTS](docs/REQUIREMENTS.md) · [BUSINESS](docs/BUSINESS.md) · [ROADMAP](docs/ROADMAP.md) |

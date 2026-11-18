@@ -3,7 +3,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Inquira design tokens. Brand accent comes from stdmfood.com (#69bd43); for text and filled
+ * Inquira design tokens. Brand accent is green (#69bd43); for text and filled
  * buttons we use darker/lighter shades of it that meet WCAG AA (≥4.5:1) in each theme.
  */
 :root {

@@ -5,16 +5,17 @@
  *
  * - Supabase sign-in: the Supabase Auth admin API with the service role key (server only, never sent
  *   to a browser). Needs NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
- * - Development sign-in (local only): the local auth.users table.
- * - Local mode (milestone M2) adds its own implementation here.
+ * - Local sign-in (AUTH_MODE=local): the local auth.users table; the person sets a password with a
+ *   one-time link the Members screen shows (src/lib/local-auth.ts).
+ * - Development sign-in (local development only): the same table, no password.
  */
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { AppError } from "./errors";
-import { env, isDevAuth } from "./env";
+import { env, isDevAuth, isLocalAuth } from "./env";
 
-export type AccountKind = "supabase" | "local";
+export type AccountKind = "supabase" | "local" | "dev";
 export type AccountDirectory = { kind: AccountKind; findOrCreate(email: string): Promise<{ id: string; created: boolean }> };
 
 /**
@@ -39,14 +40,15 @@ export async function findOrCreateSupabaseUser(cfg: { url: string; serviceKey: s
 
 /** Which kind of accounts this deployment can create, or null when it cannot (shown on the Members screen). */
 export function accountKind(): AccountKind | null {
-  if (isDevAuth()) return "local";
+  if (isLocalAuth()) return "local";
+  if (isDevAuth()) return "dev";
   const e = env();
   return e.NEXT_PUBLIC_SUPABASE_URL && e.SUPABASE_SERVICE_ROLE_KEY ? "supabase" : null;
 }
 
 export function accountDirectory(deps: { fetchImpl?: typeof fetch } = {}): AccountDirectory | null {
   const kind = accountKind();
-  if (kind === "local") {
+  if (kind === "local" || kind === "dev") {
     return {
       kind,
       async findOrCreate(email) {

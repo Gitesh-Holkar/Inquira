@@ -2,7 +2,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { sql } from "drizzle-orm";
 import { getDb, withSystemTx } from "@/db/client";
-import { isDevAuth } from "./env";
+import { isDevAuth, isLocalAuth } from "./env";
+import { SESSION_COOKIE, verifySession } from "./local-auth";
 import { DEV_COOKIE, verifyDevSession } from "./dev-auth";
 import { supabaseConfigured, supabaseServer } from "./supabase/server";
 import { membershipsForUserInternal } from "@/modules/core/service";
@@ -20,6 +21,10 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     if (!id) return null;
     const rows = await getDb().execute<{ email: string }>(sql`select email from auth.users where id = ${id}`);
     return rows[0] ? { id, email: rows[0].email } : null;
+  }
+  if (isLocalAuth()) {
+    const store = await cookies();
+    return verifySession(store.get(SESSION_COOKIE)?.value);
   }
   if (!supabaseConfigured()) return null;
   const supabase = await supabaseServer();

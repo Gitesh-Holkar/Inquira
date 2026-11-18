@@ -22,6 +22,7 @@ Integration tests need the local Postgres: `npm run db:local:up` (the test setup
 | Members and documents | `tests/members.test.ts`, `tests/documents.test.ts`, `src/modules/documents/types.test.ts` | Members and documents as signed-in roles under row-level security; upload checks; latest valid document; attachments on quotation drafts; both file storage adapters with fakes |
 | Signed-in paths | `tests/human-paths.test.ts` | Every service called as an owner, a salesperson and a viewer **under row-level security**. System-context tests bypass RLS and hide permission bugs, so new services are tested here |
 | Row-level security | `tests/rls.test.ts` | Company A cannot read or change company B; append-only tables; every table has RLS |
+| Local mode | `tests/local-auth.test.ts`; `e2e/local-mode.spec.ts` with `npm run test:e2e:local` against a fresh `docker compose up` | Local sign-in, first-run owner, one-time links; the whole install in a browser |
 | End to end | `e2e/smoke.spec.ts` | Critical journeys in a browser at 1440 px and 390 px; screenshots go to `docs/screenshots/` |
 
 `npm test` recreates the database `inquira_test` from the migrations (`tests/global-setup.ts`) and runs test files one after another, because they share that database. `npm run test:e2e` recreates `inquira_e2e`, seeds it, loads demo data and starts `next dev` on port 3100 with development sign-in.

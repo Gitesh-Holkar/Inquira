@@ -34,14 +34,13 @@ Each file has: Context, Problem, Options, Decision, Reasoning, Consequences, Sta
 | [ADR-026](ADR-026-build-stops-when-database-is-behind.md) | A hosted build stops when the database is behind the code | Accepted | 17 Nov 2026 |
 | [ADR-027](ADR-027-documents-and-accounts-through-the-server.md) | Documents and new sign-in accounts go through the server, with the service role key | Accepted | 17 Nov 2026 |
 | [ADR-028](ADR-028-permission-based-access.md) | Access is decided by permissions, with custom access per member | Accepted | 18 Nov 2026 |
+| [ADR-029](ADR-029-local-mode.md) | Local mode runs in Docker with its own sign-in, scheduler and file storage | Accepted | 18 Nov 2026 |
 
 ## To be written when the work reaches them
 
 | Decision | Planned status | Milestone |
 | --- | --- | --- |
 | Open-source licence | Deferred by the owner on 17 Nov 2026 (`QUESTIONS.md` Q-016) | M1, later |
-| Runtime modes (cloud, local) with adapters for auth, file storage and scheduler | Accepted | M2 |
-| Local-mode sign-in method | Accepted | M2 |
 | IndiaMART through Push plus Pull, with email as cross-check | Accepted | M4 |
 | AI tiers, provider interface, redaction for the Basic tier | Accepted | M5 |
 | Outbound pipeline with hold rules and modes | Accepted; marks ADR-010 Superseded | M7 |

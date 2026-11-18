@@ -8,7 +8,8 @@ const schema = z.object({
   APP_URL: z.string().url().default("http://localhost:3000"),
   APP_ENCRYPTION_KEY: z.string().optional(),
   CRON_SECRET: z.string().optional(),
-  AUTH_MODE: z.enum(["supabase", "dev"]).optional(),
+  /** supabase (cloud), local (own passwords, for running on your own computer), dev (local development and tests only). */
+  AUTH_MODE: z.enum(["supabase", "local", "dev"]).optional(),
   /** Where uploaded documents are kept: Supabase Storage or a folder on disk (src/modules/documents/storage.ts). */
   FILE_STORAGE: z.enum(["supabase", "disk"]).optional(),
   FILE_STORAGE_DIR: z.string().optional(),
@@ -45,6 +46,11 @@ export function isDevAuth(): boolean {
   if (e.NODE_ENV === "production") return false;
   if (e.VERCEL) return false;
   return true;
+}
+
+/** Local sign-in (src/lib/local-auth.ts): real passwords, allowed in any build. */
+export function isLocalAuth(): boolean {
+  return env().AUTH_MODE === "local";
 }
 
 export function appUrl(): string {

@@ -57,6 +57,7 @@ const DEPLOYED: Record<string, string>[] = [
   { NODE_ENV: "production", VERCEL: "1", AUTH_MODE: "dev", INQUIRA_ALLOW_DEV_AUTH_IN_PROD_BUILD: "1" },
   { NODE_ENV: "production", AUTH_DISABLED: "1", SIGN_IN_OFF: "true", TEST_LOGIN_PASSWORD: "x" },
   { NODE_ENV: "production", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:9", NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon" },
+  { NODE_ENV: "production", AUTH_MODE: "local" },
 ];
 
 function setEnv(vars: Record<string, string>) {
@@ -89,6 +90,12 @@ describe("sign-in is always on (G-PLT-1)", () => {
     jar.set(DEV_COOKIE, `${user.id}.forged`);
     expect(await getSessionUser()).toBeNull();
 
+    // Local sign-in: a forged or password-less cookie is nothing either.
+    setEnv({ NODE_ENV: "production", AUTH_MODE: "local" });
+    const { SESSION_COOKIE } = await import("@/lib/local-auth");
+    jar.set(SESSION_COOKIE, `${user.id}.9999999999.forged`);
+    expect(await getSessionUser()).toBeNull();
+
     // The same valid cookie is worth nothing in any deployed build.
     for (const vars of DEPLOYED) {
       setEnv(vars);
@@ -110,7 +117,7 @@ describe("sign-in is always on (G-PLT-1)", () => {
   it("the proxy sends every unauthenticated page request to /login", async () => {
     const { proxy, config } = await import("@/proxy");
     const matcher = new RegExp(`^${config.matcher[0]}$`);
-    const pages = ["/", "/leads", `/leads/${UUID}`, "/review", "/rates", "/templates", "/indiamart", "/settings", "/oauth/authorize", "/anything-else"];
+    const pages = ["/", "/leads", `/leads/${UUID}`, "/review", "/rates", "/documents", "/templates", "/indiamart", "/settings", "/oauth/authorize", "/anything-else"];
     for (const vars of DEPLOYED) {
       setEnv(vars);
       for (const p of pages) {

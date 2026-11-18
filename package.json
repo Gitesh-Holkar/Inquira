@@ -15,6 +15,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:local": "playwright test -c playwright.local.config.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/db-migrate.ts",
     "db:remote:apply": "tsx scripts/db-remote-apply.ts",
@@ -27,7 +28,10 @@
     "gen:keys": "tsx scripts/gen-keys.ts",
     "demo:data": "tsx scripts/demo-data.ts",
     "db:remote:seed": "tsx scripts/db-remote-seed.ts",
-    "rates:import": "tsx scripts/rates-import.ts"
+    "rates:import": "tsx scripts/rates-import.ts",
+    "local:setup": "tsx scripts/local-setup.ts",
+    "local:sign-in-link": "tsx scripts/local-sign-in-link.ts",
+    "worker": "node scripts/worker.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.31.0",

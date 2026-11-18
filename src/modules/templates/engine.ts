@@ -42,7 +42,7 @@ export function unknownPlaceholders(template: string): string[] {
 }
 
 /**
- * Defaults based on STDM's observed reply style (docs/EMAIL_FORMATS.md). Deliberately no sign-off:
+ * Defaults based on the first company's observed reply style (docs/EMAIL_FORMATS.md). Deliberately no sign-off:
  * the real Gmail signature is appended when the draft is created.
  */
 export const DEFAULT_QUOTE_SUBJECT = "Quotation – {{product}}";
