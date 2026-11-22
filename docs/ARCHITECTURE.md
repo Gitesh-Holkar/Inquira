@@ -61,7 +61,8 @@ tests/, e2e/              Vitest integration tests; Playwright smoke tests
 | `quotes` | quotations | `createQuoteDraft` (snapshot → MIME → Gmail draft in thread), WhatsApp text |
 | `mcp` | mcp_tokens, oauth_clients, oauth_codes, oauth_refresh_tokens | tokens, OAuth AS, MCP server + tools |
 | `buyleads` | buylead_rules, buylead_decisions | rules (full + compact), log decision (cap enforced), summary |
-| `dashboard` | (no tables) | one-shot dashboard data |
+| `dashboard` | (no tables) | one-shot dashboard data, report numbers (`reportInternal`), the daily summary job |
+| `backup` | backups | nightly backup of each company to its file storage (rows plus document files, keys left out), 14-day retention, owner-only download, restore into an empty database |
 | `documents` | documents | upload (checked by content), list, download, latest valid per type, attachments for quotation drafts; file storage adapter `storage.ts` (Supabase bucket or disk) |
 | `outbound` | outgoing_messages, outbound_rules | prepare (template, rates, terms, documents), hold rules, modes, the only send path, Outbox actions, follow-ups (see "Outbound pipeline" below) |
 | `ai` | ai_decisions (tier settings are `integrations` rows `ai_basic` / `ai_advanced`) | provider adapters (Gemini, Anthropic, OpenAI-compatible), redaction, task schemas, settings, the `ai.work` job, accuracy (see "AI tiers" below) |
@@ -153,11 +154,13 @@ Every source implements the same three steps: **fetch → normalize to `Normaliz
 | `indiamart.sync` | One Pull API call per run (ADR-030) | every tick |
 | `outbound.plan` | Prepares messages for new leads, buyer replies (documents, or an AI draft held for a person) and follow-ups; only items from the last 48 hours | every tick |
 | `outbound.send` | Sends emails the pipeline approved: inside the send window, under the caps, not while paused, after re-checking the rules | every tick |
+| `report.daily` | The owner's daily summary email (G-RPT-2), when switched on in Settings → Sending; through the one send path | every tick; sends once a day after 19:30 IST |
+| `backup.nightly` | Backs up the company to its file storage and removes backups older than 14 days (G-PLT-7) | every tick; runs once a day after 01:00 IST |
 | `leads.rescore` | Refreshes scores of open leads not scored today (MOQs change with rates); 300 per run | every tick; does nothing once the day's pass is done |
 | `ai.work` | Leads the rules left open go to Basic, then Advanced, then the review queue; review emails go to Advanced (ADR-031). 15 s budget, 10 items per run; `{ more: true }` queues a follow-up | when a lead or review email arrives that rules could not settle, and every tick |
 
 `/api/cron/tick`:
-1. Enqueues the sync jobs and `ai.work` for each org. `dedupe_key` keeps at most one queued job per org per type.
+1. Enqueues every job type above for each org. `dedupe_key` keeps at most one queued job per org per type.
 2. Claims due jobs with `SKIP LOCKED`.
 3. Runs them. Failures retry with backoff; after 5 attempts the job is `failed`.
 4. Integration errors also set `integrations.backoff_until`, and the dashboard shows the last error.
@@ -196,6 +199,8 @@ Two seams keep cloud and local mode on the same code (GOAL G-PLT-6):
 
 - **Sign-in accounts** (`src/lib/accounts.ts`): `accountDirectory().findOrCreate(email)` for Settings → Members. Supabase Auth admin API in cloud mode, the local `auth.users` table in development sign-in. It never sets a password; the person sets their own.
 - **File storage** (`src/modules/documents/storage.ts`): `fileStore()` with `put`, `get`, `remove`. The private Supabase bucket `documents` in cloud mode, a folder (`FILE_STORAGE_DIR`) locally. Chosen by `FILE_STORAGE`, else by what is configured.
+
+Backups use the same file store (`backups/<org>/…`), so a local install backs up to its data folder and the cloud to the private bucket.
 
 Both are network calls, so services call them outside database transactions: `inviteMember` creates the account first and then the membership; `uploadDocument` stores the file first, then saves the row, and removes the file if the row cannot be saved.
 

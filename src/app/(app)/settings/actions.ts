@@ -12,6 +12,7 @@ import { updateBuyleadRules } from "@/modules/buyleads/service";
 import { authorize } from "@/modules/core/permissions";
 import { removeAiKey, saveAiTier, testAiTier, type saveAiTierInput } from "@/modules/ai/service";
 import { removeOutboundRule, saveOutboundSettings } from "@/modules/outbound/service";
+import { backupNow } from "@/modules/backup/service";
 import type { OutboundSettings } from "@/modules/outbound/types";
 import type { z } from "zod";
 import { changeMemberRole, createSignInLink, inviteMember, removeMember, setMemberAccess } from "@/modules/core/members";
@@ -135,5 +136,10 @@ export async function saveSendingAction(input: OutboundSettings) {
 export async function removeOutboundRuleAction(id: string) {
   const s = await requireSession("settings.write");
   return done(await runAction(() => removeOutboundRule(s.ctx, { id })));
+}
+
+export async function backupNowAction() {
+  const s = await requireSession("settings.read");
+  return done(await runAction(() => backupNow(s.ctx), "Backup made"));
 }
 

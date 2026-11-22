@@ -362,6 +362,22 @@ test("Outbox: prepare a message on a lead, see it held or ready, sending setting
   await expect(page.getByRole("heading", { name: /Sample reply · email/ })).toBeVisible();
 });
 
+test("reports and backups: last 7 days on the dashboard, back up now, download (owner)", async ({ page }) => {
+  await signIn(page);
+  await expect(page.getByTestId("week-card")).toContainText("new leads");
+  await expect(page.getByTestId("week-card")).toContainText("Time to first reply");
+  await page.goto("/settings?tab=backups");
+  await expect(page.getByRole("heading", { name: "Backups" })).toBeVisible();
+  await page.getByRole("button", { name: "Back up now" }).click();
+  await expect(page.getByText("Backup made")).toBeVisible();
+  const list = page.getByRole("list", { name: "Backups" });
+  await expect(list.getByRole("listitem").first()).toContainText("leads");
+  const [download] = await Promise.all([page.waitForEvent("download"), list.getByRole("link", { name: "Download" }).first().click()]);
+  expect(download.suggestedFilename()).toMatch(/^inquira-backup-\d{4}-\d{2}-\d{2}\.json\.gz$/);
+  await noHorizontalScroll(page);
+  await shot(page, "15-backups");
+});
+
 test("an Accounts member sees no Settings and cannot open it", async ({ page }) => {
   await signIn(page);
   const email = `accounts-${test.info().project.name}@example.com`;

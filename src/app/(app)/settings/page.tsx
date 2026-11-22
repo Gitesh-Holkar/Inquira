@@ -23,6 +23,8 @@ import { AiIntro, AiTierCard } from "@/components/settings/ai";
 import { getAiSettings } from "@/modules/ai/service";
 import { getOutboundSettings } from "@/modules/outbound/service";
 import { SendingForm, TeamRules } from "@/components/settings/sending";
+import { Backups } from "@/components/settings/backups";
+import { backupStorageReady, listBackups } from "@/modules/backup/service";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -36,6 +38,7 @@ const TABS = [
   ["buyleads", "IndiaMART rules"],
   ["org", "Organisation"],
   ["members", "Members"],
+  ["backups", "Backups"],
 ] as const;
 
 type SP = { tab?: string; gmail?: string; gmail_error?: string; account?: string };
@@ -88,6 +91,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       {tab === "buyleads" ? <BuyleadTab ctx={s.ctx} canEdit={can(s.ctx, "buylead.rules.write")} /> : null}
       {tab === "org" ? <OrgTab ctx={s.ctx} canEdit={can(s.ctx, "settings.write")} /> : null}
       {tab === "members" ? <MembersTab s={s} /> : null}
+      {tab === "backups" ? <BackupsTab ctx={s.ctx} isOwner={s.role === "owner"} /> : null}
     </>
   );
 }
@@ -134,6 +138,18 @@ async function IntegrationsTab({ ctx, admin }: { ctx: Ctx; admin: boolean }) {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+async function BackupsTab({ ctx, isOwner }: { ctx: Ctx; isOwner: boolean }) {
+  const items = await listBackups(ctx, {});
+  return (
+    <Card>
+      <CardHeader><CardTitle>Backups</CardTitle></CardHeader>
+      <CardContent>
+        <Backups isOwner={isOwner} storageReady={backupStorageReady()} items={items.map((b) => ({ id: b.id, createdAt: b.createdAt.toISOString(), sizeBytes: b.sizeBytes, leads: b.counts.leads ?? 0, files: b.counts.files ?? 0 }))} />
+      </CardContent>
+    </Card>
   );
 }
 

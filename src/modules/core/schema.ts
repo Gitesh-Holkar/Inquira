@@ -176,4 +176,3 @@ export const notifications = app.table("notifications", {
   entityType: text(),
   entityId: uuid(),
 }, (t) => [index("notifications_org_created_idx").on(t.orgId, t.createdAt), uniqueIndex("notifications_once_uq").on(t.orgId, t.kind, t.entityId)]);
-

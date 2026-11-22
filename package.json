@@ -29,6 +29,7 @@
     "demo:data": "tsx scripts/demo-data.ts",
     "db:remote:seed": "tsx scripts/db-remote-seed.ts",
     "rates:import": "tsx scripts/rates-import.ts",
+    "backup:restore": "tsx scripts/backup-restore.ts",
     "local:setup": "tsx scripts/local-setup.ts",
     "local:sign-in-link": "tsx scripts/local-sign-in-link.ts",
     "worker": "node scripts/worker.mjs"

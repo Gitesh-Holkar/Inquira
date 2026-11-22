@@ -11,6 +11,7 @@ Route handlers, webhooks and MCP tools. Pages and server actions are listed in `
 | `/api/mcp` | POST, GET, DELETE | Claude and other MCP clients | `Authorization: Bearer <token>` (OAuth or manual). A missing or bad token returns 401 with `WWW-Authenticate: Bearer resource_metadata=…` | Stateless Streamable HTTP MCP server. Rate limited per IP. |
 | `/api/oauth/register` | POST | MCP clients | None (public, rate limited) | Dynamic Client Registration (RFC 7591). |
 | `/api/documents/[id]` | GET | A signed-in member's browser (Documents screen, lead page) | The session cookie; `documents.read`. Signed out → 303 to `/login`; no permission → 403; another company's or a removed document → 404 | The file as a download (`Content-Disposition: attachment`, `nosniff`, `no-store`). |
+| `/api/backups/[id]` | GET | An owner's browser (Settings → Backups → Download) | The session cookie; owners only. Signed out → 303 to `/login`; not an owner → 403; another company's or a removed backup → 404; file storage unreachable → 502 | The backup file as a download (`application/gzip`, `attachment`, `nosniff`, `private, no-store`); each download is audited (`backup.download`). |
 | `/api/oauth/token` | POST | MCP clients | Client ID, PKCE verifier; client secret if one was issued | Authorisation-code and refresh-token grants. Errors use RFC 6749 codes. |
 | `/.well-known/oauth-protected-resource` | GET | MCP clients | None | RFC 9728 metadata. `resource` equals the MCP URL. |
 | `/.well-known/oauth-authorization-server` | GET | MCP clients | None | RFC 8414 metadata. |

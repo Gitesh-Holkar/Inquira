@@ -17,9 +17,11 @@ export type FileStore = {
   remove(key: string): Promise<void>;
 };
 
+/** Document files: `<company id>/<file id>.<ext>`. Backups: `backups/<company id>/<time stamp>.json.gz`. No dots or slashes beyond these. */
 const KEY = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\.[a-z0-9]{1,5}$/;
+const BACKUP_KEY = /^backups\/[0-9a-f-]{36}\/[0-9A-Z-]{10,40}\.json\.gz$/;
 function checkKey(key: string) {
-  if (!KEY.test(key)) throw new AppError("VALIDATION", "Invalid file key");
+  if (!KEY.test(key) && !BACKUP_KEY.test(key)) throw new AppError("VALIDATION", "Invalid file key");
 }
 
 export function diskStore(dir: string): FileStore {

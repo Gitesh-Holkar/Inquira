@@ -298,3 +298,10 @@ export const markNotificationsSeen = defineService({
 export async function setOutboundSettingsInternal(tx: Tx, orgId: string, value: unknown) {
   await tx.update(orgSettings).set({ outbound: value }).where(eq(orgSettings.orgId, orgId));
 }
+
+/** Email addresses of the company's owners (the daily summary's default recipients). */
+export async function ownerEmailsInternal(tx: Tx, orgId: string): Promise<string[]> {
+  const rows = await tx.select({ email: memberships.email }).from(memberships)
+    .where(and(eq(memberships.orgId, orgId), eq(memberships.role, "owner"), isNull(memberships.deletedAt)));
+  return rows.map((r) => r.email);
+}

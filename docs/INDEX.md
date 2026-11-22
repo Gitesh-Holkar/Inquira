@@ -12,6 +12,8 @@ Every document, what it is for, and when to read it. Open only the ones your tas
 | `QUESTIONS.md` | Questions only the owner can answer, with the assumption used meanwhile | Every session; before guessing anything |
 | `CHANGELOG.md` | What users and operators would notice, newest first | After any visible change |
 | `README.md` | What Inquira is and how to start | When changing setup or features a stranger would see |
+| `CONTRIBUTING.md` | How a newcomer runs the project, the checks, how a change is made, the rules never broken | When changing the workflow, commands or checks |
+| `SECURITY.md` | How to report a security problem privately, what is in scope | When the reporting route or scope changes; controls are in `docs/SECURITY.md` |
 
 ## In `docs/`
 
@@ -28,7 +30,7 @@ Every document, what it is for, and when to read it. Open only the ones your tas
 | `EMAIL_FORMATS.md` | The portal email layouts the parsers support | Adding or fixing an email parser |
 | `TESTING.md` | How tests are organised, what is faked, how to add a fixture | Writing tests |
 | `SECURITY.md` | Threat model, controls, known limits | Touching sign-in, tokens, secrets or public endpoints |
-| `RUNBOOK.md` | Operator procedures (for example revoking tokens) | Something needs doing on the live system |
+| `RUNBOOK.md` | Operator procedures: revoking tokens, rotating the cron secret, backups and restoring one | Something needs doing on the live system |
 | `SETUP.md` | Cloud deployment, step by step, for the owner | Changing deployment or environment variables |
 | `SELF_HOSTING.md` | Running Inquira on your own computer with Docker (local mode) | Changing local mode, Docker files, local sign-in or the worker |
 | `BUSINESS.md` | The first company's sales process, as observed | Understanding why a feature exists |

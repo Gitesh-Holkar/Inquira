@@ -4,6 +4,14 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 22 Nov 2026 — Reports, daily summary, backups, open-source files (M8)
+- **Dashboard → Last 7 days:** leads received and matched to a product, replies sent by people and automatically, what is held or ready now, emails set aside, and the typical time to first reply.
+- **Daily summary email** (Settings → Sending, off until you switch it on): each evening after 7:30 PM IST the owners, or the addresses you enter, get the day's numbers from your Gmail. It stops while sending is paused.
+- **Settings → Backups:** a backup of all your data (leads, emails, quotations, rates and history, templates, documents, members, audit log) every night after 1 AM IST, kept 14 days. Owners can **Back up now** and **Download** any of them; keys and passwords are never inside. The screen warns when file storage is not set up. Restoring is one command (`docs/RUNBOOK.md` section 5).
+- For people who find the project: a clearer **README**, **CONTRIBUTING.md** (how to run it and make a change) and **SECURITY.md** (how to report a security problem privately). Every test run now also scans every file for keys, tokens and real phone numbers.
+- A new local install starts with the fictional example company by default (`.env.example`).
+- Database: migrations 0015 and 0016.
+
 ### 22 Nov 2026 — Replies prepared for you: the Outbox (M7, starts in shadow mode)
 - **Outbox** (new menu item): for every new enquiry Inquira prepares the reply from your template, today's rate and the product's terms, by email (when the buyer has a real email) and WhatsApp (when there is a phone). Document requests get the latest valid COA or TDS attached; sample requests use your sample policy; below-MOQ enquiries get the below-MOQ reply; international enquiries an acknowledgement.
 - **Held** messages say why (no product match, no quantity, below MOQ, outside India, no or flagged rate, a blank term, a question the template does not answer, an ongoing conversation, an existing customer, talk of discount, credit, complaint or a purchase order, an attachment, already sent, …). **Send**, **Edit** or **Don't send**; "Don't send" can become a rule, for example "always hold messages to anyone at this company".

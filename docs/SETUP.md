@@ -234,6 +234,12 @@ Inquira prepares a reply for every new enquiry in **Outbox** (email when the buy
 4. **Settings → Sending:** send window, limits per hour and day, follow-up days, the **pause** switch, and the **daily summary** email.
 5. After about two weeks in which the prepared quotations needed few edits, an owner may switch email to **assisted** (clean first quotations go automatically, inside the window). Switch back to shadow or press pause at any time.
 
+## 6d. Backups and the daily summary
+
+- **Backups** run by themselves every night after 01:00 IST and are kept 14 days, in the private `documents` bucket (folder `backups/`). They need `SUPABASE_SERVICE_ROLE_KEY` in Vercel (section 2); without it Settings → Backups says file storage is not set up. Once a week, an owner opens **Settings → Backups → Download** and keeps the file somewhere else (another drive or account). Restoring: `docs/RUNBOOK.md` section 5.
+- **Daily summary:** Settings → Sending → **Daily summary**. When on, each evening after 19:30 IST the owners (or the addresses you enter) get one email from your Gmail with the day's numbers: new leads, replies sent by people and automatically, what is waiting, and the time to first reply. It needs Gmail connected and stops while sending is paused.
+- **Dashboard → Last 7 days** shows the same numbers for the week.
+
 ## 7. Connect Claude (MCP server)
 
 Inquira has a built-in MCP server at `https://YOUR-APP/api/mcp`.

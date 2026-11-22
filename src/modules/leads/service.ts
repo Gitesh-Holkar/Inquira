@@ -658,3 +658,21 @@ export async function leadIdsOfContactInternal(tx: Tx, orgId: string, contactId:
   ));
   return rows.map((r) => r.id);
 }
+
+// ---------- reports (GOAL G-RPT-1) ----------
+
+/** Leads received since a time, and how many have a catalogue product. */
+export async function leadFunnelInternal(tx: Tx, orgId: string, since: Date) {
+  const [r] = await tx.select({
+    received: sql<number>`count(*)::int`,
+    matched: sql<number>`count(*) filter (where ${leads.productId} is not null)::int`,
+  }).from(leads).where(and(eq(leads.orgId, orgId), isNull(leads.deletedAt), gte(leads.receivedAt, since)));
+  return { received: r?.received ?? 0, matched: r?.matched ?? 0 };
+}
+
+/** When each of these leads arrived (time to first reply). */
+export async function receivedAtByIdsInternal(tx: Tx, orgId: string, ids: string[]): Promise<Map<string, Date>> {
+  if (!ids.length) return new Map();
+  const rows = await tx.select({ id: leads.id, at: leads.receivedAt }).from(leads).where(and(eq(leads.orgId, orgId), inArray(leads.id, ids)));
+  return new Map(rows.map((r) => [r.id, r.at]));
+}

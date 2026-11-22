@@ -255,7 +255,7 @@ describe("Gmail sync robustness", () => {
     const r = await tick({ startBudgetMs: -1 });
     expect(r.processed).toBe(0);
     const rows = await getDb().select().from(jobs).where(eq(jobs.orgId, org.id));
-    expect(rows.map((j) => j.type).sort()).toEqual(["ai.work", "gmail.sync", "indiamart.sync", "leads.rescore", "outbound.plan", "outbound.send", "tradeindia.sync"]);
+    expect(rows.map((j) => j.type).sort()).toEqual(["ai.work", "backup.nightly", "gmail.sync", "indiamart.sync", "leads.rescore", "outbound.plan", "outbound.send", "report.daily", "tradeindia.sync"]);
     expect(rows.every((j) => j.status === "queued")).toBe(true);
   });
 });

@@ -4,7 +4,7 @@ import { AlertCircle, CheckCircle2, Inbox, ListChecks, Mail, ShoppingCart, Globe
 import { can } from "@/modules/core/permissions";
 import { requireSession } from "@/lib/auth";
 import { formatDateTime, formatRelative } from "@/lib/format";
-import { getDashboard } from "@/modules/dashboard/service";
+import { formatMinutes, getDashboard } from "@/modules/dashboard/service";
 import { SOURCE_LABELS, LEAD_SOURCES } from "@/modules/leads/types";
 import { Alert, Badge, Card, CardContent, CardHeader, CardTitle, PageHeader } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
@@ -124,6 +124,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             </p>
             <p className="mt-1 text-xs text-muted">Up to {d.indiamart.dailyCap} suggestions a day. A person buys on IndiaMART.</p>
             <Link href="/indiamart" className="mt-2 inline-block text-sm text-primary underline-offset-4 hover:underline">Decision log</Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Last 7 days</CardTitle></CardHeader>
+          <CardContent className="grid gap-1 text-sm" data-testid="week-card">
+            <p><strong>{d.week.received}</strong> new leads, <strong>{d.week.matched}</strong> matched to a product</p>
+            <p><strong>{d.week.sentByPeople}</strong> replies sent by the team, <strong>{d.week.autoSent}</strong> automatically</p>
+            <p><Link href="/outbox" className="text-primary underline-offset-4 hover:underline"><strong>{d.week.heldNow}</strong> held and <strong>{d.week.readyNow}</strong> ready in the Outbox</Link></p>
+            <p><strong>{d.week.ignored}</strong> emails set aside (not buyers)</p>
+            <p>Time to first reply: <strong>{formatMinutes(d.week.firstReplyMedianMinutes)}</strong>{d.week.firstReplies ? <span className="text-muted"> (median of {d.week.firstReplies})</span> : null}</p>
           </CardContent>
         </Card>
 

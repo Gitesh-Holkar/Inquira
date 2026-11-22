@@ -8,6 +8,8 @@ import { syncIndiaMart } from "./indiamart/service";
 import { runAiWork } from "@/modules/ai/service";
 import { rescoreLeadsInternal } from "@/modules/leads/service";
 import { runOutboundPlan, runOutboundSend } from "@/modules/outbound/service";
+import { runDailySummary } from "@/modules/dashboard/service";
+import { nightlyBackup } from "@/modules/backup/service";
 
 /** A handler may return `{ more: true }` when it stopped early (time budget, backlog); a follow-up is then queued. */
 type Handler = (ctx: Ctx, payload: Record<string, unknown>) => Promise<unknown>;
@@ -27,6 +29,9 @@ export const JOB_HANDLERS: Record<string, Handler> = {
   // The outbound pipeline (ADR-032): plan messages for new leads, replies and follow-ups; send approved ones.
   "outbound.plan": (ctx) => runOutboundPlan(ctx),
   "outbound.send": (ctx) => runOutboundSend(ctx),
+  // Once a day each: the owner's summary after 19:30 IST (if turned on) and the backup after 01:00 IST.
+  "report.daily": (ctx) => runDailySummary(ctx),
+  "backup.nightly": (ctx) => nightlyBackup(ctx),
 };
 
 /** Don't start another job after this long; the route's maxDuration is 60 s and one Gmail run may take ~35 s. */
@@ -42,7 +47,7 @@ export async function tick(opts: { maxJobs?: number; schedule?: boolean; startBu
       const ctx: Ctx = { orgId, actor: { kind: "system", job: "cron" } };
       await withSystemTx(async (tx) => {
         // ai.work also runs every tick, so review emails held back by a rate limit are tried again once it lifts.
-        for (const type of ["gmail.sync", "tradeindia.sync", "indiamart.sync", "ai.work", "leads.rescore", "outbound.plan", "outbound.send"]) {
+        for (const type of ["gmail.sync", "tradeindia.sync", "indiamart.sync", "ai.work", "leads.rescore", "outbound.plan", "outbound.send", "report.daily", "backup.nightly"]) {
           const j = await enqueueJobInternal(tx, ctx, { type, dedupeKey: type });
           if (j) scheduled.push(`${orgId}:${type}`);
         }

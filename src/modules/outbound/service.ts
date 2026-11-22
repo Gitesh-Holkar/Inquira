@@ -370,7 +370,7 @@ export async function planFollowUpsInternal(ctx: Ctx, now = new Date()) {
     )).limit(20);
     let n = 0;
     for (const m of sent) {
-      const lead = await getLeadInternal(tx, ctx.orgId, m.leadId);
+      const lead = m.leadId ? await getLeadInternal(tx, ctx.orgId, m.leadId) : null;
       if (!lead || !["quoted", "contacted"].includes(lead.status)) continue;
       const facts = await leadEmailFactsInternal(tx, ctx.orgId, lead.id);
       if (facts.lastInboundAt && m.sentAt && facts.lastInboundAt > m.sentAt) continue; // the buyer wrote back
@@ -393,6 +393,7 @@ export async function runOutboundPlan(ctx: Ctx, opts: { fetchImpl?: typeof fetch
 
 /** Re-checks the rules right before an automatic send: the buyer may have replied, a rate may have expired. */
 async function recheckInternal(tx: Tx, ctx: Ctx, m: OutgoingMessage): Promise<{ reasons: HoldReason[]; stop?: string }> {
+  if (!m.leadId) return { reasons: [] }; // the owner's daily summary: no buyer rules apply
   const lead = await getLeadInternal(tx, ctx.orgId, m.leadId);
   if (!lead) return { reasons: [], stop: "The lead was deleted" };
   if (["won", "lost", "not_relevant"].includes(lead.status)) return { reasons: [], stop: `The lead is now ${lead.status.replace("_", " ")}` };
@@ -413,8 +414,8 @@ async function recordSentInternal(tx: Tx, ctx: Ctx, m: OutgoingMessage, r: { gma
   const [after] = await tx.update(outgoingMessages).set({
     state: "sent", sentAt: new Date(), sentBy: actorString(ctx.actor), gmailMessageId: r.gmailMessageId, gmailThreadId: r.threadId ?? m.gmailThreadId, error: null, attempts: m.attempts + 1,
   }).where(and(eq(outgoingMessages.id, m.id), eq(outgoingMessages.orgId, ctx.orgId))).returning();
-  if (QUOTES.has(m.purpose as MessagePurpose)) await markQuotedInternal(tx, ctx, m.leadId);
-  await touchLeadInternal(tx, ctx.orgId, m.leadId);
+  if (m.leadId && QUOTES.has(m.purpose as MessagePurpose)) await markQuotedInternal(tx, ctx, m.leadId);
+  if (m.leadId) await touchLeadInternal(tx, ctx.orgId, m.leadId);
   // G-OUT-10: rule set, template version, rate entries and the actor, on every send.
   await audit(tx, ctx, { action: "outbound.sent", entityType: "outgoing_message", entityId: m.id, changes: {
     leadId: m.leadId, channel: m.channel, purpose: m.purpose, ruleSet: m.ruleSetVersion, mode: m.mode, automatic: m.autoApproved,
@@ -502,7 +503,7 @@ export const listOutbox = defineService({
     const rows = await tx.select().from(outgoingMessages).where(where).orderBy(desc(outgoingMessages.createdAt)).limit(26).offset((input.page - 1) * 25);
     const items = [];
     for (const m of rows.slice(0, 25)) {
-      const l = await getLeadInternal(tx, ctx.orgId, m.leadId);
+      const l = m.leadId ? await getLeadInternal(tx, ctx.orgId, m.leadId) : null;
       items.push({ ...m, lead: l ? { id: l.id, contactName: l.contactName, companyName: l.companyName, productText: l.productText, phone: l.phone, email: l.email } : null });
     }
     return { items, more: rows.length > 25 };
@@ -630,3 +631,51 @@ export const messagesForLead = defineService({
   name: "outbound.forLead", input: z.object({ leadId: z.string().uuid() }), permission: "quotes.read",
   handler: (ctx, input, tx) => messagesForLeadInternal(tx, ctx.orgId, input.leadId),
 });
+
+// ---------- reports and the daily summary (GOAL G-RPT-1, G-RPT-2) ----------
+
+/** Sent and held counts since a time, and each lead's first sent reply (for time to first reply). */
+export async function outboundStatsInternal(tx: Tx, orgId: string, since: Date) {
+  const [r] = await tx.select({
+    autoSent: sql<number>`count(*) filter (where ${outgoingMessages.state} = 'sent' and ${outgoingMessages.autoApproved} and ${outgoingMessages.sentAt} >= ${since.toISOString()}::timestamptz)::int`,
+    sentByPeople: sql<number>`count(*) filter (where ${outgoingMessages.state} = 'sent' and not ${outgoingMessages.autoApproved} and ${outgoingMessages.sentAt} >= ${since.toISOString()}::timestamptz)::int`,
+    heldNow: sql<number>`count(*) filter (where ${outgoingMessages.state} = 'held')::int`,
+    readyNow: sql<number>`count(*) filter (where ${outgoingMessages.state} = 'draft')::int`,
+  }).from(outgoingMessages).where(and(eq(outgoingMessages.orgId, orgId), sql`${outgoingMessages.purpose} <> 'daily_summary'`));
+  const first = await tx.select({ leadId: outgoingMessages.leadId, at: sql<Date>`min(${outgoingMessages.sentAt})` }).from(outgoingMessages)
+    .where(and(eq(outgoingMessages.orgId, orgId), eq(outgoingMessages.state, "sent"), sql`${outgoingMessages.leadId} is not null`, sql`${outgoingMessages.purpose} <> 'daily_summary'`))
+    .groupBy(outgoingMessages.leadId).having(sql`min(${outgoingMessages.sentAt}) >= ${since.toISOString()}::timestamptz`);
+  return { autoSent: r?.autoSent ?? 0, sentByPeople: r?.sentByPeople ?? 0, heldNow: r?.heldNow ?? 0, readyNow: r?.readyNow ?? 0, firstSent: first.map((f) => ({ leadId: f.leadId!, at: new Date(f.at) })) };
+}
+
+/**
+ * Sends the owner's daily summary through the one send path (G-RPT-2). It goes to the company's own people,
+ * not to a buyer, so buyer rules do not apply; the pause switch still stops it. Recorded like every message.
+ */
+export async function sendDailySummaryInternal(ctx: Ctx, mail: { to: string[]; subject: string; body: string }, deps: SendDeps = {}) {
+  const settings = await withSystemTx((tx) => outboundSettingsInternal(tx, ctx.orgId));
+  if (settings.paused) return { skipped: "Paused" };
+  const m = await withSystemTx(async (tx) => {
+    const [row] = await tx.insert(outgoingMessages).values({
+      orgId: ctx.orgId, leadId: null, channel: "email", purpose: "daily_summary", state: "approved", toAddress: mail.to.join(", "), subject: mail.subject, body: mail.body,
+      ruleSetVersion: RULE_SET_VERSION, mode: settings.modes.email, autoApproved: true, approvedBy: actorString(ctx.actor), approvedAt: new Date(), createdBy: actorString(ctx.actor),
+    }).returning();
+    await audit(tx, ctx, { action: "outbound.prepare", entityType: "outgoing_message", entityId: row!.id, changes: { purpose: "daily_summary", to: mail.to.length } });
+    return row!;
+  });
+  try {
+    const r = await sendEmailInternal(ctx, m, deps);
+    await withSystemTx((tx) => recordSentInternal(tx, ctx, m, { gmailMessageId: r.gmailMessageId, threadId: r.threadId, attached: [] }));
+    return { sent: true, id: m.id };
+  } catch (e) {
+    await recordFailedInternal(ctx, m, sendError(e));
+    return { sent: false, id: m.id };
+  }
+}
+
+/** Whether today's summary was already sent (or tried). */
+export async function dailySummaryDoneInternal(tx: Tx, orgId: string, since: Date): Promise<boolean> {
+  const [r] = await tx.select({ id: outgoingMessages.id }).from(outgoingMessages)
+    .where(and(eq(outgoingMessages.orgId, orgId), eq(outgoingMessages.purpose, "daily_summary"), gte(outgoingMessages.createdAt, since))).limit(1);
+  return !!r;
+}

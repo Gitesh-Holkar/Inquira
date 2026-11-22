@@ -62,7 +62,9 @@ Docker keeps two volumes:
 
 `secrets.env` holds the key that encrypts saved Gmail and TradeIndia credentials and the key the scheduler uses. It is created on the first start. If it is lost, you re-enter those credentials in Settings; nothing else is lost.
 
-**Back up** with Docker Desktop's volume export, or:
+**Backups:** Inquira backs itself up every night after 01:00 (while the computer and Docker are on) and keeps 14 days, inside the `inquira_data` volume. That does not protect you if the computer is lost, so once a week open **Settings → Backups → Download** and keep the file on another drive or a cloud folder. To restore one, follow [`RUNBOOK.md`](RUNBOOK.md) section 5.2.
+
+For a full copy of both volumes (database and files, including the keys file), use Docker Desktop's volume export, or:
 
 ```bash
 docker compose exec -T db pg_dump -U postgres inquira > inquira-backup.sql

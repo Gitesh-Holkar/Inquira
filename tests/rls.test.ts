@@ -6,6 +6,7 @@ import { contacts } from "@/modules/contacts/schema";
 import { integrations, integrationSecrets, organizations } from "@/modules/core/schema";
 import { mcpTokens } from "@/modules/mcp/schema";
 import { priceEntries, productGrades, products } from "@/modules/catalog/schema";
+import { backups } from "@/modules/backup/schema";
 import { addMember, createOrg, createUser, expectDbError, resetDb } from "./helpers/db";
 
 async function seedLead(orgId: string, ref: string) {
@@ -94,6 +95,25 @@ describe("Row Level Security: org isolation", () => {
       .returning();
     await expectDbError(db.update(priceEntries).set({ pricePerKgInr: "1" }).where(eq(priceEntries.id, pe!.id)), /append-only/);
     await expectDbError(db.delete(priceEntries).where(eq(priceEntries.id, pe!.id)), /append-only/);
+  });
+
+  it("backups: members who may see settings see their own company's list; nobody signed in can write one", async () => {
+    const orgA = await createOrg("Org A");
+    const orgB = await createOrg("Org B");
+    const owner = await createUser();
+    const sales = await createUser();
+    await addMember(orgA.id, owner, "owner");
+    await addMember(orgA.id, sales, "sales");
+    await getDb().insert(backups).values([
+      { orgId: orgA.id, storageKey: `backups/${orgA.id}/a.json.gz`, sizeBytes: 10, counts: {}, createdBy: "system:test" },
+      { orgId: orgB.id, storageKey: `backups/${orgB.id}/b.json.gz`, sizeBytes: 10, counts: {}, createdBy: "system:test" },
+    ]);
+    expect((await withUserTx(owner.id, (tx) => tx.select().from(backups))).map((b) => b.orgId)).toEqual([orgA.id]);
+    await expectDbError(withUserTx(owner.id, (tx) =>
+      tx.insert(backups).values({ orgId: orgA.id, storageKey: "backups/x", sizeBytes: 1, counts: {}, createdBy: "human:x" })), /row-level security/i);
+    expect(await withUserTx(owner.id, (tx) => tx.delete(backups).returning())).toHaveLength(0); // no delete policy: matches nothing
+    expect(await withUserTx(owner.id, (tx) => tx.update(backups).set({ sizeBytes: 1 }).returning())).toHaveLength(0);
+    expect(await getDb().select().from(backups)).toHaveLength(2);
   });
 
   it("every app table has RLS enabled", async () => {

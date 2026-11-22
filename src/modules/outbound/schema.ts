@@ -12,8 +12,8 @@ export type HoldReason = { rule: string; detail: string };
 export const outgoingMessages = app.table("outgoing_messages", {
   ...baseColumns(),
   orgId: uuid().notNull().references(() => organizations.id),
-  /** Plain uuids: the leads, templates, email and documents modules own those rows. */
-  leadId: uuid().notNull(),
+  /** Plain uuids: the leads, templates, email and documents modules own those rows. Empty for the owner's daily summary. */
+  leadId: uuid(),
   /** email | whatsapp */
   channel: text().notNull(),
   /** first_quotation | detailed_quotation | document_share | sample_request | below_moq | follow_up | international_ack | reply | daily_summary */

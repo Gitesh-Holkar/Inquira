@@ -127,6 +127,7 @@ npm run test:e2e:local      # Playwright against a fresh local install (docker c
 docker compose up -d        # local mode: database, app and worker (docs/SELF_HOSTING.md)
 npm run local:setup         # keys, shim, migrations and seed for a local database (used by the Docker image)
 npm run local:sign-in-link -- <email>   # local mode: one-time link to set a password
+npm run backup:restore -- <file.json.gz>   # show what a backup holds; add --confirm to restore it (docs/RUNBOOK.md §5)
 npm run worker              # local scheduler: calls /api/cron/tick every 10 minutes
 npm run db:local:up         # local Postgres 16 on :54322 that mimics Supabase
 npm run db:generate         # after schema.ts changes → new SQL in drizzle/

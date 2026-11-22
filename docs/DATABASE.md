@@ -99,12 +99,20 @@ organizations ─┬─ org_settings (1:1)        ─┬─ products ── prod
 
 | Table | Purpose | Notable columns |
 | --- | --- | --- |
-| `outgoing_messages` | Every message prepared for a buyer (G-OUT-1); nothing is sent without one | `lead_id`, `channel` (`email`, `whatsapp`), `purpose`, `state` (`draft`, `held`, `approved`, `sent`, `failed`, `cancelled`), `to_address`, `subject`, `body`, `template_id`, `template_version`, `price_entry_ids`, `items` (json snapshot), `document_ids`, `hold_reasons` (json), `rule_set_version`, `mode`, `auto_approved`, `reply_to_id`, `gmail_thread_id`, `in_reply_to_message_id`, `gmail_message_id`, `edited`, `approved_by`/`_at`, `sent_by`/`_at`, `cancelled_reason`, `error`, `attempts`. Indexes `(org_id, state, created_at)`, `(org_id, lead_id, created_at)`, `(org_id, sent_at)` |
+| `outgoing_messages` | Every message prepared for a buyer (G-OUT-1), and the owner's daily summary; nothing is sent without one | `lead_id` (empty only for the daily summary), `channel` (`email`, `whatsapp`), `purpose`, `state` (`draft`, `held`, `approved`, `sent`, `failed`, `cancelled`), `to_address`, `subject`, `body`, `template_id`, `template_version`, `price_entry_ids`, `items` (json snapshot), `document_ids`, `hold_reasons` (json), `rule_set_version`, `mode`, `auto_approved`, `reply_to_id`, `gmail_thread_id`, `in_reply_to_message_id`, `gmail_message_id`, `edited`, `approved_by`/`_at`, `sent_by`/`_at`, `cancelled_reason`, `error`, `attempts`. Indexes `(org_id, state, created_at)`, `(org_id, lead_id, created_at)`, `(org_id, sent_at)` |
 | `outbound_rules` (soft delete) | Hold rules the team made from corrections (G-OUT-9) | `match_type` (`buyer_email`, `buyer_domain`, `buyer_phone`, `product`, `text_contains`), `pattern`, `note`, `enabled` |
 
 `notifications` (core): `kind`, `title`, `body`, `href`, `entity_type`, `entity_id`; unique `(org_id, kind, entity_id)` so each thing is told once. `memberships.notifications_seen_at` marks what a member has seen.
 
 `template_versions` (templates): every saved text of a template (`template_id`, `version`, `subject`, `body`); `templates` gained `purpose` and `version`, and its unique index is now `(org_id, kind, purpose, name)`.
+
+### Backups (`backup/schema.ts`, GOAL G-PLT-7)
+
+| Table | Purpose | Notable columns |
+| --- | --- | --- |
+| `backups` (soft delete) | One row per backup file in file storage; rows older than 14 days are marked deleted when their file is removed | `storage_key` (`backups/<org>/<time>.json.gz`), `size_bytes`, `counts` (json: rows per table and `files`). Index `(org_id, created_at)` |
+
+A backup holds every row of every table with an `org_id` column, except `integration_secrets`, `oauth_clients`, `oauth_codes`, `oauth_refresh_tokens`, `mcp_tokens`, `jobs`, `events` and `backups` (`EXCLUDED` in `backup/service.ts`). A new table is included automatically. Restore inserts rows in foreign-key order read from `pg_constraint`.
 
 ### AI (`ai/schema.ts`)
 
@@ -135,6 +143,7 @@ Since 0008, writes are allowed by **permission**, not by role name. Helper funct
 | Documents | `documents` | members | `documents.write` | same |
 | Outbound | `outgoing_messages`, `outbound_rules` | members | `quotes.create`; rules also `settings.write` | — |
 | Notifications, template versions | `notifications`, `template_versions` | members | insert: `can_work`; `templates.write` | — |
+| Backups | `backups` | `settings.read` | none (written by the system) | none |
 | AI log | `ai_decisions` | members | update only: `leads.edit` or `emails.classify` (insert by the AI job, as system) | — |
 | Tokens | `mcp_tokens` | `mcp_tokens.manage` | `mcp_tokens.manage` | `mcp_tokens.manage` |
 | System only | `integration_secrets`, `oauth_clients`, `oauth_codes`, `oauth_refresh_tokens` | none | none | none |
@@ -165,6 +174,8 @@ Every list the app shows has an index on its filter: leads by `(org_id, status, 
 | `0011_ai_decisions_rls.sql` | Row-level security, grants and the `updated_at` trigger for `ai_decisions` |
 | `0013_outbound_pipeline.sql` | Tables `outgoing_messages`, `outbound_rules`, `notifications`, `template_versions`; `templates.purpose`, `templates.version` and the new unique index; `memberships.notifications_seen_at`; `org_settings.outbound`; `email_messages.attachment_names`, `reply_planned_at`; `leads.outreach_planned_at` |
 | `0014_outbound_rls.sql` | Row-level security, grants and triggers for those four tables; every existing template becomes version 1 |
+| `0015_backups_and_summary.sql` | Table `backups`; `outgoing_messages.lead_id` may be empty (the daily summary) |
+| `0016_backups_rls.sql` | Row-level security, grants and the `updated_at` trigger for `backups` |
 | `0012_knowledge_base.sql` | `products.hsn_code`, `lead_time`, `payment_terms`, `sample_available`; `price_entries.floor_per_kg_inr`, `ceiling_per_kg_inr`; `org_settings.sample_policy`; `leads.score`, `score_reasons`, `scored_at` and index `(org_id, score, received_at)` |
 
 Rules: generate with `npm run db:generate`; never edit an applied migration; a new table needs base columns, `org_id`, and a migration that enables RLS with policies, plus a case in `tests/rls.test.ts`. Apply with `npm run db:migrate` (TCP) or `npm run db:remote:apply` (HTTPS).

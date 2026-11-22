@@ -7,6 +7,7 @@
  *    worker use the same keys after every restart. Losing that file means re-entering Gmail/TradeIndia keys.
  * 2. Waits for Postgres, applies scripts/local-db/supabase-shim.sql, then every migration.
  * 3. Seeds SEED_DIR (default seed/example) without an owner: the first person to open Inquira creates it.
+ *    `--no-seed` stops after step 2 (used before restoring a backup, docs/RUNBOOK.md "Restore a backup").
  *
  * Refuses to run against a Supabase database: the shim is for a database Inquira owns.
  */
@@ -55,6 +56,7 @@ await client.unsafe(readFileSync(path.join(process.cwd(), "scripts/local-db/supa
 await migrate(drizzle(client), { migrationsFolder: path.join(process.cwd(), "drizzle") });
 await client.end();
 log("Database ready");
+if (process.argv.includes("--no-seed")) process.exit(0);
 
 const { seed } = await import("@/server/seed");
 const { closeDb } = await import("@/db/client");

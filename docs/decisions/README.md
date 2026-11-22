@@ -38,6 +38,7 @@ Each file has: Context, Problem, Options, Decision, Reasoning, Consequences, Sta
 | [ADR-030](ADR-030-indiamart-push-and-pull.md) | IndiaMART through Push plus Pull, with email as the cross-check | Accepted | 18 Nov 2026 |
 | [ADR-031](ADR-031-ai-tiers.md) | AI tiers behind one provider interface, rules first, code decides | Accepted | 18 Nov 2026 |
 | [ADR-032](ADR-032-outbound-pipeline.md) | One outbound pipeline with hold rules and modes; sending only through it | Accepted | 22 Nov 2026 |
+| [ADR-033](ADR-033-backups-as-company-files.md) | Backups are one file per company in its own file storage | Accepted | 22 Nov 2026 |
 
 ## To be written when the work reaches them
 

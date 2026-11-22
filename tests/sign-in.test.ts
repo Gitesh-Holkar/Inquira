@@ -196,5 +196,10 @@ describe("sign-in is always on (G-PLT-1)", () => {
     const dl = await docs.GET(new Request("https://app.example/api/documents/00000000-0000-4000-8000-000000000000"), { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000000" }) });
     expect(dl.status).toBe(303);
     expect(new URL(dl.headers.get("location")!).pathname).toBe("/login");
+    // So do backup downloads (all the company's data).
+    const bk = await import("@/app/api/backups/[id]/route");
+    const bdl = await bk.GET(new Request("https://app.example/api/backups/00000000-0000-4000-8000-000000000000"), { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000000" }) });
+    expect(bdl.status).toBe(303);
+    expect(new URL(bdl.headers.get("location")!).pathname).toBe("/login");
   });
 });

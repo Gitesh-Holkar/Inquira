@@ -3,12 +3,13 @@
 **Resume prompt** (use this if a session is interrupted):
 > Continue Inquira in this repository only. Read `AGENTS.md`, then this file and `QUESTIONS.md`, then `docs/INDEX.md`. Work on the first milestone below that is not done. The goal is `docs/GOAL.md`.
 
-## Current state (18 Nov 2026)
+## Current state (22 Nov 2026)
 
 - **Goal:** `docs/GOAL.md` (requirement IDs `G-…`). **Rules:** `AGENTS.md`. **Where things are:** `docs/INDEX.md`, `docs/CODEMAP.md`.
-- **Working on:** M5 (AI layer) is built and waits at its owner gate: a Gemini key on Settings → AI (SETUP 6b) for the live check. M4 waits at its gate too (SETUP 6a). Next: M6 (knowledge base and lead score); M1 stays deferred (Q-016).
-- **Live site:** deployed on Vercel from this branch. Sign-in is on again. The live database still has the September rates and has **not** had migrations `0003` and `0004` applied.
-- **Order note:** the owner sent the November price list and quotation terms on 16 Nov and asked for them, so M3 was done before M1 and M2. Its one dependency on M1 (seed folders) was done with it: `seed/stdm/` and `SEED_DIR`. The fictional `seed/example` and the "nothing in `src/` names the company" test are still M1.
+- **Built:** every milestone M0 to M8 that does not wait on the owner. The owner asked on 22 Nov 2026 to finish the whole app first and keep only what needs his input; that list is "What only the owner can do" below.
+- **Live site:** deployed on Vercel from this branch; sign-in is on. Every migration up to `0016` is applied to the live database. The live site still has the September rates until the owner imports the November list (item 4 below).
+- **Sending:** the Outbox runs in **shadow** mode: a person sends every message.
+- **Next for an agent:** nothing is open that does not need the owner. When he answers an item below, do that item (for example the licence file, assisted mode, the orders phase once samples arrive).
 
 ## Handover of 16 Nov 2026
 
@@ -31,15 +32,15 @@ Work in order, one at a time. Stop at every **OWNER GATE**.
 | # | Milestone | GOAL requirements | Status |
 | --- | --- | --- | --- |
 | M0 | Safe and correct: sign-in back on, seven audit bugs, November email fixtures | G-PLT-1, G-SRC-3, G-SRC-4 | Done (17 Nov). Owner still to do `docs/RUNBOOK.md` section 1 |
-| M1 | Open-source foundation: licence, seed sets, README, CONTRIBUTING, secret scan | G-OSS-1 to G-OSS-4, P6 | **Deferred by the owner (17 Nov 2026, Q-016).** Seed folders done with M3; example data and the company-name scan come with M2 |
+| M1 | Open-source foundation: licence, seed sets, README, CONTRIBUTING, secret scan | G-OSS-1 to G-OSS-4, P6 | **Done 22 Nov 2026 except the licence**, which the owner deferred (Q-016). Example company is the default seed; README for strangers, `CONTRIBUTING.md`, `SECURITY.md`, secret scan in every test run (`tests/secret-scan.test.ts`) |
 | M2 | Local mode: adapters, local sign-in, Docker packaging, self-hosting guide | G-PLT-5, G-PLT-6 | **Done 18 Nov 2026.** Verified from a fresh install in Docker (`npm run test:e2e:local`), restart keeps keys and data |
 | M3 | New price list: import screen and command, diff (**OWNER GATE** before anything is written to a live database); quotation terms | G-KB-6, part of G-KB-2 | Built and tested (17 Nov). **Waiting for the owner:** Q-015 |
 | M4 | IndiaMART API: Push, Pull, reconciliation | G-SRC-1, G-SRC-2, G-SRC-6 to G-SRC-8 | **Built 18 Nov 2026, tested against a fake.** OWNER GATE: paste the Pull key and register the push address (SETUP 6a); then compare one lead (Q-019) |
 | M5 | AI layer: provider interface, tiers, redaction | G-AI-1 to G-AI-10, G-UND-3, G-UND-4 | **Built 18 Nov 2026, tested against fake providers** (ADR-031). OWNER GATE: Gemini key on Settings → AI, Test connection, then watch the dashboard's AI card for a day (SETUP 6b, Q-020). Left for later milestones: Advanced reading conversations and drafting replies (G-CNV-3, M7), Advanced suggesting Buy Leads (the connector does it today) |
 | M6 | Knowledge base: commercial terms, rate validity, document library, sample policy, lead score | G-KB-2 to G-KB-5, G-UND-6 | **Built 22 Nov 2026.** Owner input: fill HSN, lead time and sample flags per product, the sample policy, and upload documents (Q-018, Q-021). Lead score has no order-value part: no portal gives one in its data today |
 | M7 | Outbound pipeline: hold rules, modes, sending (**OWNER GATE**: stays in `shadow`) | G-TPL-*, G-OUT-1 to G-OUT-7, G-OUT-9, G-OUT-10, G-CNV-2, G-CNV-3, G-FUP-1 | **Built 22 Nov 2026** (ADR-032), in shadow mode. OWNER GATE: two weeks of drafts that need few edits, then the owner may switch to assisted (Q-022). Not built: WhatsApp Cloud API (G-OUT-8, needs the owner's cost approval) |
-| M8 | Operations: follow-ups, time to first reply, members screen, backups | G-FUP-1, G-RPT-*, G-PLT-2, G-PLT-7 | Not started |
-| Later | Design seams only: WhatsApp Cloud API, conversation automation, orders, attendance | G-OUT-8, G-CNV-2, G-CNV-3, G-ORD-*, G-ATT-1 | — |
+| M8 | Operations: follow-ups, time to first reply, members screen, backups | G-FUP-1, G-RPT-*, G-PLT-2, G-PLT-7 | **Built 22 Nov 2026.** Follow-ups came with M7 and the members screen on 17 Nov. Dashboard "Last 7 days" with time to first reply; daily summary email (off until switched on); nightly backups kept 14 days, owner download, restore command, tested restore (`tests/operations.test.ts`, and once by hand into a fresh database: 649 rows, counts matched) (ADR-033) |
+| Later | WhatsApp Cloud API, orders, attendance | G-OUT-8, G-ORD-*, G-ATT-1 | Waits on the owner: the WhatsApp per-message cost (G-OUT-8); proforma samples and the ClearTax template (GOAL phase 5). Attendance is a separate application (G-ATT-1). Conversation replies (G-CNV-2, G-CNV-3) were built in M7 |
 
 ## Feature check of 17 Nov 2026 ("complete before more")
 
@@ -72,15 +73,31 @@ Every service, screen and setting was checked against the rule in `AGENTS.md` se
 | The `events` table records what happened but nothing consumes it yet | M7 (outbound pipeline) |
 | `npm run seed:website` reads the first company's website address from code | Fixed 18 Nov 2026: read from the seed folder's `settings.json` |
 
-## Owner's to-do list (the owner asked on 18 Nov 2026 to be told about these later; repeat it in the next report)
+## What only the owner can do (repeat this list in every report until it is empty)
 
-1. Vercel → Settings → Environment Variables: check `SUPABASE_SERVICE_ROLE_KEY` is set (needed by Members and Documents), then redeploy.
-2. Documents: upload the COA, TDS and MSDS files with batch and expiry dates (`QUESTIONS.md` Q-018).
-3. Settings → Organisation → Payment terms: `100% advance`.
-4. Rates → Import price list: save the mapping (`seed/stdm/price-list-map.json`), paste the November list, Apply. The live site still has the September prices.
-5. Sign in again and revoke the Claude tokens issued while sign-in was off (`docs/RUNBOOK.md` section 1).
-6. IndiaMART: paste the Pull API key and register the push address (`docs/SETUP.md` section 6a); then compare one lead with IndiaMART (Q-019).
-7. AI: create a Gemini key in Google AI Studio and turn on Basic AI (`docs/SETUP.md` section 6b, Q-020). Optional: a Claude API key for Advanced.
+**To finish setting up the live site**
+1. Vercel → Settings → Environment Variables: check `SUPABASE_SERVICE_ROLE_KEY` is set (Members, Documents and **Backups** need it), then redeploy. Settings → Backups shows a warning until it is.
+2. Settings → Organisation → Payment terms: `100% advance`.
+3. Rates → Import price list: save the mapping (`seed/stdm/price-list-map.json`), paste the November list, Apply. The live site still has the September prices.
+4. Sign in and revoke the Claude tokens issued while sign-in was off (`docs/RUNBOOK.md` section 1).
+
+**Your company's information (Inquira never makes these up)**
+5. Documents: upload COA, TDS and MSDS files with batch and expiry dates (Q-018).
+6. Rates → Edit product: HSN code, lead time and whether free samples are offered, per product; Settings → Organisation → Sample policy (Q-021). Replies that need an empty one wait for a person.
+
+**Connections and keys**
+7. IndiaMART: paste the Pull API key and register the push address (`docs/SETUP.md` section 6a); then compare one lead with IndiaMART (Q-019).
+8. AI: a Gemini key for Basic AI (`docs/SETUP.md` section 6b, Q-020). Optional: a Claude API key for Advanced.
+9. GitHub → the repository → Settings → Security: turn on **Private vulnerability reporting**, so `SECURITY.md`'s "Report a vulnerability" button works (an agent may not change repository settings).
+
+**Decisions**
+10. After about two weeks of Outbox drafts that needed few edits: switch email from shadow to **assisted** (Settings → Sending, owner only; Q-022). Optional: switch on the daily summary there.
+11. Licence, when you want to publish Inquira for others (Q-016).
+12. WhatsApp Cloud API: whether the per-message cost is acceptable (G-OUT-8). Until then WhatsApp is a tap on your phone.
+13. Orders (proforma invoices, ClearTax export, repeat orders): send two or three real proforma invoices (domestic and export) and ClearTax's import template; the phase starts then (GOAL phase 5).
+
+**Habit**
+14. Once a week: Settings → Backups → Download, and keep the file somewhere other than Supabase (for example Google Drive).
 
 ## Notes for the owner
 

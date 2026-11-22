@@ -418,3 +418,10 @@ export async function threadTextInternal(tx: Tx, orgId: string, leadId: string, 
     .from(emailMessages).where(and(eq(emailMessages.orgId, orgId), eq(emailMessages.leadId, leadId))).orderBy(desc(emailMessages.receivedAt)).limit(limit);
   return rows.reverse().map((r) => ({ from: r.isOutgoing ? "us" : r.fromName ?? r.fromEmail ?? "buyer", text: (r.bodyText ?? "").slice(0, 3000) }));
 }
+
+/** Emails set aside as not needing a reply since a time (GOAL G-RPT-1 "ignored"). */
+export async function ignoredSinceInternal(tx: Tx, orgId: string, since: Date): Promise<number> {
+  const [r] = await tx.select({ n: sql<number>`count(*)::int` }).from(emailMessages)
+    .where(and(eq(emailMessages.orgId, orgId), eq(emailMessages.classification, "ignored"), eq(emailMessages.isOutgoing, false), gte(emailMessages.receivedAt, since)));
+  return r?.n ?? 0;
+}
