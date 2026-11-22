@@ -6,11 +6,11 @@ import { createProduct, rateHistory, removeProduct, restoreProduct, updateProduc
 import { planCounts, planSections, type PlanSection } from "@/modules/catalog/price-list";
 import { applyPriceListImport, planPriceListImport, savePriceListMap } from "@/modules/catalog/price-list-service";
 
-export type RateChange = { gradeId: string; pricePerKgInr: string; gstPercent: string; priceBasis: string; moqKg: string | null; packSize: string | null; needsConfirmation: boolean };
+export type RateChange = { gradeId: string; pricePerKgInr: string; gstPercent: string; priceBasis: string; moqKg: string | null; packSize: string | null; needsConfirmation: boolean; floorPerKgInr?: string | null; ceilingPerKgInr?: string | null };
 
-export async function saveRatesAction(items: RateChange[], validFrom: string) {
+export async function saveRatesAction(items: RateChange[], validFrom: string, validTo?: string | null) {
   const s = await requireSession("rates.write");
-  const r = await runAction(() => updateRates(s.ctx, { validFrom, items }));
+  const r = await runAction(() => updateRates(s.ctx, { validFrom, validTo: validTo || null, items }));
   revalidatePath("/rates");
   return r;
 }
@@ -19,7 +19,7 @@ export async function rateHistoryAction(gradeId: string) {
   const s = await requireSession("catalog.read");
   const r = await runAction(() => rateHistory(s.ctx, { gradeId, limit: 50 }));
   if (!r.ok) return r;
-  return { ok: true as const, data: r.data.map((h) => ({ id: h.id, price: h.pricePerKgInr, gst: h.gstPercent, moq: h.moqKg, basis: h.priceBasis, pack: h.packSize, validFrom: h.validFrom, by: h.createdBy, at: h.createdAt.toISOString(), note: h.note, confirm: h.needsConfirmation })) };
+  return { ok: true as const, data: r.data.map((h) => ({ id: h.id, price: h.pricePerKgInr, gst: h.gstPercent, moq: h.moqKg, basis: h.priceBasis, pack: h.packSize, validFrom: h.validFrom, validTo: h.validTo, floor: h.floorPerKgInr, ceiling: h.ceilingPerKgInr, by: h.createdBy, at: h.createdAt.toISOString(), note: h.note, confirm: h.needsConfirmation })) };
 }
 
 export async function addProductAction(input: { name: string; category: string; grades: string; aliases: string }) {
@@ -65,7 +65,10 @@ export async function savePriceListMapAction(json: string) {
   return r;
 }
 
-export type ProductEdit = { productId: string; name: string; category: string; aliases: string; grades: { id: string; name: string }[]; newGrades: string };
+export type ProductEdit = {
+  productId: string; name: string; category: string; aliases: string; grades: { id: string; name: string }[]; newGrades: string;
+  hsnCode: string; leadTime: string; paymentTerms: string; sampleAvailable: "" | "yes" | "no";
+};
 
 /** Corrects a product's name, category, other names and grades (Rates → Edit product). */
 export async function updateProductAction(input: ProductEdit) {
@@ -74,6 +77,8 @@ export async function updateProductAction(input: ProductEdit) {
   const r = await runAction(() => updateProduct(s.ctx, {
     productId: input.productId, name: input.name, category: input.category || null,
     aliases: split(input.aliases).map((a) => a.toLowerCase()), grades: input.grades, newGrades: split(input.newGrades),
+    hsnCode: input.hsnCode, leadTime: input.leadTime, paymentTerms: input.paymentTerms,
+    sampleAvailable: input.sampleAvailable === "" ? null : input.sampleAvailable === "yes",
   }));
   revalidatePath("/rates");
   return r.ok ? { ok: true as const } : r;

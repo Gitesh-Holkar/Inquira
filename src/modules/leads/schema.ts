@@ -1,4 +1,4 @@
-import { boolean, index, jsonb, numeric, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, numeric, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { app, baseColumns, softDelete } from "@/db/pg-schema";
 import { organizations } from "@/modules/core/schema";
 import { contacts } from "@/modules/contacts/schema";
@@ -43,6 +43,11 @@ export const leads = app.table("leads", {
   filledBy: jsonb().$type<LeadFilledBy>().notNull().default({}),
   /** When rules and AI finished with this lead; null = still waiting for the AI job (src/modules/ai). */
   understoodAt: timestamp({ withTimezone: true }),
+  /** Lead score 0–100 (G-UND-6) and the reasons behind it; recomputed whenever the lead changes. */
+  score: integer().notNull().default(0),
+  scoreReasons: jsonb().$type<{ points: number; reason: string }[]>().notNull().default([]),
+  /** When the score was last computed; a nightly job refreshes older scores (MOQs change with rates). */
+  scoredAt: timestamp({ withTimezone: true }),
   message: text(),
   rawPayload: jsonb().$type<unknown>(),
   receivedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -60,6 +65,7 @@ export const leads = app.table("leads", {
   index("leads_org_email_idx").on(t.orgId, t.email),
   index("leads_org_thread_idx").on(t.orgId, t.gmailThreadId),
   index("leads_org_understood_idx").on(t.orgId, t.understoodAt),
+  index("leads_org_score_idx").on(t.orgId, t.score, t.receivedAt),
 ]);
 
 export const leadNotes = app.table("lead_notes", {

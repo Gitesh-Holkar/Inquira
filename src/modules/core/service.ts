@@ -1,5 +1,6 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
+import { samplePolicySchema } from "@/modules/catalog/types";
 import type { Tx } from "@/db/client";
 import { decryptJson, encryptJson } from "@/lib/crypto";
 import { notFound } from "@/lib/errors";
@@ -45,6 +46,8 @@ export const updateOrgSettings = defineService({
     defaultPriceBasis: z.string().trim().min(1).max(80).optional(),
     /** Printed on quotations. An empty value clears it, and the line is left out of quotations. */
     paymentTerms: z.string().trim().max(200).nullish(),
+    /** Sample policy (G-KB-5); shape checked by `samplePolicySchema`. */
+    samplePolicy: samplePolicySchema.optional(),
   }),
   permission: "settings.write",
   handler: async (ctx, input, tx) => {
@@ -53,6 +56,7 @@ export const updateOrgSettings = defineService({
     if (input.quoteValidityDays !== undefined) patch.quoteValidityDays = input.quoteValidityDays;
     if (input.defaultPriceBasis !== undefined) patch.defaultPriceBasis = input.defaultPriceBasis;
     if (input.paymentTerms !== undefined) patch.paymentTerms = input.paymentTerms || null;
+    if (input.samplePolicy !== undefined) patch.samplePolicy = input.samplePolicy;
     const [after] = await tx.update(orgSettings).set(patch).where(eq(orgSettings.orgId, ctx.orgId)).returning();
     await audit(tx, ctx, { action: "settings.update", entityType: "org_settings", entityId: after!.id, changes: patch });
     return after!;

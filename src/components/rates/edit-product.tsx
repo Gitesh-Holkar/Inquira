@@ -7,7 +7,10 @@ import { ConfirmDialog, Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/primitives";
 import { removeProductAction, updateProductAction } from "@/app/(app)/rates/actions";
 
-export type EditableProduct = { id: string; name: string; category: string | null; aliases: string[]; grades: { id: string; name: string }[] };
+export type EditableProduct = {
+  id: string; name: string; category: string | null; aliases: string[]; grades: { id: string; name: string }[];
+  hsnCode: string | null; leadTime: string | null; paymentTerms: string | null; sampleAvailable: boolean | null;
+};
 
 /**
  * Corrects a product: its name, category, the other names buyers use, and its grades. Grades can be
@@ -40,6 +43,8 @@ export function EditProductButton({ products }: { products: EditableProduct[] })
                 const r = await updateProductAction({
                   productId: p.id, name: text("name"), category: text("category"), aliases: text("aliases"),
                   grades: p.grades.map((g) => ({ id: g.id, name: text(`grade-${g.id}`) })), newGrades: text("newGrades"),
+                  hsnCode: text("hsnCode").trim(), leadTime: text("leadTime").trim(), paymentTerms: text("paymentTerms").trim(),
+                  sampleAvailable: text("sampleAvailable") as "" | "yes" | "no",
                 });
                 if (r.ok) { toast.success("Product saved"); setOpen(false); setId(""); setErrors({}); }
                 else { setErrors(r.fieldErrors ?? {}); toast.error(r.error); }
@@ -58,6 +63,20 @@ export function EditProductButton({ products }: { products: EditableProduct[] })
                 {errors.grades ? <p className="text-xs text-danger" role="alert">{errors.grades[0]}</p> : null}
               </fieldset>
               <Field label="Add grades (comma separated)" htmlFor="ep-new" hint="Enter their rates on the Rates screen afterwards"><Input id="ep-new" name="newGrades" placeholder="30%, 50%" /></Field>
+              <fieldset className="grid gap-3 border-t border-border pt-3 sm:grid-cols-2">
+                <legend className="pt-3 text-sm font-medium">Commercial terms</legend>
+                <p className="text-xs text-muted sm:col-span-2">Printed on quotations when filled. A term the reply needs that is empty makes the reply wait for a person.</p>
+                <Field label="HSN code" htmlFor="ep-hsn" error={errors.hsnCode}><Input id="ep-hsn" name="hsnCode" inputMode="numeric" maxLength={10} defaultValue={p.hsnCode ?? ""} /></Field>
+                <Field label="Lead time" htmlFor="ep-lead" hint="For example “7 to 10 days”"><Input id="ep-lead" name="leadTime" maxLength={60} defaultValue={p.leadTime ?? ""} /></Field>
+                <Field label="Payment terms for this product" htmlFor="ep-pay" hint="Empty = the company's terms" className="sm:col-span-2"><Input id="ep-pay" name="paymentTerms" maxLength={200} defaultValue={p.paymentTerms ?? ""} /></Field>
+                <Field label="Free samples" htmlFor="ep-sample" className="sm:col-span-2">
+                  <Select id="ep-sample" name="sampleAvailable" defaultValue={p.sampleAvailable === null ? "" : p.sampleAvailable ? "yes" : "no"}>
+                    <option value="">Not decided (sample replies wait for a person)</option>
+                    <option value="yes">Offered</option>
+                    <option value="no">Not offered</option>
+                  </Select>
+                </Field>
+              </fieldset>
               <div className="flex flex-wrap justify-between gap-2">
                 <ConfirmDialog danger title={`Remove ${p.name}?`} confirmLabel="Remove product"
                   description="It disappears from rates, quotations, lead matching and Buy Lead suggestions. Its rates and history are kept, and you can restore it under Rates → Removed products."

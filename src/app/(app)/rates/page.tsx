@@ -22,6 +22,7 @@ export default async function RatesPage({ searchParams }: { searchParams: Promis
   const canCatalog = can(s.ctx, "catalog.write");
   const editable = canCatalog ? (await listProducts(s.ctx, {})).map((p) => ({
     id: p.id, name: p.name, category: p.category, aliases: p.aliases,
+    hsnCode: p.hsnCode, leadTime: p.leadTime, paymentTerms: p.paymentTerms, sampleAvailable: p.sampleAvailable,
     grades: rates.filter((r) => r.productId === p.id).map((r) => ({ id: r.gradeId, name: r.gradeName })),
   })).sort((a, b) => a.name.localeCompare(b.name)) : [];
   const removed = canCatalog ? await listRemovedProducts(s.ctx, {}) : [];
@@ -42,6 +43,7 @@ export default async function RatesPage({ searchParams }: { searchParams: Promis
           rows={rates.map((r) => ({
             gradeId: r.gradeId, productName: r.productName, category: r.category, gradeName: r.gradeName, price: r.pricePerKgInr, gst: r.gstPercent,
             moq: r.moqKg, basis: r.priceBasis ?? settings.defaultPriceBasis, pack: r.packSize, validFrom: r.validFrom, confirm: r.needsConfirmation, updatedAt: r.updatedAt?.toISOString() ?? null,
+            validTo: r.validTo, floor: r.floorPerKgInr, ceiling: r.ceilingPerKgInr,
           }))} />
       )}
       {removed.length ? <RemovedProducts items={removed.map((p) => ({ id: p.id, name: p.name, removedAt: p.removedAt!.toISOString() }))} /> : null}

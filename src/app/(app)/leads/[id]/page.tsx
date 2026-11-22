@@ -103,6 +103,13 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                 ) : null}
                 <dt className="text-muted">Product</dt><dd>{product ? <><Link className="text-primary underline-offset-4 hover:underline" href={`/rates?q=${encodeURIComponent(product.name)}`}>{product.name}</Link><FilledBy by={lead.filledBy.product} /></> : <span className="text-muted">Not matched to catalog — use Edit</span>}</dd>
                 <dt className="text-muted">Wants</dt><dd>{lead.intent ? <>{INTENT_LABELS[lead.intent]}<FilledBy by={lead.filledBy.intent} /></> : <span className="text-muted">Not set — use Edit</span>}</dd>
+                <dt className="text-muted">Score</dt>
+                <dd>
+                  <details>
+                    <summary className="cursor-pointer"><strong>{lead.score}</strong> of 100 <span className="text-xs text-muted">(why)</span></summary>
+                    <ul className="mt-1 grid gap-0.5 text-xs text-muted">{lead.scoreReasons.map((r) => <li key={r.reason}>{r.points ? `+${r.points}` : "0"} · {r.reason}</li>)}</ul>
+                  </details>
+                </dd>
                 <dt className="text-muted">Quantity</dt>
                 <dd>{lead.quantityKg ? <>{formatNumber(lead.quantityKg)} kg<FilledBy by={lead.filledBy.quantity} />{lead.moqKg ? <span className={lead.belowMoq ? "ml-1 text-warning" : "ml-1 text-muted"}>({lead.belowMoq ? "below" : "meets"} MOQ {formatNumber(lead.moqKg)} kg)</span> : null}</> : <span className="text-muted">{lead.quantityText ? `“${lead.quantityText}” has no weight` : "Not stated"}</span>}</dd>
               </dl>

@@ -102,11 +102,13 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 | `upsertLeadInternal(tx, ctx, NormalizedLead)` | **Core of lead capture.** Idempotent insert: same `source`+`source_ref` → same lead; else same phone/email + product within 48 h → merge; else new lead + contact. |
 | `detectInternational`, `isIndia` | International detection (country or non-+91 phone). |
 | `understanding.ts`: `quantityToKg`, `mentionsWeight`, `intentByRules`, `belowMoq` | G-UND-3/4 rules: "10 MT" → 10000 kg, "4 bags of 25 kg" → 100, "1 Jar" → empty; intent from the buyer's message (complaint, order, sample, documents; portal and manual leads are new enquiries); below-MOQ only when both sides are known. |
+| `understanding.ts`: `scoreLead(lead, moqKg)` | Lead score 0–100 with reasons (G-UND-6). |
+| `rescoreLeadInternal`, `rescoreLeadsInternal` | Recompute one lead's score (called on create, merge, edit and fill); job `leads.rescore` refreshes open leads not scored today. |
 | `openFields(lead)` | Which of product, intent and quantity the rules left for AI (quantity only when the text states a weight). |
 | `fillLeadDetailsInternal(tx, ctx, leadId, found, by)` | Writes product / intent / kg into **empty** fields only and records who filled them (`filled_by`); used by rules, the AI job and the connector. |
 | `leadsAwaitingUnderstandingInternal`, `countLeadsAwaitingUnderstandingInternal`, `markLeadUnderstoodInternal` | The AI job's queue (`understood_at` null) and its end mark. |
 | `listLeadsNeedingDetails`, `submitLeadDetails`, `countLeadsNeedingDetailsInternal` | The review queue (no product or no intent after rules and AI): for the connector and the dashboard. Low confidence from the connector only leaves a note. |
-| `listLeads` | Inbox query: filters (incl. intent, `needsDetails`), search (incl. phone digits), pagination; adds `moqKg` and `belowMoq` per lead. |
+| `listLeads` | Inbox query: filters (incl. intent, `needsDetails`, `minScore`), sort newest or best score, search (incl. phone digits), pagination; adds `moqKg` and `belowMoq` per lead. |
 | `getLead` / `getLeadInternal` | One lead with notes and status history. |
 | `updateLeadStatus`, `markQuotedInternal` | Status changes (+ history row, audit, event); quotes move new/contacted → quoted. |
 | `addLeadNote`, `updateLead`, `createManualLead`, `deleteLead` (soft) | Lead editing from the UI. `updateLead` sets intent and kg too, records `filled_by`, and marks an AI decision corrected when a person changes what AI filled. |
@@ -142,13 +144,16 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 ### catalog (`catalog/service.ts`, `catalog/types.ts`)
 | Function | What it does |
 |---|---|
-| `currentRatesInternal` / `getCurrentRates` | Current rate per grade (newest entry valid today). |
+| `currentRatesInternal` / `getCurrentRates` | Current rate per grade (newest entry valid today; an entry past `valid_to` is not current), incl. lowest and highest price. |
+| `moqByProductInternal(tx, orgId, productIds)` | Smallest MOQ among a product's current grades (below-MOQ flag, lead score). |
+| `productTermsInternal(tx, orgId, productId)` | A product's HSN code, lead time, payment terms override and sample availability (G-KB-2, G-KB-5). |
+| `types.ts`: `samplePolicySchema` | The company's sample policy (free sample size, details the buyer must send, note), stored in `org_settings.sample_policy`. |
 | `rateHistory` | All price entries for a grade. |
-| `updateRates` / `insertRatesInternal` | Append new price rows (never overwrite); refuses back-dated `valid_from`. The internal form is shared with the price list import. |
+| `updateRates` / `insertRatesInternal` | Append new price rows (never overwrite); refuses back-dated `valid_from`; optional `valid_to`; lowest and highest price (a range not given is carried over while the new price is inside it). The internal form is shared with the price list import. |
 | `listProducts`, `createProduct` / `createProductInternal` | Products and grades. A duplicate name is refused with a plain message. |
 | `removeProduct` / `restoreProduct` / `listRemovedProducts` | Take a discontinued product out of the catalogue (rates screen, quotations, lead matching, Buy Lead terms) and bring it back. Nothing is deleted: grades, rates and history stay. |
 | `productInfoById`, `removedProductNamesInternal` | Name and removed state of a product; names of removed products (so a new product or a price list line with that name is explained). |
-| `updateProduct` | Corrects a product: name, category, other names (aliases), grade names, extra grades. Grades are renamed or added, never removed; rates and their history are untouched. |
+| `updateProduct` | Corrects a product: name, category, other names (aliases), grade names, extra grades, and its commercial terms (HSN code, lead time, payment terms, free samples). Grades are renamed or added, never removed; rates and their history are untouched. |
 | `matchProduct`, `normalizeProductText`, `productMatcherCatalog` | Free text ("soy isolate protein") → catalogue product. |
 | `productNameById`, `countProducts` | Small lookups. |
 | `types.ts`: `updateRatesInput`, `rateUpdateItem`, `moneyString`, `percentString`, `CurrentRate` | Rate input validation. |

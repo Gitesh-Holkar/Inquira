@@ -15,6 +15,11 @@ export type QuoteItemSnapshot = {
   moqKg: string | null;
   packSize: string | null;
   needsConfirmation: boolean;
+  /** Product terms at the time of the quote (G-KB-2); absent on quotations made before they existed. */
+  hsnCode?: string | null;
+  leadTime?: string | null;
+  /** The product's own payment terms, when they differ from the company's. */
+  paymentTerms?: string | null;
 };
 
 export const quoteStatusEnum = app.enum("quote_status", ["rendered", "draft_created", "draft_failed"]);

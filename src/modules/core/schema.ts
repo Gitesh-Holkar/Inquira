@@ -36,6 +36,11 @@ export const orgSettings = app.table("org_settings", {
    * product and grade). Shape: `priceListMapSchema` in the catalog module, which validates it on read.
    */
   priceListMap: jsonb().$type<unknown>(),
+  /**
+   * Sample policy (GOAL G-KB-5): free sample size and the details a buyer must send. Shape: `samplePolicySchema`
+   * in the catalog module. Empty until the company enters it; sample replies are held while it is empty.
+   */
+  samplePolicy: jsonb().$type<unknown>(),
 }, (t) => [uniqueIndex("org_settings_org_uq").on(t.orgId)]);
 
 export const memberships = app.table("memberships", {

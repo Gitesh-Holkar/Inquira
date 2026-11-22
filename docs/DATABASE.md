@@ -17,7 +17,7 @@ Postgres with Drizzle ORM. Every table is in the private schema **`app`** (see [
 | Table | Purpose | Notable columns |
 | --- | --- | --- |
 | `organizations` (soft delete) | One row per company | `name`, `slug` |
-| `org_settings` | Per-company settings, one row | `features` (json; reserved, nothing reads it yet), `quote_validity_days`, `timezone`, `home_country`, `default_price_basis`, `payment_terms` (printed on quotations; empty until entered), `price_list_map` (json: how the company's price list maps onto its catalogue, see `priceListMapSchema`) |
+| `org_settings` | Per-company settings, one row | `features` (json; reserved, nothing reads it yet), `quote_validity_days`, `timezone`, `home_country`, `default_price_basis`, `payment_terms` (printed on quotations; empty until entered), `price_list_map` (json: how the company's price list maps onto its catalogue, see `priceListMapSchema`), `sample_policy` (json: free sample size, details a buyer must send, note; see `samplePolicySchema`; empty until entered) |
 | `memberships` (soft delete) | Who belongs to which company, with a role. Managed on Settings → Members; a removed member's row stays, marked deleted | `user_id`, `role` (`owner`, `admin`, `sales`, `qa`, `accounts`, `viewer`), `granted` and `revoked` (text arrays: custom access on top of the role), `email`, `display_name`; unique `(org_id, user_id)` |
 | `audit_logs` | **Append-only.** One row per write | `actor`, `action`, `entity_type`, `entity_id`, `changes` (json) |
 | `events` | Domain event outbox | `type`, `entity_type`, `entity_id`, `payload`, `processed_at` |
@@ -31,7 +31,7 @@ Postgres with Drizzle ORM. Every table is in the private schema **`app`** (see [
 | Table | Purpose | Notable columns |
 | --- | --- | --- |
 | `contacts` (soft delete) | A buyer, matched by email then phone | `name`, `email`, `phone` (E.164), `company_name`, `city`, `state`, `country` |
-| `leads` (soft delete) | One enquiry | `contact_id`, `source` (`tradeindia`, `indiamart`, `gmail`, `manual`), `source_ref`, `channel`, `status`, `is_international`, buyer fields, `product_text`, `product_id`, `quantity_text`, `quantity_kg`, `intent` (`new_enquiry`, `document_request`, `sample_request`, `price_negotiation`, `order`, `complaint`, `not_buyer`, `other`; empty = not settled), `filled_by` (json: who filled product, intent and quantity: `alias`, `rule:…`, `ai:basic`, `ai:advanced`, `mcp:…`, `human:…`), `understood_at` (when rules and AI finished; empty = waiting for the AI job), `message`, `raw_payload`, `received_at`, `last_activity_at`, `gmail_thread_id`, `gmail_message_id`, `alternate_refs`; unique `(org_id, source, source_ref)` |
+| `leads` (soft delete) | One enquiry | `contact_id`, `source` (`tradeindia`, `indiamart`, `gmail`, `manual`), `source_ref`, `channel`, `status`, `is_international`, buyer fields, `product_text`, `product_id`, `quantity_text`, `quantity_kg`, `intent` (`new_enquiry`, `document_request`, `sample_request`, `price_negotiation`, `order`, `complaint`, `not_buyer`, `other`; empty = not settled), `filled_by` (json: who filled product, intent and quantity: `alias`, `rule:…`, `ai:basic`, `ai:advanced`, `mcp:…`, `human:…`), `understood_at` (when rules and AI finished; empty = waiting for the AI job), `score` (0–100), `score_reasons` (json list of points and reasons), `scored_at`, `message`, `raw_payload`, `received_at`, `last_activity_at`, `gmail_thread_id`, `gmail_message_id`, `alternate_refs`; unique `(org_id, source, source_ref)` |
 | `lead_notes` (soft delete) | Notes on a lead | `lead_id`, `body` |
 | `lead_status_changes` | **Append-only** status history | `lead_id`, `from_status`, `to_status`, `reason` |
 
@@ -48,9 +48,9 @@ Postgres with Drizzle ORM. Every table is in the private schema **`app`** (see [
 
 | Table | Purpose | Notable columns |
 | --- | --- | --- |
-| `products` (soft delete) | Catalogue products | `name` (unique per company), `category`, `aliases`, `default_gst_percent`, `default_pack_size`, `website_url`, `notes`, `sort_order` |
+| `products` (soft delete) | Catalogue products | `name` (unique per company), `category`, `aliases`, `default_gst_percent`, `default_pack_size`, `website_url`, `hsn_code`, `lead_time`, `payment_terms` (overrides the company's), `sample_available` (true, false, or empty = not decided), `notes`, `sort_order` |
 | `product_grades` (soft delete) | Grades of a product | `product_id`, `name`; unique `(product_id, name)` |
-| `price_entries` | **Append-only** rate book | `grade_id`, `price_per_kg_inr`, `gst_percent`, `gst_inclusive`, `price_basis`, `moq_kg`, `pack_size`, `valid_from`, `valid_to`, `needs_confirmation`, `note` |
+| `price_entries` | **Append-only** rate book | `grade_id`, `price_per_kg_inr`, `gst_percent`, `gst_inclusive`, `price_basis`, `moq_kg`, `pack_size`, `valid_from`, `valid_to` (last day; after it the grade has no current rate), `needs_confirmation`, `floor_per_kg_inr` and `ceiling_per_kg_inr` (internal negotiation range), `note` |
 
 The current rate of a grade is the newest entry with `valid_from` ≤ today and `valid_to` empty or ≥ today.
 
@@ -132,7 +132,7 @@ Append-only triggers reject UPDATE and DELETE on `price_entries`, `audit_logs` a
 
 ## Indexes
 
-Every list the app shows has an index on its filter: leads by `(org_id, status, received_at)`, `(org_id, received_at)`, phone, email, thread and `(org_id, understood_at)` (the AI job's queue); emails by `(org_id, classification, received_at)`, thread and received time; price entries by `(grade_id, valid_from, created_at)`; jobs by `(status, run_after)`; audit rows by entity and by time. Unique indexes are listed with their tables above.
+Every list the app shows has an index on its filter: leads by `(org_id, status, received_at)`, `(org_id, received_at)`, phone, email, thread and `(org_id, understood_at)` (the AI job's queue), `(org_id, score, received_at)` (best-score sort); emails by `(org_id, classification, received_at)`, thread and received time; price entries by `(grade_id, valid_from, created_at)`; jobs by `(status, run_after)`; audit rows by entity and by time. Unique indexes are listed with their tables above.
 
 ## Migrations (`drizzle/`)
 
@@ -150,6 +150,7 @@ Every list the app shows has an index on its filter: leads by `(org_id, status, 
 | `0009_indiamart_provider.sql` | Adds `indiamart` to the `integration_provider` enum |
 | `0010_ai_layer.sql` | Enum `lead_intent`; providers `ai_basic`, `ai_advanced`; table `ai_decisions`; `leads.intent`, `leads.filled_by`, `leads.understood_at`; `email_messages.ai_checked_at` |
 | `0011_ai_decisions_rls.sql` | Row-level security, grants and the `updated_at` trigger for `ai_decisions` |
+| `0012_knowledge_base.sql` | `products.hsn_code`, `lead_time`, `payment_terms`, `sample_available`; `price_entries.floor_per_kg_inr`, `ceiling_per_kg_inr`; `org_settings.sample_policy`; `leads.score`, `score_reasons`, `scored_at` and index `(org_id, score, received_at)` |
 
 Rules: generate with `npm run db:generate`; never edit an applied migration; a new table needs base columns, `org_id`, and a migration that enables RLS with policies, plus a case in `tests/rls.test.ts`. Apply with `npm run db:migrate` (TCP) or `npm run db:remote:apply` (HTTPS).
 

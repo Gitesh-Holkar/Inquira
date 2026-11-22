@@ -150,6 +150,7 @@ Every source implements the same three steps: **fetch → normalize to `Normaliz
 | `gmail.sync` | historyId incremental sync. Falls back to a date resync if the historyId has expired. At most 150 messages per run; the rest wait in a backlog. | enqueued by every tick, and right after connect |
 | `tradeindia.sync` | 30-day backfill on first run, then (last success − 2d) → now in 7-day windows | every tick, and after a successful Test connection |
 | `indiamart.sync` | One Pull API call per run (ADR-030) | every tick |
+| `leads.rescore` | Refreshes scores of open leads not scored today (MOQs change with rates); 300 per run | every tick; does nothing once the day's pass is done |
 | `ai.work` | Leads the rules left open go to Basic, then Advanced, then the review queue; review emails go to Advanced (ADR-031). 15 s budget, 10 items per run; `{ more: true }` queues a follow-up | when a lead or review email arrives that rules could not settle, and every tick |
 
 `/api/cron/tick`:

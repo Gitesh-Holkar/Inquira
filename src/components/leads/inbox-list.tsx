@@ -15,7 +15,7 @@ export type InboxLead = {
   id: string; status: LeadStatus; source: LeadSource; channel: string | null; productText: string | null; quantityText: string | null;
   city: string | null; state: string | null; country: string | null; contactName: string | null; companyName: string | null;
   phone: string | null; email: string | null; receivedAt: string; isInternational: boolean;
-  intent: LeadIntent | null; belowMoq: boolean | null; needsDetails: boolean;
+  intent: LeadIntent | null; belowMoq: boolean | null; needsDetails: boolean; score: number;
 };
 
 const SHORTCUTS = [["j / k", "Next / previous lead"], ["e or Enter", "Open lead"], ["w", "WhatsApp"], ["q", "Create quote draft"], ["?", "Show this help"]];
@@ -73,6 +73,7 @@ export function InboxList({ leads }: { leads: InboxLead[] }) {
                     {l.intent && l.intent !== "new_enquiry" ? <Badge tone="info">{INTENT_LABELS[l.intent]}</Badge> : null}
                     {l.belowMoq ? <Badge tone="warning">Below MOQ</Badge> : null}
                     {l.needsDetails ? <Badge tone="warning">Needs details</Badge> : null}
+                    <Badge tone={l.score >= 70 ? "success" : l.score >= 40 ? "info" : "neutral"} title="Lead score: product, quantity against MOQ and buyer details">Score {l.score}</Badge>
                     <span className="ml-auto text-xs text-muted md:ml-0" title={formatDateTime(l.receivedAt)}>{formatRelative(l.receivedAt)}</span>
                   </div>
                   <p className="mt-1.5 truncate font-semibold">{l.productText ?? "Product not stated"}{l.quantityText ? <span className="font-normal text-muted"> · {l.quantityText}</span> : null}</p>

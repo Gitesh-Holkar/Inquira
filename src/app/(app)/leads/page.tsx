@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Leads" };
 
-type SP = { view?: string; status?: string; source?: string; product?: string; intent?: string; q?: string; from?: string; to?: string; page?: string };
+type SP = { view?: string; status?: string; source?: string; product?: string; intent?: string; sort?: string; q?: string; from?: string; to?: string; page?: string };
 
 const VIEWS = [["inbox", "Inbox"], ["details", "Needs details"], ["international", "International"]] as const;
 
@@ -23,6 +23,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const view = sp.view === "international" ? "international" : sp.view === "details" ? "details" : "inbox";
   const intent = LEAD_INTENTS.includes(sp.intent as LeadIntent) ? (sp.intent as LeadIntent) : undefined;
+  const sort = sp.sort === "score" ? "score" : "newest";
   const page = Math.max(1, Number(sp.page) || 1);
   const status = LEAD_STATUSES.includes(sp.status as LeadStatus) ? (sp.status as LeadStatus) : undefined;
   const source = LEAD_SOURCES.includes(sp.source as LeadSource) ? (sp.source as LeadSource) : undefined;
@@ -32,7 +33,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
   const [res, products] = await Promise.all([
     listLeads(s.ctx, {
-      status, source, productId, intent, q: sp.q?.slice(0, 100) || undefined, from, to, page, pageSize: 25,
+      status, source, productId, intent, sort, q: sp.q?.slice(0, 100) || undefined, from, to, page, pageSize: 25,
       international: view === "international" ? "only" : "exclude", needsDetails: view === "details" || undefined,
     }),
     listProducts(s.ctx, {}),
@@ -58,7 +59,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         ))}
       </div>
       <Card className="mb-4 p-3">
-        <form className="grid grid-cols-2 gap-2 md:grid-cols-7" action="/leads" role="search">
+        <form className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8" action="/leads" role="search">
           {view !== "inbox" ? <input type="hidden" name="view" value={view} /> : null}
           <div className="relative col-span-2">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden />
@@ -80,11 +81,15 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             <option value="">Any request</option>
             {LEAD_INTENTS.map((x) => <option key={x} value={x}>{INTENT_LABELS[x]}</option>)}
           </Select>
-          <div className="col-span-2 grid grid-cols-2 gap-2 md:col-span-1">
+          <Select name="sort" defaultValue={sort} aria-label="Order">
+            <option value="newest">Newest first</option>
+            <option value="score">Best score first</option>
+          </Select>
+          <div className="col-span-2 grid grid-cols-2 gap-2 md:col-span-2 xl:col-span-1">
             <Button type="submit" className="w-full">Filter</Button>
             <Button asChild variant="outline" className="w-full"><Link href={viewHref(view)}>Clear</Link></Button>
           </div>
-          <details className="col-span-2 md:col-span-7" open={!!(from || to)}>
+          <details className="col-span-2 md:col-span-4 xl:col-span-8" open={!!(from || to)}>
             <summary className="cursor-pointer text-sm text-muted">Date range</summary>
             <div className="mt-2 grid grid-cols-2 gap-2 sm:max-w-sm">
               <Input type="date" name="from" defaultValue={sp.from} aria-label="From date" />
@@ -106,7 +111,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           id: l.id, status: l.status, source: l.source, channel: l.channel, productText: l.productText, quantityText: l.quantityText,
           city: l.city, state: l.state, country: l.country, contactName: l.contactName, companyName: l.companyName, phone: l.phone, email: l.email,
           receivedAt: l.receivedAt.toISOString(), isInternational: l.isInternational,
-          intent: l.intent, belowMoq: l.belowMoq, needsDetails: !!l.understoodAt && (!l.productId || !l.intent) && !["won", "lost", "not_relevant"].includes(l.status),
+          intent: l.intent, belowMoq: l.belowMoq, score: l.score, needsDetails: !!l.understoodAt && (!l.productId || !l.intent) && !["won", "lost", "not_relevant"].includes(l.status),
         }))} />
       )}
 

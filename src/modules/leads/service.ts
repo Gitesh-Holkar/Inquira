@@ -12,7 +12,7 @@ import { enqueueJobInternal } from "@/modules/core/service";
 import { markAiCorrectedInternal } from "@/modules/ai/corrections";
 import { leadNotes, leads, leadStatusChanges } from "./schema";
 import { LEAD_INTENTS, LEAD_STATUSES, listLeadsInput, type LeadFilledBy, type LeadIntent, type NormalizedLead } from "./types";
-import { belowMoq, intentByRules, mentionsWeight, quantityToKg } from "./understanding";
+import { belowMoq, intentByRules, mentionsWeight, quantityToKg, scoreLead } from "./understanding";
 
 export { quantityToKg } from "./understanding";
 
@@ -103,6 +103,8 @@ export async function upsertLeadInternal(tx: Tx, ctx: Ctx, input: NormalizedLead
     ...(product ? { product: "alias" } : {}), ...(intent ? { intent: intent.by } : {}), ...(quantityKg ? { quantity: "rule:units" } : {}),
   };
   const open = openFields({ productId: product?.id ?? null, productText: input.productText ?? null, message: input.message ?? null, intent: intent?.intent ?? null, quantityKg, quantityText: input.quantityText ?? null });
+  const moq = product ? (await moqByProductInternal(tx, ctx.orgId, [product.id])).get(product.id) ?? null : null;
+  const scored = scoreLead({ productId: product?.id ?? null, quantityKg, phone, email, companyName: input.companyName?.trim() || null, intent: intent?.intent ?? null }, moq);
   const [row] = await tx
     .insert(leads)
     .values({
@@ -126,6 +128,9 @@ export async function upsertLeadInternal(tx: Tx, ctx: Ctx, input: NormalizedLead
       intent: intent?.intent ?? null,
       filledBy,
       understoodAt: open.length ? null : new Date(),
+      score: scored.score,
+      scoreReasons: scored.reasons,
+      scoredAt: new Date(),
       message: input.message?.slice(0, 5000) ?? null,
       rawPayload: input.rawPayload ?? null,
       receivedAt: input.receivedAt,
@@ -181,6 +186,7 @@ async function fillMissing(tx: Tx, ctx: Ctx, lead: Lead, input: NormalizedLead &
   if (Object.keys(patch).length) {
     await tx.update(leads).set(patch).where(eq(leads.id, lead.id));
     await audit(tx, ctx, { action: "lead.merge_duplicate", entityType: "lead", entityId: lead.id, changes: { filled: Object.keys(patch), altRef } });
+    await rescoreLeadInternal(tx, ctx.orgId, lead.id);
   }
 }
 
@@ -193,6 +199,7 @@ function listWhere(orgId: string, input: z.output<typeof listLeadsInput>): SQL |
   if (input.source) conds.push(eq(leads.source, input.source));
   if (input.productId) conds.push(eq(leads.productId, input.productId));
   if (input.intent) conds.push(eq(leads.intent, input.intent));
+  if (input.minScore !== undefined) conds.push(gte(leads.score, input.minScore));
   if (input.needsDetails) {
     conds.push(isNotNull(leads.understoodAt), or(isNull(leads.productId), isNull(leads.intent)), notInArray(leads.status, ["won", "lost", "not_relevant"]));
   }
@@ -224,7 +231,7 @@ export const listLeads = defineService({
       .select()
       .from(leads)
       .where(where)
-      .orderBy(desc(leads.receivedAt))
+      .orderBy(...(input.sort === "score" ? [desc(leads.score), desc(leads.receivedAt)] : [desc(leads.receivedAt)]))
       .limit(input.pageSize)
       .offset((input.page - 1) * input.pageSize);
     const moq = await moqByProductInternal(tx, ctx.orgId, [...new Set(items.map((l) => l.productId).filter((id): id is string => !!id))]);
@@ -360,7 +367,7 @@ export const updateLead = defineService({
     for (const k of Object.keys(patch) as (keyof Lead)[]) if (k !== "filledBy" && JSON.stringify(lead[k]) !== JSON.stringify(updated![k])) changes[k] = [lead[k], updated![k]];
     await audit(tx, ctx, { action: "lead.update", entityType: "lead", entityId: lead.id, changes });
     await emit(tx, ctx, { type: "lead.updated", entityType: "lead", entityId: lead.id, payload: { fields: Object.keys(changes) } });
-    return updated!;
+    return (await rescoreLeadInternal(tx, ctx.orgId, lead.id)) ?? updated!;
   },
 });
 
@@ -526,6 +533,7 @@ export async function fillLeadDetailsInternal(tx: Tx, ctx: Ctx, leadId: string, 
   if (found.quantityKg && !lead.quantityKg) { patch.quantityKg = String(Math.round(found.quantityKg * 1000) / 1000); filledBy.quantity = who("quantity"); written.push("quantity"); }
   if (!written.length) return [];
   await tx.update(leads).set({ ...patch, filledBy }).where(and(eq(leads.id, lead.id), eq(leads.orgId, ctx.orgId)));
+  await rescoreLeadInternal(tx, ctx.orgId, lead.id);
   await audit(tx, ctx, { action: "lead.understood", entityType: "lead", entityId: lead.id, changes: { ...Object.fromEntries(written.map((k) => [k, filledBy[k]])), productId: patch.productId, intent: patch.intent, quantityKg: patch.quantityKg } });
   await emit(tx, ctx, { type: "lead.updated", entityType: "lead", entityId: lead.id, payload: { fields: written, by: written.map((k) => filledBy[k]) } });
   return written;
@@ -534,7 +542,7 @@ export async function fillLeadDetailsInternal(tx: Tx, ctx: Ctx, leadId: string, 
 /** Open leads in the review queue (no product or no intent after rules and AI), for the dashboard. */
 export async function countLeadsNeedingDetailsInternal(tx: Tx, orgId: string): Promise<number> {
   const [r] = await tx.select({ n: sql<number>`count(*)::int` }).from(leads)
-    .where(listWhere(orgId, { needsDetails: true, international: "exclude", page: 1, pageSize: 1 }));
+    .where(listWhere(orgId, { needsDetails: true, international: "exclude", sort: "newest", page: 1, pageSize: 1 }));
   return r?.n ?? 0;
 }
 
@@ -550,7 +558,7 @@ export const listLeadsNeedingDetails = defineService({
   permission: "leads.read",
   handler: async (ctx, input, tx) => {
     const offset = Number(input.cursor ?? 0);
-    const where = listWhere(ctx.orgId, { needsDetails: true, international: "all", page: 1, pageSize: 1 });
+    const where = listWhere(ctx.orgId, { needsDetails: true, international: "all", sort: "newest", page: 1, pageSize: 1 });
     const rows = await tx.select().from(leads).where(where).orderBy(desc(leads.receivedAt)).limit(input.limit + 1).offset(offset);
     const more = rows.length > input.limit;
     return { items: rows.slice(0, input.limit), nextCursor: more ? String(offset + input.limit) : null };
@@ -585,3 +593,36 @@ export const submitLeadDetails = defineService({
     return { status: written.length ? ("filled" as const) : ("nothing_to_fill" as const), written };
   },
 });
+
+// ---------- lead score (GOAL G-UND-6) ----------
+
+/**
+ * Recomputes one lead's score from its current fields and the product's MOQ. The score is derived data:
+ * it is written together with the change that caused it (whose audit row covers it). Returns the lead.
+ */
+export async function rescoreLeadInternal(tx: Tx, orgId: string, leadId: string): Promise<Lead | null> {
+  const lead = await getLeadInternal(tx, orgId, leadId);
+  if (!lead) return null;
+  const moq = lead.productId ? (await moqByProductInternal(tx, orgId, [lead.productId])).get(lead.productId) ?? null : null;
+  const s = scoreLead(lead, moq);
+  const [row] = await tx.update(leads).set({ score: s.score, scoreReasons: s.reasons, scoredAt: new Date() })
+    .where(and(eq(leads.id, leadId), eq(leads.orgId, orgId))).returning();
+  return row ?? null;
+}
+
+/**
+ * Job `leads.rescore` (daily): refreshes the scores of open leads from the last 180 days that were not
+ * scored today, so a changed MOQ shows up. 300 leads per run; `{ more: true }` continues on the next tick.
+ */
+export async function rescoreLeadsInternal(tx: Tx, ctx: Ctx, now = new Date()) {
+  const startOfDay = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(now)}T00:00:00+05:30`);
+  const rows = await tx.select({ id: leads.id }).from(leads).where(and(
+    eq(leads.orgId, ctx.orgId), isNull(leads.deletedAt), inArray(leads.status, ["new", "contacted", "quoted", "negotiating"]),
+    gte(leads.receivedAt, new Date(now.getTime() - 180 * 86400_000)),
+    or(isNull(leads.scoredAt), lte(leads.scoredAt, startOfDay)),
+  )).limit(301);
+  for (const r of rows.slice(0, 300)) await rescoreLeadInternal(tx, ctx.orgId, r.id);
+  if (rows.length) await audit(tx, ctx, { action: "leads.rescore", entityType: "lead", changes: { count: Math.min(rows.length, 300) } });
+  return { rescored: Math.min(rows.length, 300), more: rows.length > 300 };
+}
+

@@ -6,6 +6,7 @@ import { syncGmail } from "./gmail/service";
 import { syncTradeIndia } from "./tradeindia/service";
 import { syncIndiaMart } from "./indiamart/service";
 import { runAiWork } from "@/modules/ai/service";
+import { rescoreLeadsInternal } from "@/modules/leads/service";
 
 /** A handler may return `{ more: true }` when it stopped early (time budget, backlog); a follow-up is then queued. */
 type Handler = (ctx: Ctx, payload: Record<string, unknown>) => Promise<unknown>;
@@ -20,6 +21,8 @@ export const JOB_HANDLERS: Record<string, Handler> = {
   "indiamart.sync": (ctx) => syncIndiaMart(ctx),
   // Queued when a lead or review email arrives that the rules could not settle (src/modules/ai).
   "ai.work": (ctx) => runAiWork(ctx),
+  // Daily refresh of lead scores (MOQs change with rates); does nothing once today's pass is done.
+  "leads.rescore": (ctx) => withSystemTx((tx) => rescoreLeadsInternal(tx, ctx)),
 };
 
 /** Don't start another job after this long; the route's maxDuration is 60 s and one Gmail run may take ~35 s. */
@@ -35,7 +38,7 @@ export async function tick(opts: { maxJobs?: number; schedule?: boolean; startBu
       const ctx: Ctx = { orgId, actor: { kind: "system", job: "cron" } };
       await withSystemTx(async (tx) => {
         // ai.work also runs every tick, so review emails held back by a rate limit are tried again once it lifts.
-        for (const type of ["gmail.sync", "tradeindia.sync", "indiamart.sync", "ai.work"]) {
+        for (const type of ["gmail.sync", "tradeindia.sync", "indiamart.sync", "ai.work", "leads.rescore"]) {
           const j = await enqueueJobInternal(tx, ctx, { type, dedupeKey: type });
           if (j) scheduled.push(`${orgId}:${type}`);
         }

@@ -42,6 +42,9 @@ export async function currentRatesInternal(tx: Tx, orgId: string, opts: { produc
       packSize: latest.packSize,
       validFrom: latest.validFrom,
       needsConfirmation: latest.needsConfirmation,
+      validTo: latest.validTo,
+      floorPerKgInr: latest.floorPerKgInr,
+      ceilingPerKgInr: latest.ceilingPerKgInr,
       updatedBy: latest.createdBy,
       updatedAt: latest.createdAt,
     })
@@ -71,6 +74,9 @@ export async function currentRatesInternal(tx: Tx, orgId: string, opts: { produc
     packSize: r.packSize,
     validFrom: r.validFrom,
     needsConfirmation: r.needsConfirmation ?? false,
+    validTo: r.validTo,
+    floorPerKgInr: r.floorPerKgInr,
+    ceilingPerKgInr: r.ceilingPerKgInr,
     updatedBy: r.updatedBy,
     updatedAt: r.updatedAt,
   }));
@@ -123,6 +129,9 @@ export const rateHistory = defineService({
  */
 export async function insertRatesInternal(tx: Tx, ctx: Ctx, input: z.output<typeof updateRatesInput>) {
   const validFrom = input.validFrom ?? todayIST();
+  if (input.validTo && input.validTo < validFrom) {
+    throw new AppError("VALIDATION", "“Valid until” must be on or after “Valid from”.", { fieldErrors: { validTo: ["Use a date on or after Valid from"] } });
+  }
   // A back-dated entry would never become current (a newer valid_from already exists), so it would be
   // saved but silently ignored by quotes. History is append-only; corrections start today.
   if (validFrom < todayIST()) {
@@ -151,6 +160,10 @@ export async function insertRatesInternal(tx: Tx, ctx: Ctx, input: z.output<type
       needsConfirmation: i.needsConfirmation,
       note: i.note,
       validFrom,
+      validTo: input.validTo ?? null,
+      // Not given (price list import): keep the grade's range while the new price still sits inside it.
+      floorPerKgInr: i.floorPerKgInr !== undefined ? i.floorPerKgInr : keepRange(before.get(i.gradeId)?.floorPerKgInr, (f) => f <= Number(i.pricePerKgInr)),
+      ceilingPerKgInr: i.ceilingPerKgInr !== undefined ? i.ceilingPerKgInr : keepRange(before.get(i.gradeId)?.ceilingPerKgInr, (c) => c >= Number(i.pricePerKgInr)),
       createdBy: actorString(ctx.actor),
     })))
     .returning();
@@ -170,6 +183,10 @@ export async function insertRatesInternal(tx: Tx, ctx: Ctx, input: z.output<type
     await emit(tx, ctx, { type: "rate.updated", entityType: "product_grade", entityId: row.gradeId, payload: changes });
   }
   return { count: inserted.length, validFrom };
+}
+
+function keepRange(v: string | null | undefined, ok: (n: number) => boolean): string | null {
+  return v !== null && v !== undefined && ok(Number(v)) ? v : null;
 }
 
 /** Adds new price rows (never overwrites). Only changed rates should be sent by the UI. */
@@ -291,6 +308,11 @@ const updateProductInput = z.object({
   /** Existing grades with the name each should have. Grades are renamed, never removed: their rates are history. */
   grades: z.array(z.object({ id: z.string().uuid(), name: z.string().trim().min(1).max(60) })).max(40).default([]),
   newGrades: z.array(z.string().trim().min(1).max(60)).max(20).default([]),
+  /** Commercial terms (G-KB-2); `undefined` leaves a term as it is, "" or null clears it. */
+  hsnCode: z.string().trim().max(12).regex(/^\d{0,10}$/, "HSN codes are digits only").nullish(),
+  leadTime: z.string().trim().max(60).nullish(),
+  paymentTerms: z.string().trim().max(200).nullish(),
+  sampleAvailable: z.boolean().nullish(),
 });
 
 /**
@@ -313,7 +335,12 @@ export const updateProduct = defineService({
     if (input.name !== p.name) await assertNameFree(tx, ctx.orgId, input.name);
 
     const aliases = [...new Set(input.aliases)];
-    await tx.update(products).set({ name: input.name, category: input.category || null, aliases }).where(eq(products.id, p.id));
+    const terms: Partial<typeof products.$inferInsert> = {};
+    if (input.hsnCode !== undefined) terms.hsnCode = input.hsnCode || null;
+    if (input.leadTime !== undefined) terms.leadTime = input.leadTime || null;
+    if (input.paymentTerms !== undefined) terms.paymentTerms = input.paymentTerms || null;
+    if (input.sampleAvailable !== undefined) terms.sampleAvailable = input.sampleAvailable;
+    await tx.update(products).set({ name: input.name, category: input.category || null, aliases, ...terms }).where(eq(products.id, p.id));
     const renames = existing.filter((g) => wanted.has(g.id) && wanted.get(g.id) !== g.name);
     // Two steps, so that swapping two names never trips the unique index half-way.
     for (const g of renames) await tx.update(productGrades).set({ name: `~${g.id}` }).where(eq(productGrades.id, g.id));
@@ -327,6 +354,7 @@ export const updateProduct = defineService({
       ...(JSON.stringify(aliases) !== JSON.stringify(p.aliases) ? { aliases: [p.aliases, aliases] } : {}),
       ...(renames.length ? { gradesRenamed: renames.map((g) => [g.name, wanted.get(g.id)!]) } : {}),
       ...(input.newGrades.length ? { gradesAdded: input.newGrades } : {}),
+      ...Object.fromEntries(Object.entries(terms).filter(([k, v]) => (p as Record<string, unknown>)[k] !== v).map(([k, v]) => [k, [(p as Record<string, unknown>)[k], v]])),
     };
     await audit(tx, ctx, { action: "product.update", entityType: "product", entityId: p.id, changes });
     await emit(tx, ctx, { type: "product.updated", entityType: "product", entityId: p.id, payload: { name: input.name } });
@@ -410,3 +438,11 @@ export async function countProducts(tx: Tx, orgId: string) {
   const [r] = await tx.select({ n: sql<number>`count(*)::int` }).from(products).where(and(eq(products.orgId, orgId), isNull(products.deletedAt)));
   return r?.n ?? 0;
 }
+
+/** A product's commercial terms (G-KB-2) for templates and hold rules; payment terms fall back to the company's. */
+export async function productTermsInternal(tx: Tx, orgId: string, productId: string) {
+  const [p] = await tx.select({ name: products.name, hsnCode: products.hsnCode, leadTime: products.leadTime, paymentTerms: products.paymentTerms, sampleAvailable: products.sampleAvailable })
+    .from(products).where(and(eq(products.orgId, orgId), eq(products.id, productId), isNull(products.deletedAt)));
+  return p ?? null;
+}
+

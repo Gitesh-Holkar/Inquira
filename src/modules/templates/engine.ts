@@ -12,7 +12,9 @@ export const PLACEHOLDERS = {
   gst_percent: "GST %, e.g. 18",
   moq: "Minimum order quantity (kg)",
   pack_size: "Pack size, e.g. 20 Kg",
-  payment_terms: "Payment terms from Settings → Organisation, e.g. 100% advance",
+  payment_terms: "Payment terms (the product's, else Settings → Organisation), e.g. 100% advance",
+  hsn_code: "HSN code of the product",
+  lead_time: "Lead time of the product, e.g. 7 to 10 days",
   validity_date: "Quote valid until, e.g. 2 Oct 2026",
   quantity: "Quantity the buyer asked for",
   city: "Buyer's city",
@@ -30,7 +32,8 @@ export function render(template: string, vars: TemplateVars): string {
     return v ?? "";
   })
     // Tidy lines left empty by missing optional values like "- MOQ:  kg".
-    .replace(/^[ \t]*[-•][^\n:]*:\s*(kg)?[ \t]*$/gim, "")
+    // The whole line goes, with its line break, so no blank line is left in a list.
+    .replace(/^[ \t]*[-•][^\n:]*:[ \t]*(kg)?[ \t]*(?:\r?\n|$)/gim, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
@@ -61,6 +64,8 @@ export const DEFAULT_ITEM_BLOCK = `{{product}} ({{grade}})
 - Pack Size: {{pack_size}}
 - GST: {{gst_percent}}% extra
 - MOQ: {{moq}} kg
+- HSN: {{hsn_code}}
+- Lead time: {{lead_time}}
 - Payment: {{payment_terms}}`;
 
 export const DEFAULT_WHATSAPP_BODY = `Hello {{contact_name}}, thank you for your inquiry for {{product}}{{quantity}}. Our current rate is Rs. {{price_per_kg}}/kg ({{price_basis}}), GST {{gst_percent}}% extra. Valid until {{validity_date}}. Shall I share the COA and specification?`;

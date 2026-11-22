@@ -17,6 +17,7 @@ import { McpTokens } from "@/components/settings/tokens";
 import { RulesEditor } from "@/components/settings/rules";
 import { BuyleadRulesEditor } from "@/components/settings/buylead-rules";
 import { OrgForm } from "@/components/settings/org-form";
+import { samplePolicySchema } from "@/modules/catalog/types";
 import { Members } from "@/components/settings/members";
 import { AiIntro, AiTierCard } from "@/components/settings/ai";
 import { getAiSettings } from "@/modules/ai/service";
@@ -222,7 +223,8 @@ async function OrgTab({ ctx, canEdit }: { ctx: Ctx; canEdit: boolean }) {
         <CardTitle>{s.orgName}</CardTitle>
       </CardHeader>
       <CardContent>
-        <OrgForm canEdit={canEdit} quoteValidityDays={s.quoteValidityDays} defaultPriceBasis={s.defaultPriceBasis} paymentTerms={s.paymentTerms ?? ""} />
+        <OrgForm canEdit={canEdit} quoteValidityDays={s.quoteValidityDays} defaultPriceBasis={s.defaultPriceBasis} paymentTerms={s.paymentTerms ?? ""}
+          samplePolicy={samplePolicySchema.catch({ freeSampleSize: null, requiredDetails: [], note: null }).parse(s.samplePolicy ?? {})} />
       </CardContent>
     </Card>
   );

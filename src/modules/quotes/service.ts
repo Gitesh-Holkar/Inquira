@@ -9,7 +9,7 @@ import { authorize } from "@/modules/core/permissions";
 import { defineService, parseInput, runTx } from "@/modules/core/service-kit";
 import { getOrgSettingsInternal } from "@/modules/core/service";
 import { actorString, type Ctx } from "@/modules/core/types";
-import { currentRatesInternal, productInfoById } from "@/modules/catalog/service";
+import { currentRatesInternal, productInfoById, productTermsInternal } from "@/modules/catalog/service";
 import type { CurrentRate } from "@/modules/catalog/types";
 import { getLeadInternal, markQuotedInternal, type Lead } from "@/modules/leads/service";
 import { getDefaultTemplateInternal, getTemplateInternal } from "@/modules/templates/service";
@@ -40,11 +40,18 @@ function snapshot(r: CurrentRate): QuoteItemSnapshot {
   };
 }
 
+/** Adds each product's terms (HSN code, lead time, own payment terms) to the snapshot. */
+async function withTerms(tx: Tx, orgId: string, items: QuoteItemSnapshot[]): Promise<QuoteItemSnapshot[]> {
+  const terms = new Map<string, Awaited<ReturnType<typeof productTermsInternal>>>();
+  for (const id of new Set(items.map((i) => i.productId))) terms.set(id, await productTermsInternal(tx, orgId, id));
+  return items.map((i) => ({ ...i, hsnCode: terms.get(i.productId)?.hsnCode ?? null, leadTime: terms.get(i.productId)?.leadTime ?? null, paymentTerms: terms.get(i.productId)?.paymentTerms ?? null }));
+}
+
 function itemVars(i: QuoteItemSnapshot, paymentTerms: string | null): TemplateVars {
   return {
     product: i.productName, grade: i.gradeName, price_per_kg: formatAmount(i.pricePerKgInr), price_basis: i.priceBasis,
     gst_percent: formatPercent(i.gstPercent), moq: i.moqKg ? formatNumber(i.moqKg) : "", pack_size: i.packSize ?? "",
-    payment_terms: paymentTerms ?? "",
+    payment_terms: i.paymentTerms || paymentTerms || "", hsn_code: i.hsnCode ?? "", lead_time: i.leadTime ?? "",
   };
 }
 
@@ -79,7 +86,7 @@ async function pickItems(tx: Tx, ctx: Ctx, lead: Lead, gradeIds?: string[]) {
     if (info?.removed) throw new AppError("VALIDATION", `${info.name} was removed from the catalogue. Restore it under Rates → Removed products, or pick another product for this lead.`);
     throw new AppError("VALIDATION", `There is no current rate for ${info?.name ?? "the selected grade"}. Add one on the Rates screen first.`);
   }
-  return chosen.map(snapshot);
+  return withTerms(tx, ctx.orgId, chosen.map(snapshot));
 }
 
 /** Total size of files attached to one draft; Gmail accepts drafts up to 35 MB through the upload endpoint. */

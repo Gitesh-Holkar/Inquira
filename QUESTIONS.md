@@ -161,3 +161,8 @@ Each item lists the question, what I assumed so the build could continue, and wh
   3. The OpenAI-compatible adapter uses JSON mode (`response_format: json_object`); a provider without it will answer "bad request" on Test connection.
 - **Please:** after a day, look at the dashboard's AI card and correct any wrong product or request type on the lead page; tell me if a tier is often wrong.
 
+## Q-021 — Product terms and sample policy (22 Nov 2026)
+- **Needed (Rates → Edit product, per product):** HSN code, lead time, and whether free samples are offered. Payment terms per product only where they differ from "100% advance".
+- **Needed (Settings → Organisation → Sample policy):** free sample size, the details a buyer must send (for example company name, GST number, delivery address), and who pays for the courier.
+- Nothing is guessed: while these are empty, replies that need them wait for a person.
+

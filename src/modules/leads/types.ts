@@ -76,6 +76,9 @@ export const listLeadsInput = z.object({
   intent: z.enum(LEAD_INTENTS).optional(),
   /** Leads the rules and AI could not complete: no product or no intent (the review queue, G-AI-6). */
   needsDetails: z.boolean().optional(),
+  /** "score": best leads first (G-UND-6); default newest first. */
+  sort: z.enum(["newest", "score"]).default("newest"),
+  minScore: z.number().int().min(0).max(100).optional(),
   q: z.string().trim().max(100).optional(),
   from: z.string().datetime({ offset: true }).optional(),
   to: z.string().datetime({ offset: true }).optional(),

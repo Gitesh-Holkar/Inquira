@@ -12,6 +12,14 @@ export const products = app.table("products", {
   websiteUrl: text(),
   defaultPackSize: text(),
   defaultGstPercent: numeric({ precision: 5, scale: 2 }),
+  /** Commercial terms (GOAL G-KB-2). Empty means unknown: never printed, and it holds automatic sending. */
+  hsnCode: text(),
+  /** Time from order to dispatch as the company states it, e.g. "7 to 10 days". */
+  leadTime: text(),
+  /** Overrides the company's payment terms for this product; empty = use Settings → Organisation. */
+  paymentTerms: text(),
+  /** Free samples (GOAL G-KB-5): true = offered, false = not offered, empty = not decided (sample replies are held). */
+  sampleAvailable: boolean(),
   notes: text(),
   sortOrder: integer().notNull().default(0),
 }, (t) => [uniqueIndex("products_org_name_uq").on(t.orgId, t.name)]);
@@ -42,5 +50,8 @@ export const priceEntries = app.table("price_entries", {
   validFrom: date().notNull(),
   validTo: date(),
   needsConfirmation: boolean().notNull().default(false),
+  /** Optional negotiation range (GOAL G-KB-3): the lowest and highest price per kg a salesperson may agree. Internal only. */
+  floorPerKgInr: numeric({ precision: 12, scale: 2 }),
+  ceilingPerKgInr: numeric({ precision: 12, scale: 2 }),
   note: text(),
 }, (t) => [index("price_entries_grade_idx").on(t.gradeId, t.validFrom, t.createdAt)]);

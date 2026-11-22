@@ -12,19 +12,22 @@ import { rateHistoryAction, saveRatesAction, type RateChange } from "@/app/(app)
 export type RateRow = {
   gradeId: string; productName: string; category: string | null; gradeName: string; price: string | null; gst: string | null;
   moq: string | null; basis: string | null; pack: string | null; validFrom: string | null; confirm: boolean; updatedAt: string | null;
+  validTo: string | null; floor: string | null; ceiling: string | null;
 };
-type Editable = { price: string; gst: string; moq: string; basis: string; pack: string };
+type Editable = { price: string; gst: string; moq: string; basis: string; pack: string; floor: string; ceiling: string };
 const COLS: { key: keyof Editable; label: string; width: string; inputMode?: "decimal" }[] = [
   { key: "price", label: "Price ₹/kg", width: "w-28", inputMode: "decimal" },
   { key: "gst", label: "GST %", width: "w-20", inputMode: "decimal" },
   { key: "moq", label: "MOQ kg", width: "w-24", inputMode: "decimal" },
   { key: "basis", label: "Price basis", width: "w-32" },
   { key: "pack", label: "Pack", width: "w-24" },
+  { key: "floor", label: "Lowest ₹/kg", width: "w-24", inputMode: "decimal" },
+  { key: "ceiling", label: "Highest ₹/kg", width: "w-24", inputMode: "decimal" },
 ];
 
 function initial(r: RateRow): Editable {
   const num = (v: string | null) => (v === null ? "" : String(Number(v)));
-  return { price: num(r.price), gst: num(r.gst), moq: num(r.moq), basis: r.basis ?? "", pack: r.pack ?? "" };
+  return { price: num(r.price), gst: num(r.gst), moq: num(r.moq), basis: r.basis ?? "", pack: r.pack ?? "", floor: num(r.floor), ceiling: num(r.ceiling) };
 }
 
 function validate(e: Editable): string | null {
@@ -32,6 +35,8 @@ function validate(e: Editable): string | null {
   if (!/^\d{1,2}(\.\d{1,2})?$/.test(e.gst) || Number(e.gst) > 28) return "GST % must be between 0 and 28";
   if (e.moq && !/^\d{1,10}(\.\d{1,2})?$/.test(e.moq)) return "MOQ must be a number of kg";
   if (!e.basis.trim()) return "Price basis is required (e.g. Ex-factory)";
+  if (e.floor && (!/^\d{1,10}(\.\d{1,2})?$/.test(e.floor) || Number(e.floor) > Number(e.price))) return "The lowest price must be a number not above the price";
+  if (e.ceiling && (!/^\d{1,10}(\.\d{1,2})?$/.test(e.ceiling) || Number(e.ceiling) < Number(e.price))) return "The highest price must be a number not below the price";
   return null;
 }
 
@@ -41,6 +46,7 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
   // Flagged rates ("Confirm" badge) the user marked as correct without changing them.
   const [acks, setAcks] = useState<Record<string, true>>({});
   const [validFrom, setValidFrom] = useState(today);
+  const [validTo, setValidTo] = useState("");
   const [pending, start] = useTransition();
   const base = useMemo(() => Object.fromEntries(rows.map((r) => [r.gradeId, initial(r)])), [rows]);
 
@@ -65,12 +71,14 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
   const save = () => start(async () => {
     const items: RateChange[] = changed.map(([gradeId, e]) => ({
       gradeId, pricePerKgInr: e.price, gstPercent: e.gst, priceBasis: e.basis || defaultBasis, moqKg: e.moq || null, packSize: e.pack || null, needsConfirmation: false,
+      floorPerKgInr: e.floor || null, ceilingPerKgInr: e.ceiling || null,
     }));
-    const r = await saveRatesAction(items, validFrom);
+    const r = await saveRatesAction(items, validFrom, validTo || null);
     if (!r.ok) return void toast.error(r.error); // edits kept so nothing is lost
     toast.success(`Saved ${r.data.count} rate${r.data.count === 1 ? "" : "s"} (valid from ${formatDate(r.data.validFrom)})`);
     setEdits({});
     setAcks({});
+    setValidTo("");
   });
 
   return (
@@ -81,7 +89,10 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter products…" aria-label="Filter products" className="pl-9" />
         </div>
         {canEdit ? (
-          <label className="flex items-center gap-2 text-sm">Valid from <Input type="date" value={validFrom} min={today} onChange={(e) => setValidFrom(e.target.value)} className="w-40" /></label>
+          <>
+            <label className="flex items-center gap-2 text-sm">Valid from <Input type="date" value={validFrom} min={today} onChange={(e) => setValidFrom(e.target.value)} className="w-40" /></label>
+            <label className="flex items-center gap-2 text-sm" title="Optional. After this day the rate stops: quotes need a new rate.">Valid until <Input type="date" value={validTo} min={validFrom} onChange={(e) => setValidTo(e.target.value)} className="w-40" aria-label="Valid until (optional)" /></label>
+          </>
         ) : <Badge>Read-only — only admins can change rates</Badge>}
       </div>
 
@@ -114,7 +125,7 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
                           className={cn("h-8", c.width, isChanged(r.gradeId, c.key) && "border-warning bg-warning-soft font-semibold")} />
                       </td>
                     ))}
-                    <td className="whitespace-nowrap px-2 py-1 text-xs text-muted">{r.validFrom ? formatDate(r.validFrom) : "—"}</td>
+                    <td className="whitespace-nowrap px-2 py-1 text-xs text-muted">{r.validFrom ? formatDate(r.validFrom) : "—"}{r.validTo ? <><br />until {formatDate(r.validTo)}</> : null}</td>
                     <td className="px-2 py-1"><HistoryButton gradeId={r.gradeId} title={`${r.productName} · ${r.gradeName}`} /></td>
                   </tr>
                 </Rows>
@@ -131,7 +142,7 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-medium">{r.productName}{r.gradeName !== "Standard" ? <span className="text-muted"> · {r.gradeName}</span> : null}</p>
-                <p className="text-sm text-muted">{r.price ? <>{formatINR(r.price)}/kg + GST {formatPercent(r.gst)}%</> : "No rate yet"}</p>
+                <p className="text-sm text-muted">{r.price ? <>{formatINR(r.price)}/kg + GST {formatPercent(r.gst)}%{r.validTo ? ` · until ${formatDate(r.validTo)}` : ""}</> : "No rate yet"}</p>
                 {r.confirm ? <ConfirmFlag acked={!!acks[r.gradeId]} canEdit={canEdit && !!r.price} onToggle={() => toggleAck(r.gradeId)} /> : null}
               </div>
               <HistoryButton gradeId={r.gradeId} title={`${r.productName} · ${r.gradeName}`} />
@@ -180,13 +191,13 @@ function ConfirmFlag({ acked, canEdit, onToggle }: { acked: boolean; canEdit: bo
 function Rows({ header, children }: { header: string | null; children: React.ReactNode }) {
   return (
     <>
-      {header ? <tr><th colSpan={8} scope="colgroup" className="bg-surface-2 px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-muted">{header}</th></tr> : null}
+      {header ? <tr><th colSpan={10} scope="colgroup" className="bg-surface-2 px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-muted">{header}</th></tr> : null}
       {children}
     </>
   );
 }
 
-type Hist = { id: string; price: string; gst: string; moq: string | null; basis: string; pack: string | null; validFrom: string; by: string; at: string; note: string | null; confirm: boolean };
+type Hist = { id: string; price: string; gst: string; moq: string | null; basis: string; pack: string | null; validFrom: string; validTo: string | null; floor: string | null; ceiling: string | null; by: string; at: string; note: string | null; confirm: boolean };
 
 function HistoryButton({ gradeId, title }: { gradeId: string; title: string }) {
   const [open, setOpen] = useState(false);
@@ -204,7 +215,8 @@ function HistoryButton({ gradeId, title }: { gradeId: string; title: string }) {
             {rows.map((h, i) => (
               <li key={h.id} className={cn("rounded-md border border-border p-2", i === 0 && "border-primary")}>
                 <p><strong>{formatINR(h.price)}/kg</strong> + GST {formatPercent(h.gst)}% · {h.basis}{h.moq ? ` · MOQ ${formatNumber(h.moq)} kg` : ""}{h.pack ? ` · ${h.pack}` : ""} {i === 0 ? <Badge tone="success">Current</Badge> : null}</p>
-                <p className="text-xs text-muted">From {formatDate(h.validFrom)} · entered {formatDateTime(h.at)} by {h.by.startsWith("human:") ? "team member" : h.by}</p>
+                {h.floor || h.ceiling ? <p className="text-xs">Range {h.floor ? formatINR(h.floor) : "—"} to {h.ceiling ? formatINR(h.ceiling) : "—"} per kg (internal)</p> : null}
+                <p className="text-xs text-muted">From {formatDate(h.validFrom)}{h.validTo ? ` until ${formatDate(h.validTo)}` : ""} · entered {formatDateTime(h.at)} by {h.by.startsWith("human:") ? "team member" : h.by}</p>
                 {h.note ? <p className="text-xs text-muted">{h.note}</p> : null}
               </li>
             ))}

@@ -84,3 +84,30 @@ export function belowMoq(quantityKg: string | number | null | undefined, moqKg: 
   if (quantityKg === null || quantityKg === undefined || moqKg === null || moqKg === undefined) return null;
   return Number(quantityKg) < moqKg;
 }
+
+export type ScoreReason = { points: number; reason: string };
+
+/**
+ * Lead score 0–100 (GOAL G-UND-6) with the reasons a person sees on the lead. Points: product matched 30;
+ * quantity 25 (meets MOQ), 15 (stated, MOQ unknown) or 5 (below MOQ); phone 15; email 10; company 10;
+ * a buying request 10. "Not a buyer" scores 0. The portals' notifications carry no order value today, so
+ * order value does not count yet.
+ */
+export function scoreLead(l: {
+  productId: string | null; quantityKg: string | number | null; phone: string | null; email: string | null; companyName: string | null;
+  intent: string | null;
+}, moqKg: number | null): { score: number; reasons: ScoreReason[] } {
+  if (l.intent === "not_buyer") return { score: 0, reasons: [{ points: 0, reason: "Not a buyer" }] };
+  const r: ScoreReason[] = [];
+  r.push(l.productId ? { points: 30, reason: "Product matched to the catalogue" } : { points: 0, reason: "Product not matched" });
+  const below = belowMoq(l.quantityKg, moqKg);
+  if (l.quantityKg === null || l.quantityKg === undefined) r.push({ points: 0, reason: "No quantity in kg" });
+  else if (below === false) r.push({ points: 25, reason: `Quantity meets the MOQ of ${moqKg} kg` });
+  else if (below === true) r.push({ points: 5, reason: `Quantity below the MOQ of ${moqKg} kg` });
+  else r.push({ points: 15, reason: "Quantity stated (no MOQ to compare)" });
+  r.push(l.phone ? { points: 15, reason: "Phone number" } : { points: 0, reason: "No phone number" });
+  r.push(l.email ? { points: 10, reason: "Email address" } : { points: 0, reason: "No email address" });
+  if (l.companyName) r.push({ points: 10, reason: "Company name" });
+  if (l.intent && ["new_enquiry", "order", "sample_request", "document_request", "price_negotiation"].includes(l.intent)) r.push({ points: 10, reason: "Asks to buy, for a sample or for documents" });
+  return { score: Math.min(100, r.reduce((a, x) => a + x.points, 0)), reasons: r };
+}

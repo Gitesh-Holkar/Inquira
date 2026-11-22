@@ -27,7 +27,7 @@ function compactLead(l: Lead) {
   const o: Record<string, unknown> = {
     id: l.id, status: l.status, source: l.source, product: l.productText, qty: l.quantityText, name: l.contactName, company: l.companyName,
     city: l.city, state: l.state, country: l.country, phone: l.phone, email: l.email, intl: l.isInternational || undefined, age_h: hoursAgo(l.receivedAt),
-    product_id: l.productId, intent: l.intent, qty_kg: l.quantityKg === null ? null : Number(l.quantityKg),
+    product_id: l.productId, intent: l.intent, qty_kg: l.quantityKg === null ? null : Number(l.quantityKg), score: l.score,
   };
   for (const k of Object.keys(o)) if (o[k] === null || o[k] === undefined) delete o[k];
   return o;

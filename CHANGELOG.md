@@ -4,6 +4,13 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 22 Nov 2026 — Product terms, rate validity, sample policy, lead score (M6)
+- **Rates → Edit product:** HSN code, lead time, payment terms for that product (otherwise the company's), and whether free samples are offered. Filled terms appear on quotations; an empty term a reply needs makes that reply wait for a person.
+- **Rates:** an optional **Valid until** date (after it the rate stops and quotes need a new one) and an internal **lowest / highest price** per grade, shown in the rate history and never on a quotation.
+- **Settings → Organisation → Sample policy:** free sample size, the details a buyer must send, and a note. Sample replies wait for a person until it is filled.
+- **Lead score** from 0 to 100 on every lead (product matched, quantity against MOQ, phone, email, company, a buying request), with the reasons on the lead page. Leads → **Best score first** sorts by it. Scores refresh every night.
+- Database: migration 0012.
+
 ### 18 Nov 2026 — AI that fills in leads (M5, waiting for the owner's key)
 - **Settings → AI:** two optional tiers. Basic (for example a free Gemini key) finds the product when the name matches no alias and fills what the buyer wants and the quantity in kg; it never sees the buyer's email, phone, name, company or city. Advanced (for example a Claude API key) does the same for what Basic could not settle and sorts emails waiting in Review. Choose provider and model, set how sure it must be and how many calls a day it may make; **Test connection** checks the key. Steps: `docs/SETUP.md` section 6b.
 - **Leads** now show what the buyer wants (new enquiry, documents, sample, price negotiation, order, complaint, not a buyer), the quantity in kg with **Below MOQ** when it is under the product's MOQ, and who filled each of these (rule, AI or a person). Filter by request type; edit both on the lead.
