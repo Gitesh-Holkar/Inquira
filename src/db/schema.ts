@@ -11,3 +11,4 @@ export * from "@/modules/mcp/schema";
 export * from "@/modules/buyleads/schema";
 export * from "@/modules/documents/schema";
 export * from "@/modules/ai/schema";
+export * from "@/modules/outbound/schema";

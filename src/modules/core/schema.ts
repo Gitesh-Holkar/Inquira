@@ -41,6 +41,11 @@ export const orgSettings = app.table("org_settings", {
    * in the catalog module. Empty until the company enters it; sample replies are held while it is empty.
    */
   samplePolicy: jsonb().$type<unknown>(),
+  /**
+   * Sending rules (GOAL G-OUT-3, G-OUT-4, G-FUP-1, G-RPT-2): mode per channel, send window, caps, pause switch,
+   * follow-up days, daily summary. Shape and defaults: `outboundSettingsSchema` in the outbound module.
+   */
+  outbound: jsonb().$type<unknown>(),
 }, (t) => [uniqueIndex("org_settings_org_uq").on(t.orgId)]);
 
 export const memberships = app.table("memberships", {
@@ -54,6 +59,8 @@ export const memberships = app.table("memberships", {
   revoked: text().array().notNull().default([]),
   email: text().notNull(),
   displayName: text(),
+  /** The bell shows notifications newer than this (G-OUT-9: the team is told once). */
+  notificationsSeenAt: timestamp({ withTimezone: true }),
 }, (t) => [
   uniqueIndex("memberships_org_user_uq").on(t.orgId, t.userId),
   index("memberships_user_idx").on(t.userId),
@@ -154,3 +161,19 @@ export const syncRuns = app.table("sync_runs", {
   errorMessage: text(),
   meta: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 }, (t) => [index("sync_runs_org_provider_idx").on(t.orgId, t.provider, t.startedAt)]);
+
+/**
+ * Things the team should know about once (GOAL G-OUT-9): a held message, a failed send. Shown under the bell;
+ * a member has seen everything older than `memberships.notifications_seen_at`.
+ */
+export const notifications = app.table("notifications", {
+  ...baseColumns(),
+  orgId: uuid().notNull().references(() => organizations.id),
+  kind: text().notNull(),
+  title: text().notNull(),
+  body: text(),
+  href: text(),
+  entityType: text(),
+  entityId: uuid(),
+}, (t) => [index("notifications_org_created_idx").on(t.orgId, t.createdAt), uniqueIndex("notifications_once_uq").on(t.orgId, t.kind, t.entityId)]);
+

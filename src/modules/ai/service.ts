@@ -34,7 +34,7 @@ import { PROVIDERS, PROVIDER_LABELS } from "./providers";
 import { AiProviderError, type AiProvider } from "./providers/types";
 import { redactForBasic } from "./redact";
 import { aiDecisions } from "./schema";
-import { emailPrompt, emailReplySchema, leadPrompt, leadReplySchema, parseReply, EMAIL_SCHEMA, LEAD_SCHEMA, type LeadReply } from "./tasks";
+import { emailPrompt, emailReplySchema, leadPrompt, leadReplySchema, parseReply, replyPrompt, replySchema, EMAIL_SCHEMA, LEAD_SCHEMA, REPLY_SCHEMA, type LeadReply } from "./tasks";
 import { AI_DEFAULTS, AI_PROVIDERS, AI_TIERS, TIER_INTEGRATION, type AiOutcome, type AiTask, type AiTier, type AiTierConfig, type LeadUnderstandingField } from "./types";
 
 /** The job stops starting new calls after this long; one call may take CALL_TIMEOUT_MS more (tick limit 60 s). */
@@ -496,5 +496,41 @@ async function classifyEmailWithAi(ctx: Ctx, email: EmailRow, t: LoadedTier, f: 
 /** Leads currently waiting for the AI job (for the dashboard). */
 export async function aiBacklogInternal(tx: Tx, orgId: string) {
   return countLeadsAwaitingUnderstandingInternal(tx, orgId, LOOKBACK_DAYS);
+}
+
+/**
+ * A reply draft for a buyer's message (G-CNV-3), from the Advanced tier only (the thread carries personal data).
+ * The outbound pipeline always holds it for a person. Returns null when Advanced is off, paused, at its daily
+ * limit, or the answer was unusable; every attempt is logged as task `email.reply`.
+ */
+export async function draftReplyInternal(ctx: Ctx, input: { leadId: string; thread: { from: string; text: string }[] }, opts: { fetchImpl?: typeof fetch; now?: Date } = {}): Promise<{ body: string; confidence: number } | null> {
+  const loaded = await withSystemTx(async (tx) => ({
+    t: await loadTierInternal(tx, ctx.orgId, "advanced", { requireEnabled: true }),
+    settings: await getOrgSettingsInternal(tx, ctx.orgId),
+    catalogue: await productMatcherCatalog(tx, ctx.orgId),
+  }));
+  const t = loaded.t;
+  if (!t || unavailable(t, opts.now ?? new Date())) return null;
+  const prompt = replyPrompt({ orgName: loaded.settings.orgName, productNames: loaded.catalogue.map((c) => c.name), thread: input.thread.slice(-5).map((m) => ({ from: m.from, text: m.text.slice(0, 3000) })) });
+  const callId = randomUUID();
+  const t0 = Date.now();
+  t.usedToday++;
+  const call = (usage: { inputTokens: number | null; outputTokens: number | null }) => ({ id: callId, entityType: "lead" as const, entityId: input.leadId, latencyMs: Date.now() - t0, ...usage });
+  try {
+    const r = await providerFor(t, opts.fetchImpl ?? fetch).complete({ ...prompt, schema: REPLY_SCHEMA, maxOutputTokens: 4096 });
+    const reply = parseReply(replySchema, r.text);
+    await withSystemTx(async (tx) => {
+      await logDecisions(tx, ctx.orgId, t, call({ inputTokens: r.inputTokens, outputTokens: r.outputTokens }), [reply
+        ? { task: "email.reply", outcome: "applied", confidence: reply.confidence, value: { chars: reply.body.length }, detail: "Draft held for a person" }
+        : { task: "email.reply", outcome: "invalid", detail: "The reply did not match the required format" }]);
+      await recordIntegrationSuccess(tx, ctx, t.integration, { status: "connected" });
+    });
+    return reply ? { body: reply.body, confidence: reply.confidence } : null;
+  } catch (e) {
+    if (!(e instanceof AiProviderError)) throw e;
+    await withSystemTx((tx) => logDecisions(tx, ctx.orgId, t, call({ inputTokens: null, outputTokens: null }), [{ task: "email.reply", outcome: e.kind === "refused" || e.kind === "truncated" ? "invalid" : "error", detail: `${e.kind}: ${e.message}` }]));
+    await recordProviderError(ctx, t, e);
+    return null;
+  }
 }
 

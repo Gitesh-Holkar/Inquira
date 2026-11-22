@@ -166,3 +166,9 @@ Each item lists the question, what I assumed so the build could continue, and wh
 - **Needed (Settings → Organisation → Sample policy):** free sample size, the details a buyer must send (for example company name, GST number, delivery address), and who pays for the courier.
 - Nothing is guessed: while these are empty, replies that need them wait for a person.
 
+## Q-022 — Sending: when to leave shadow mode, and the limits (22 Nov 2026)
+- **Now:** shadow mode. Inquira prepares every reply in the Outbox; a person sends each one. Nothing reaches a buyer by itself.
+- **Your decision later (Settings → Sending, owner only):** after about two weeks in which the prepared quotations needed few edits, switch email to **assisted** (clean first quotations go automatically). **Automatic** also sends document replies and follow-ups.
+- **Please confirm the defaults:** send window 09:00–19:00 IST, Monday to Saturday; at most 10 automatic emails an hour and 40 a day; a follow-up after 3 days without a reply.
+- **WhatsApp Cloud API** (sending WhatsApp without a tap) is not built: it needs Meta's per-message fees approved (GOAL G-OUT-8). Until then WhatsApp opens on your phone with the text filled in.
+

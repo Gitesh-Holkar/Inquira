@@ -152,3 +152,9 @@ export async function documentFilesInternal(docs: DocumentRow[], deps: Deps = {}
   const store = storeOrFail(deps);
   return Promise.all(docs.map(async (d) => ({ document: d, data: await store.get(d.storageKey) })));
 }
+
+/** Documents by id (for a prepared message that recorded which files it attaches). Removed files are left out. */
+export async function documentsByIdsInternal(tx: Tx, orgId: string, ids: string[]): Promise<DocumentRow[]> {
+  if (!ids.length) return [];
+  return tx.select().from(documents).where(and(eq(documents.orgId, orgId), inArray(documents.id, ids), isNull(documents.deletedAt)));
+}

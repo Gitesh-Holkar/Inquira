@@ -17,6 +17,7 @@ const CAN = [
   "Update lead status and add notes",
   "Fill a lead's empty product, request type and quantity (never overwrite)",
   "Create quotation drafts in Gmail (a person always clicks Send)",
+  "Write reply drafts that wait in the Outbox for a person",
   "Read and log IndiaMART Buy Lead decisions",
 ];
 const CANNOT = ["Send email", "Delete anything", "Change rates or settings", "Read passwords, API keys or tokens", "Export data in bulk"];

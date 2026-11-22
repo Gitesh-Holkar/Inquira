@@ -4,6 +4,17 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 22 Nov 2026 — Replies prepared for you: the Outbox (M7, starts in shadow mode)
+- **Outbox** (new menu item): for every new enquiry Inquira prepares the reply from your template, today's rate and the product's terms, by email (when the buyer has a real email) and WhatsApp (when there is a phone). Document requests get the latest valid COA or TDS attached; sample requests use your sample policy; below-MOQ enquiries get the below-MOQ reply; international enquiries an acknowledgement.
+- **Held** messages say why (no product match, no quantity, below MOQ, outside India, no or flagged rate, a blank term, a question the template does not answer, an ongoing conversation, an existing customer, talk of discount, credit, complaint or a purchase order, an attachment, already sent, …). **Send**, **Edit** or **Don't send**; "Don't send" can become a rule, for example "always hold messages to anyone at this company".
+- **Sending:** email goes from your Gmail with your signature, in the buyer's thread; WhatsApp opens the chat with the text filled in. Every send records the rules, template version and rates used.
+- **Settings → Sending:** mode **shadow** (default: a person sends everything), **assisted** (clean first quotations go automatically) or **automatic** (also documents and follow-ups). Only an owner can change the mode. Send window, hourly and daily limits, and one **pause** switch. Follow-ups after a set number of days without a reply.
+- **Templates:** one text per kind of message (first quotation, detailed quotation, documents, sample reply, below-MOQ reply, follow-up, international acknowledgement), email and WhatsApp; every save is kept as a version.
+- Replies to buyers in a conversation: with Advanced AI on, a draft reply waits in the Outbox (always held); Claude can write one too (new connector tool).
+- **Bell** (top right): held messages, failed sends and buyer replies, each told once.
+- On phones, **More** lists every page you may open.
+- Database: migrations 0013 and 0014.
+
 ### 22 Nov 2026 — Product terms, rate validity, sample policy, lead score (M6)
 - **Rates → Edit product:** HSN code, lead time, payment terms for that product (otherwise the company's), and whether free samples are offered. Filled terms appear on quotations; an empty term a reply needs makes that reply wait for a person.
 - **Rates:** an optional **Valid until** date (after it the rate stops and quotes need a new one) and an internal **lowest / highest price** per grade, shown in the rate history and never on a quotation.

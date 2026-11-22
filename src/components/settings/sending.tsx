@@ -1,0 +1,97 @@
+"use client";
+import { useTransition } from "react";
+import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/dialog";
+import { Alert, Field, Input, Select } from "@/components/ui/primitives";
+import { removeOutboundRuleAction, saveSendingAction } from "@/app/(app)/settings/actions";
+import type { OutboundSettings } from "@/modules/outbound/types";
+
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MODE_HELP = {
+  shadow: "A person sends every message (recommended until the drafts need few edits).",
+  assisted: "First quotations that pass every hold rule are sent automatically; everything else waits for a person.",
+  automatic: "Also document replies and follow-ups that pass every rule are sent automatically.",
+};
+
+/** Settings → Sending (GOAL G-OUT-3, G-OUT-4, G-FUP-1, G-RPT-2). */
+export function SendingForm({ s, isOwner, canEdit }: { s: OutboundSettings; isOwner: boolean; canEdit: boolean }) {
+  const [pending, start] = useTransition();
+  return (
+    <form className="grid gap-4" onSubmit={(e) => {
+      e.preventDefault();
+      const f = new FormData(e.currentTarget);
+      const num = (k: string) => Number(f.get(k) ?? 0);
+      const input: OutboundSettings = {
+        modes: { email: String(f.get("mode")) as OutboundSettings["modes"]["email"] },
+        paused: f.get("paused") === "on",
+        window: { start: String(f.get("start")), end: String(f.get("end")), days: DAYS.map((_, i) => i).filter((i) => f.get(`day-${i}`) === "on") },
+        caps: { perHour: num("perHour"), perDay: num("perDay") },
+        followUpDays: num("followUpDays"),
+        dailySummary: { enabled: f.get("summary") === "on", to: String(f.get("summaryTo") ?? "").split(",").map((x) => x.trim()).filter(Boolean) },
+      };
+      start(async () => {
+        const r = await saveSendingAction(input);
+        if (r.ok) toast.success("Saved"); else toast.error(r.error);
+      });
+    }}>
+      <Field label="Email mode" htmlFor="snd-mode" hint={isOwner ? MODE_HELP[s.modes.email] : "Only an owner can change the mode."}>
+        <Select id="snd-mode" name="mode" defaultValue={s.modes.email} disabled={!canEdit || !isOwner}>
+          <option value="shadow">Shadow: a person sends everything</option>
+          <option value="assisted">Assisted: clean first quotations go automatically</option>
+          <option value="automatic">Automatic: also documents and follow-ups</option>
+        </Select>
+      </Field>
+      {!isOwner ? <input type="hidden" name="mode" value={s.modes.email} /> : null}
+      <p className="text-xs text-muted">WhatsApp is always sent by a person: Inquira opens the chat with the text filled in.</p>
+      <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
+        <input type="checkbox" name="paused" defaultChecked={s.paused} disabled={!canEdit} className="size-4" /> Pause all automatic sending
+      </label>
+      <fieldset className="grid gap-2">
+        <legend className="text-sm font-medium">Send window (IST)</legend>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <Input type="time" name="start" defaultValue={s.window.start} aria-label="From" className="w-32" disabled={!canEdit} required /> to
+          <Input type="time" name="end" defaultValue={s.window.end} aria-label="Until" className="w-32" disabled={!canEdit} required />
+        </div>
+        <div className="flex flex-wrap gap-3 text-sm">
+          {DAYS.map((d, i) => (
+            <label key={d} className="flex min-h-11 items-center gap-1.5"><input type="checkbox" name={`day-${i}`} defaultChecked={s.window.days.includes(i)} disabled={!canEdit} className="size-4" />{d}</label>
+          ))}
+        </div>
+        <p className="text-xs text-muted">Automatic messages outside the window wait for it. A person can send any time.</p>
+      </fieldset>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label="Automatic emails per hour" htmlFor="snd-h"><Input id="snd-h" name="perHour" type="number" min={0} max={500} defaultValue={s.caps.perHour} disabled={!canEdit} /></Field>
+        <Field label="Automatic emails per day" htmlFor="snd-d"><Input id="snd-d" name="perDay" type="number" min={0} max={5000} defaultValue={s.caps.perDay} disabled={!canEdit} /></Field>
+        <Field label="Follow up after (days)" htmlFor="snd-f" hint="0 = no follow-ups"><Input id="snd-f" name="followUpDays" type="number" min={0} max={60} defaultValue={s.followUpDays} disabled={!canEdit} /></Field>
+      </div>
+      <fieldset className="grid gap-2 border-t border-border pt-3">
+        <legend className="pt-3 text-sm font-medium">Daily summary</legend>
+        <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" name="summary" defaultChecked={s.dailySummary.enabled} disabled={!canEdit} className="size-4" /> Email a summary of the day at 7:30 PM IST (from your Gmail)</label>
+        <Field label="Send it to (comma separated)" htmlFor="snd-to" hint="Empty = every owner"><Input id="snd-to" name="summaryTo" defaultValue={s.dailySummary.to.join(", ")} disabled={!canEdit} /></Field>
+      </fieldset>
+      {canEdit ? <div><Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</Button></div> : <Alert tone="neutral" title="Read-only" />}
+    </form>
+  );
+}
+
+export function TeamRules({ rules, canEdit }: { rules: { id: string; matchType: string; pattern: string; note: string | null }[]; canEdit: boolean }) {
+  const [pending, start] = useTransition();
+  if (!rules.length) return <p className="text-sm text-muted">None yet. When you choose “Don’t send” on a message, you can turn the reason into a rule here.</p>;
+  const what = (t: string) => ({ buyer_email: "buyer email", buyer_domain: "buyer domain", buyer_phone: "buyer phone", product: "product", text_contains: "enquiry mentions" }[t] ?? t);
+  return (
+    <ul className="grid gap-2">
+      {rules.map((r) => (
+        <li key={r.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2 text-sm">
+          <span className="min-w-0 flex-1 break-words"><span className="text-muted">{what(r.matchType)}:</span> {r.pattern}{r.note ? <span className="text-muted"> · {r.note}</span> : null}</span>
+          {canEdit ? (
+            <ConfirmDialog danger title="Remove this rule?" confirmLabel="Remove" description="Messages that match it are no longer held because of it."
+              trigger={<Button size="sm" variant="outline" disabled={pending}><Trash2 />Remove</Button>}
+              onConfirm={() => start(async () => { const x = await removeOutboundRuleAction(r.id); if (x.ok) toast.success("Removed"); else toast.error(x.error); })} />
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}

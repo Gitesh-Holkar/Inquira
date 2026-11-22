@@ -48,6 +48,8 @@ export const leads = app.table("leads", {
   scoreReasons: jsonb().$type<{ points: number; reason: string }[]>().notNull().default([]),
   /** When the score was last computed; a nightly job refreshes older scores (MOQs change with rates). */
   scoredAt: timestamp({ withTimezone: true }),
+  /** When the outbound pipeline decided what to send for this new lead (src/modules/outbound); null = not yet. */
+  outreachPlannedAt: timestamp({ withTimezone: true }),
   message: text(),
   rawPayload: jsonb().$type<unknown>(),
   receivedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),

@@ -186,3 +186,33 @@ export function parseReply<S extends z.ZodType>(schema: S, text: string): z.outp
   const r = schema.safeParse(raw);
   return r.success ? r.data : null;
 }
+
+// ---------- reply drafts (Advanced only, always held for a person; G-CNV-3) ----------
+
+export const REPLY_SCHEMA: JsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["body", "confidence"],
+  properties: { body: { type: "string" }, confidence: { type: "number" } },
+};
+export const replySchema = z.object({ body: z.string().trim().min(1).max(4000), confidence }).strict();
+
+export function replyPrompt(input: { orgName: string; productNames: string[]; thread: { from: string; text: string }[] }): { system: string; user: string } {
+  const system = [
+    `You draft email replies for ${input.orgName}, a B2B food-ingredient supplier. A salesperson reads and edits every draft before anything is sent.`,
+    UNTRUSTED_RULE,
+    "Write only the body: no subject, no greeting line before \"Dear\", no sign-off or signature (the mailbox adds its own).",
+    "Never state or change a price, discount, payment term, delivery date, certificate or specification: if the buyer asks for one, say the team will confirm it.",
+    "Keep it short, polite and specific to what the buyer asked. Plain text.",
+    "confidence: 0 to 1, how well the draft answers the buyer without needing facts you do not have.",
+  ].join("\n");
+  const user = [
+    `Products the supplier sells: ${input.productNames.slice(0, 80).join(", ") || "(none listed)"}`,
+    "",
+    ...input.thread.map((m, i) => untrustedBlock(`MESSAGE ${i + 1}`, `From: ${m.from}\n\n${m.text}`)),
+    "",
+    `Reply with JSON matching this schema: ${JSON.stringify(REPLY_SCHEMA)}`,
+  ].join("\n");
+  return { system, user };
+}
+

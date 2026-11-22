@@ -23,10 +23,11 @@ import { bodyToHtml, buildMime, formatAddress, type MimeAttachment } from "./mim
 import { documentFilesInternal, latestValidDocumentsInternal } from "@/modules/documents/service";
 import type { FileStore } from "@/modules/documents/storage";
 import { DOCUMENT_TYPES, DOCUMENT_TYPE_SHORT } from "@/modules/documents/types";
+import { cancelPendingMessagesInternal } from "@/modules/outbound/cancel";
 
 export type Quotation = typeof quotations.$inferSelect;
 
-function greetingName(lead: Lead): string {
+export function greetingName(lead: Pick<Lead, "contactName">): string {
   const n = lead.contactName?.replace(/^(mr|mrs|ms|dr)\.?\s+/i, "").trim();
   if (!n || n.length < 2 || /^[A-Z]$/.test(n)) return "Sir/Madam";
   return n.split(/\s+/)[0]!.replace(/^./, (c) => c.toUpperCase());
@@ -38,6 +39,16 @@ function snapshot(r: CurrentRate): QuoteItemSnapshot {
     pricePerKgInr: r.pricePerKgInr!, gstPercent: r.gstPercent!, gstInclusive: r.gstInclusive, priceBasis: r.priceBasis ?? "Ex-factory",
     moqKg: r.moqKg, packSize: r.packSize, needsConfirmation: r.needsConfirmation,
   };
+}
+
+/**
+ * What a quotation for this product would quote right now: every priced grade with its terms. `flagged` when a
+ * rate is marked "confirm". Empty when the product has no current rate.
+ */
+export async function quoteItemsForProductInternal(tx: Tx, orgId: string, productId: string): Promise<{ items: QuoteItemSnapshot[]; flagged: boolean }> {
+  const rates = (await currentRatesInternal(tx, orgId, { productIds: [productId] })).filter((r) => r.pricePerKgInr);
+  const items = await withTerms(tx, orgId, rates.map(snapshot));
+  return { items, flagged: items.some((i) => i.needsConfirmation) };
 }
 
 /** Adds each product's terms (HSN code, lead time, own payment terms) to the snapshot. */
@@ -159,6 +170,8 @@ export async function createQuoteDraft(ctx: Ctx, raw: z.input<typeof createInput
       const [updated] = await tx.update(quotations).set({ status: "draft_created", gmailDraftId: draft.id, gmailThreadId: draft.message.threadId, gmailDraftUrl: url, error: null })
         .where(eq(quotations.id, q.id)).returning();
       await markQuotedInternal(tx, ctx, lead.id);
+      // Quoted by hand: the pipeline's own first quotation for this lead must not go out as well.
+      await cancelPendingMessagesInternal(tx, ctx, lead.id, ["first_quotation", "detailed_quotation"], "Quoted by hand through a Gmail draft");
       await audit(tx, ctx, { action: "quote.draft", entityType: "quotation", entityId: q.id, changes: {
         gmailDraftId: draft.id, threaded: !!lead.gmailThreadId, signature: !!signatureHtml,
         attached: files.filter((f) => attachments.some((a) => a.fileName === f.document.fileName)).map((f) => ({ documentId: f.document.id, type: f.document.type, fileName: f.document.fileName })),

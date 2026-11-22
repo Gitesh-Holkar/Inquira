@@ -21,6 +21,12 @@ Agents never call these live accounts (`AGENTS.md` rule 13). Everything is devel
 
 **Owner's check:** `docs/SETUP.md` section 5. For a Google Workspace mailbox, create the OAuth app as **Internal**. After connecting, click **Sync now** and look at Settings → Recent sync runs.
 
+### Sending (outbound pipeline, ADR-032)
+
+- `POST /gmail/v1/users/me/messages/send` with `{ raw, threadId? }`, called only from `src/modules/outbound/send.ts`, after a person approved the message or the pipeline approved it within its mode, window, caps and pause switch.
+- The mailbox's own signature (`settings/sendAs`) is added to every email, and replies stay in the buyer's thread (`In-Reply-To`, `References`).
+- No new scope: `gmail.compose` covers sending. Attachments up to about 3.5 MB per email; larger ones are refused with a message to send from Gmail.
+
 ## TradeIndia
 
 | | |

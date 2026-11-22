@@ -1,6 +1,6 @@
 # ADR-010 — Gmail access: `gmail.readonly` and `gmail.compose`, drafts only
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-032](ADR-032-outbound-pipeline.md) on 22 Nov 2026: the outbound pipeline sends, through one guarded send path, starting in shadow mode.
 - **Date:** 29 Sep 2026
 
 ## Context

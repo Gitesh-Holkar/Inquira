@@ -46,6 +46,7 @@ Endpoint: `POST /api/mcp`. Responses are compact JSON. Email and lead text writt
 | `get_buylead_rules` | — | `mode` (always `suggest_only`), suggestions per day, remaining, product terms, exclusions, locations, quantity range | — |
 | `log_buylead_decision` | `lead_title`, `product?`, `location?`, `quantity?`, `decision` (`would_contact` = suggested, or `skipped`), `reason`, `timestamp?` | Remaining today | Decision row. It cannot record a purchase (ADR-020) |
 | `get_buylead_summary` | — | Today's suggested and skipped counts and remaining suggestions | — |
+| `create_reply_draft` | `lead_id`, `body`, `channel?` | Message ID, `held`, the reasons | A reply in the Outbox, **always held** for a person (G-CNV-3) |
 | `list_leads_needing_details` | `limit?`, `cursor?` | Leads with no product or no intent after rules and Inquira's AI, the catalogue (id, name, aliases), the intent list | — |
 | `submit_lead_details` | `lead_id`, `product_id?`, `intent?`, `quantity_kg?`, `confidence`, `reason` | `filled` with the fields written, `nothing_to_fill`, or `kept_for_review` | Fills **empty** fields only (never overwrites); `low` confidence only adds a note |
 

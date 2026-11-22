@@ -1,8 +1,9 @@
 import { AppError } from "@/lib/errors";
 
 /**
- * Minimal Gmail REST client. Scopes (ADR-010): gmail.readonly (sync, signature via sendAs)
- * and gmail.compose (drafts.create). This client has NO method that sends mail — by design.
+ * Minimal Gmail REST client. Scopes: gmail.readonly (sync, signature via sendAs) and gmail.compose (drafts,
+ * and sending). `sendMessage` exists for the outbound pipeline only (ADR-032, which supersedes ADR-010):
+ * `tests/outbound.test.ts` fails if any file other than `src/modules/outbound/send.ts` calls it.
  */
 export const GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/gmail.compose"];
 const API = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -107,6 +108,19 @@ export class GmailClient {
     return this.req<{ sendAs: { sendAsEmail: string; displayName?: string; signature?: string; isDefault?: boolean; isPrimary?: boolean }[] }>("/settings/sendAs");
   }
 
+  /**
+   * Sends one message (RFC 822), in a thread when given. ONLY the outbound pipeline may call this
+   * (`src/modules/outbound/send.ts`), after hold rules, mode, window and caps (AGENTS rule 4).
+   */
+  sendMessage(rawRfc822: string, threadId?: string | null) {
+    const raw = Buffer.from(rawRfc822, "utf8").toString("base64url");
+    return this.req<{ id: string; threadId: string }>("/messages/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(threadId ? { raw, threadId } : { raw }),
+    });
+  }
+
   /** Creates a DRAFT only. A human reviews and clicks Send in Gmail. */
   createDraft(rawRfc822: string, threadId?: string | null) {
     if (Buffer.byteLength(rawRfc822, "utf8") > JSON_DRAFT_LIMIT) {
@@ -145,6 +159,18 @@ export function extractBodies(part: GmailPart | undefined): { text: string | nul
   };
   walk(part);
   return { text, html };
+}
+
+/** File names of the attachments in a message. */
+export function attachmentNames(part: GmailPart | undefined): string[] {
+  const out: string[] = [];
+  const walk = (p?: GmailPart) => {
+    if (!p) return;
+    if (p.filename) out.push(p.filename);
+    p.parts?.forEach(walk);
+  };
+  walk(part);
+  return out;
 }
 
 export function parseAddressList(v: string | null): string[] {

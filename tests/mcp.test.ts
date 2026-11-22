@@ -61,7 +61,7 @@ describe("MCP server", () => {
     expect(init.status).toBe(200);
     const list = (await (await rpc(token, "tools/list")).json()) as { result: { tools: { name: string }[] } };
     expect(list.result.tools.map((t) => t.name).sort()).toEqual([...MCP_TOOL_NAMES].sort());
-    expect(MCP_TOOL_NAMES).toHaveLength(14);
+    expect(MCP_TOOL_NAMES).toHaveLength(15);
 
     const { leadId } = await withSystemTx((tx) => upsertLeadInternal(tx, systemCtx(org.id), {
       source: "tradeindia", sourceRef: "1", channel: "tradeindia_api", contactName: "Vikram", phone: "+919000000707", productText: "Pea Protein",
@@ -111,6 +111,9 @@ describe("MCP server", () => {
     expect(r.data).toMatchObject({ status: "filled", written: ["product", "intent"] });
     expect((await call(token, "submit_lead_details", { lead_id: leadId, intent: "complaint", confidence: "high", reason: "x" })).data).toMatchObject({ status: "nothing_to_fill" });
     expect((await call(token, "list_leads_needing_details")).data.items).toHaveLength(0);
+    // G-CNV-3: a reply Claude writes is always held for a person.
+    const draft = await call(token, "create_reply_draft", { lead_id: leadId, body: "Thank you, our team will confirm the delivery charges." });
+    expect(draft.data).toMatchObject({ state: "held", held_because: expect.arrayContaining([expect.stringMatching(/Written by AI or Claude/)]) });
   });
 
   it("wraps review-queue email bodies as untrusted", async () => {

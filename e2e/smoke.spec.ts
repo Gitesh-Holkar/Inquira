@@ -182,7 +182,7 @@ test("signed-out users are sent to login; MCP needs auth", async ({ page, reques
   await page.goto("/leads");
   await expect(page).toHaveURL(/\/login\?next=%2Fleads/);
   // Sign-in is always on (GOAL G-PLT-1): no signed-in page renders for a visitor.
-  for (const p of ["/", "/review", "/rates", "/rates/import", "/documents", "/templates", "/indiamart", "/settings", "/leads/00000000-0000-4000-8000-000000000000", "/oauth/authorize?client_id=x"]) {
+  for (const p of ["/", "/review", "/outbox", "/more", "/rates", "/rates/import", "/documents", "/templates", "/indiamart", "/settings", "/leads/00000000-0000-4000-8000-000000000000", "/oauth/authorize?client_id=x"]) {
     await page.goto(p);
     await expect(page, p).toHaveURL(/\/login/);
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
@@ -331,6 +331,37 @@ test("AI: set up a tier (no call is made), dashboard card, Needs details view, r
   await expect(page.getByText(/New enquiry/).first()).toBeVisible();
 });
 
+test("Outbox: prepare a message on a lead, see it held or ready, sending settings (nothing is sent)", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/leads");
+  await expect(async () => {
+    if (!/\/leads\/[0-9a-f-]{36}/.test(page.url())) await page.getByRole("link", { name: /Chickpea Isolate Protein/ }).first().click();
+    await expect(page).toHaveURL(/\/leads\/[0-9a-f-]{36}/, { timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
+  const dialog = page.getByRole("dialog", { name: "Prepare a message" });
+  await expect(async () => {
+    if (!(await dialog.isVisible())) await page.getByRole("button", { name: "Prepare a message" }).click();
+    await expect(dialog).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 30_000 });
+  // This demo lead came by TradeIndia email with a placeholder address, so only WhatsApp is possible.
+  await dialog.getByLabel("Kind of message").selectOption("first_quotation");
+  await expect(dialog.getByLabel("Channel")).toHaveValue("whatsapp");
+  await dialog.getByRole("button", { name: "Prepare" }).click();
+  await expect(page.getByText(/Prepared/)).toBeVisible();
+  await page.goto("/outbox");
+  await expect(page.getByRole("heading", { name: "Outbox" })).toBeVisible();
+  await expect(page.getByText("Mode: shadow")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Messages" }).getByText("First quotation").first()).toBeVisible();
+  await noHorizontalScroll(page);
+  await shot(page, "14-outbox");
+  await page.goto("/settings?tab=sending");
+  await expect(page.getByLabel("Email mode")).toHaveValue("shadow");
+  await expect(page.getByLabel("Pause all automatic sending")).toBeVisible();
+  await noHorizontalScroll(page);
+  await page.goto("/templates?purpose=sample_request");
+  await expect(page.getByRole("heading", { name: /Sample reply · email/ })).toBeVisible();
+});
+
 test("an Accounts member sees no Settings and cannot open it", async ({ page }) => {
   await signIn(page);
   const email = `accounts-${test.info().project.name}@example.com`;
@@ -348,7 +379,14 @@ test("an Accounts member sees no Settings and cannot open it", async ({ page }) 
   await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Main" }).locator("visible=true");
   await expect(nav.getByRole("link", { name: "Leads" })).toBeVisible();
-  await expect(nav.getByRole("link", { name: "Documents" })).toBeVisible();
+  if (test.info().project.name === "mobile") {
+    // Phones: pages that do not fit the bottom bar are under More.
+    await nav.getByRole("link", { name: "More" }).click();
+    await expect(page.getByRole("list", { name: "Pages" }).getByRole("link", { name: "Documents" })).toBeVisible();
+    await expect(page.getByRole("list", { name: "Pages" }).getByRole("link", { name: "Settings" })).toHaveCount(0);
+  } else {
+    await expect(nav.getByRole("link", { name: "Documents" })).toBeVisible();
+  }
   await expect(nav.getByRole("link", { name: "Settings" })).toHaveCount(0);
   await page.goto("/settings");
   await expect(page).toHaveURL(/denied=1/);

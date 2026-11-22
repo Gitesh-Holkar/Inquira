@@ -92,6 +92,20 @@
       "when": 1795337023559,
       "tag": "0012_knowledge_base",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795337429979,
+      "tag": "0013_outbound_pipeline",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795337447260,
+      "tag": "0014_outbound_rls",
+      "breakpoints": true
     }
   ]
 }

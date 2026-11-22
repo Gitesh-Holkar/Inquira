@@ -65,7 +65,7 @@ export async function ingestMessageInternal(tx: Tx, ctx: Ctx, m: IngestMessage, 
     receivedAt: m.receivedAt, isOutgoing, classification: r.classification, classificationReason: r.reason, classifiedBy: r.by,
     classifiedAt: new Date(), parserFormat: r.parsed?.format ?? null,
     parsed: r.parsed || r.hints ? ({ ...(r.parsed ?? {}), hints: r.hints ?? null } as Record<string, unknown>) : null,
-    confidence: r.parsed?.confidence ?? null, createdBy: actorString(ctx.actor),
+    confidence: r.parsed?.confidence ?? null, createdBy: actorString(ctx.actor), attachmentNames: (m.attachments ?? []).slice(0, 20).map((n) => n.slice(0, 200)),
   }).returning();
 
   const { leadId, leadCreated } = await applyClassification(tx, ctx, row!, r, threadLead?.id ?? null);
@@ -384,4 +384,37 @@ export async function reviewEmailsAwaitingAiInternal(tx: Tx, orgId: string, opts
 
 export async function markEmailAiCheckedInternal(tx: Tx, orgId: string, emailId: string) {
   await tx.update(emailMessages).set({ aiCheckedAt: new Date() }).where(and(eq(emailMessages.id, emailId), eq(emailMessages.orgId, orgId)));
+}
+
+// ---------- outbound pipeline (src/modules/outbound) ----------
+
+/** What the hold rules need to know about a lead's emails (G-OUT-2): buyer replies and attachments. */
+export async function leadEmailFactsInternal(tx: Tx, orgId: string, leadId: string) {
+  const rows = await tx.select({ classification: emailMessages.classification, attachmentNames: emailMessages.attachmentNames, receivedAt: emailMessages.receivedAt })
+    .from(emailMessages).where(and(eq(emailMessages.orgId, orgId), eq(emailMessages.leadId, leadId), eq(emailMessages.isOutgoing, false)));
+  return {
+    inConversation: rows.some((r) => r.classification === "conversation"),
+    buyerAttachment: rows.some((r) => r.attachmentNames.length > 0),
+    lastInboundAt: rows.reduce<Date | null>((a, r) => (!a || r.receivedAt > a ? r.receivedAt : a), null),
+  };
+}
+
+/** Buyer replies the pipeline has not planned an answer for yet, received in the last `hours`. */
+export async function repliesToPlanInternal(tx: Tx, orgId: string, opts: { hours: number; limit: number }) {
+  return tx.select().from(emailMessages).where(and(
+    eq(emailMessages.orgId, orgId), eq(emailMessages.classification, "conversation"), eq(emailMessages.isOutgoing, false),
+    isNull(emailMessages.replyPlannedAt), sql`${emailMessages.leadId} is not null`,
+    gte(emailMessages.receivedAt, new Date(Date.now() - opts.hours * 3600_000)),
+  )).orderBy(asc(emailMessages.receivedAt)).limit(opts.limit);
+}
+
+export async function markReplyPlannedInternal(tx: Tx, orgId: string, emailId: string) {
+  await tx.update(emailMessages).set({ replyPlannedAt: new Date() }).where(and(eq(emailMessages.id, emailId), eq(emailMessages.orgId, orgId)));
+}
+
+/** The last messages of a lead's thread, oldest first, for an AI reply draft. */
+export async function threadTextInternal(tx: Tx, orgId: string, leadId: string, limit = 5) {
+  const rows = await tx.select({ fromEmail: emailMessages.fromEmail, fromName: emailMessages.fromName, bodyText: emailMessages.bodyText, isOutgoing: emailMessages.isOutgoing, receivedAt: emailMessages.receivedAt })
+    .from(emailMessages).where(and(eq(emailMessages.orgId, orgId), eq(emailMessages.leadId, leadId))).orderBy(desc(emailMessages.receivedAt)).limit(limit);
+  return rows.reverse().map((r) => ({ from: r.isOutgoing ? "us" : r.fromName ?? r.fromEmail ?? "buyer", text: (r.bodyText ?? "").slice(0, 3000) }));
 }

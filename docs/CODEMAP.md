@@ -17,7 +17,9 @@ How a request flows: **page or server action** (`src/app`) → **service** (`src
 | Change how duplicate inquiries merge | `upsertLeadInternal` and `fillMissing` in `src/modules/leads/service.ts`; contacts in `resolveContactInternal` (`contacts/service.ts`) | 48 h window, `source`+`source_ref` first |
 | Support a new IndiaMART/TradeIndia email format | `src/modules/email/parsers/indiamart.ts` or `tradeindia.ts` + a fixture in `fixtures/emails/` with an `expected` block | `parsers.test.ts` runs every fixture |
 | Ignore/route certain emails | Settings → Email rules (data), or the built-in checks in `classifyEmail` (`email/classify.ts`) | |
-| Change the quote email text | Templates screen (data); defaults in `src/modules/templates/engine.ts` | Placeholders: `PLACEHOLDERS` in engine.ts |
+| Change the quote email text | Templates screen (data); defaults in `src/modules/templates/engine.ts` (`DEFAULT_TEMPLATES`, one per purpose and channel) | Placeholders: `PLACEHOLDERS` in engine.ts |
+| Change when a reply is held | `src/modules/outbound/hold-rules.ts` (`holdReasons`; bump `RULE_SET_VERSION`) | One test per rule in `hold-rules.test.ts` |
+| Change what is sent automatically | Modes in `src/modules/outbound/types.ts` (`AUTO_PURPOSES`); the company's mode is Settings → Sending | Only an owner changes the mode |
 | Change how the quote draft is built (subject, threading, signature) | `createQuoteDraft` + `renderQuote` in `src/modules/quotes/service.ts`; MIME in `quotes/mime.ts` | Drafts only, never send |
 | Change the WhatsApp message logic | `whatsappForLead` in `quotes/service.ts`; button in `components/leads/actions.tsx` | |
 | Change Gmail sync (what is read, how often, limits) | `syncGmail` in `src/modules/sources/gmail/service.ts`; HTTP in `gmail/client.ts` | Time budget 35 s, 150 msgs/run |
@@ -167,17 +169,32 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 ### quotes (`quotes/service.ts`, `quotes/mime.ts`)
 | Function | What it does |
 |---|---|
-| `createQuoteDraft(ctx, {leadId, gradeIds?, attach?, ...})` | Render the template with current rates, snapshot prices, create a **Gmail draft** in the inquiry thread with the real signature. Never sends. Used by the UI button and the MCP tool. |
+| `createQuoteDraft(ctx, {leadId, gradeIds?, attach?, ...})` | Render the template with current rates, snapshot prices, create a **Gmail draft** in the inquiry thread with the real signature. Never sends. Used by the UI button and the MCP tool. Cancels the pipeline's pending quotation for the lead. |
 | `renderQuote(lead, items, template, validity, orgName)` | Pure rendering of subject/body. |
+| `quoteItemsForProductInternal(tx, orgId, productId)`, `greetingName` | What a quotation would quote now (every priced grade with terms; `flagged` when a rate says "confirm"); the "Dear …" name. Used by the outbound pipeline. |
 | `listQuotationsForLead` | Quotations on the lead page. |
 | `whatsappForLead` | Prefilled WhatsApp text + wa.me link. |
 | `mime.ts`: `buildMime`, `bodyToHtml`, `formatAddress`, `escapeHtml` | RFC 2822 message for Gmail drafts (header-injection safe); `attachments` adds files (multipart/mixed). |
 | `attach` on `createQuoteDraft` | Document types to attach: the latest valid file of each for the lead's product; missing or expired types are reported in the warning, never attached. Drafts over 3.5 MB go through Gmail's upload endpoint (`GmailClient.createDraft`). |
 
 ### templates (`templates/service.ts`, `templates/engine.ts`)
-| `render(template, vars)`, `unknownPlaceholders`, `PLACEHOLDERS`, `DEFAULT_*` | Safe `{{placeholder}}` renderer and default texts (engine.ts). |
+| `render(template, vars)`, `unknownPlaceholders`, `PLACEHOLDERS`, `DEFAULT_*`, `DEFAULT_TEMPLATES`, `TEMPLATE_PURPOSES`, `WHATSAPP_PURPOSES` | Safe `{{placeholder}}` renderer, default texts per purpose and channel (G-TPL-1). |
 |---|---|
-| `listTemplates`, `saveTemplate`, `getTemplateInternal`, `getDefaultTemplateInternal`, `ensureDefaultTemplatesInternal`, `SAMPLE_VARS` | Template storage, defaults, and preview sample values. |
+| `listTemplates`, `saveTemplate`, `getTemplateInternal`, `getDefaultTemplateInternal(tx, orgId, kind, purpose)`, `ensureDefaultTemplatesInternal`, `SAMPLE_VARS` | Template storage, defaults, and preview sample values. A save that changes the text adds a version (G-TPL-3). |
+| `listTemplateVersions` | Saved versions of one template. |
+
+### outbound (`outbound/*`) — the sending pipeline (GOAL G-OUT-*, ADR-032)
+| Function | What it does |
+|---|---|
+| `hold-rules.ts`: `holdReasons(ctx)`, `unansweredTopics`, `riskyMentions`, `matchingTeamRules`, `insideWindow`, `RULE_SET_VERSION` | The hold rules as pure functions (G-OUT-2) and the IST send window (G-OUT-4). |
+| `types.ts`: `MESSAGE_STATES`, `MESSAGE_PURPOSES`, `MODES`, `AUTO_PURPOSES`, `outboundSettingsSchema`, `readOutboundSettings` | Vocabulary; sending settings and their safe defaults (shadow, 09:00–19:00 Mon–Sat, 10/hour, 40/day, follow-up after 3 days). |
+| `service.ts`: `prepareMessageInternal(tx, ctx, {leadId, purpose, channel, written?, byPerson?, replyTo?, thread?})` | Compose (template, rates, terms, documents, sample policy), check the rules, decide held / approved / draft, record, notify once when held. |
+| `service.ts`: `runOutboundPlan` (`planNewLeadsInternal`, `planRepliesInternal`, `planFollowUpsInternal`) | Job `outbound.plan`: what to send for new leads (by intent, MOQ, international), buyer replies (documents, or an AI draft held for a person), follow-ups. Only items from the last 48 hours. |
+| `service.ts`: `runOutboundSend` | Job `outbound.send`: sends automatically approved emails inside the window, under the caps, not while paused, after re-checking the rules. |
+| `service.ts`: `approveAndSend` / `approveAndSendInternal`, `editMessage`, `rejectMessage`, `prepareMessage`, `createReplyDraft`, `listOutbox`, `getOutboxCounts`, `messagesForLead` | What people (and the connector) do in the Outbox and on the lead page. |
+| `service.ts`: `getOutboundSettings`, `saveOutboundSettings` (mode owner-only), `createOutboundRule`, `removeOutboundRule` | Settings → Sending and the team's hold rules (G-OUT-9). |
+| `send.ts`: `sendEmailInternal` | **The only code that sends email** (Gmail signature, thread, attachments). |
+| `cancel.ts`: `cancelPendingMessagesInternal` | Cancels unsent messages of a lead (used by the quotes module). |
 
 ### buyleads (`buyleads/service.ts`) — IndiaMART Buy Lead suggestions (a person buys; ADR-020)
 | Function | What it does |
@@ -196,7 +213,7 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 ### mcp (`mcp/server.ts`, `mcp/service.ts`) — Claude connector
 | Function | What it does |
 |---|---|
-| `buildMcpServer(ctx)` | Registers the 14 MCP tools (`MCP_TOOL_NAMES`); each calls a service and is audited. |
+| `buildMcpServer(ctx)` | Registers the 15 MCP tools (`MCP_TOOL_NAMES`); each calls a service and is audited. |
 | `untrusted(id, body)`, `UNTRUSTED_NOTE` | Wrap email text in delimiters (prompt-injection defence). |
 | `authenticateBearer(token)` | Bearer token → MCP actor context. |
 | `createMcpToken`, `listMcpTokens`, `revokeMcpToken` | Manual tokens (Settings → Claude / MCP). |
@@ -235,7 +252,7 @@ IndiaMART (`sources/indiamart/*`, ADR-030):
 | `syncGmail(ctx, opts)` | `gmail/service.ts` | Incremental Gmail sync (history id; date resync fallback; backlog; skips stored ids; 35 s budget). |
 | `saveGmailClient`, `startGmailConnect`, `completeGmailConnect` / `completeConnectInternal`, `disconnectGmail` | `gmail/service.ts` | Settings → Gmail: save OAuth client, consent URL (PKCE + hashed state), finish OAuth, disconnect. |
 | `gmailClientFor(ctx)`, `gmailRedirectUri()`, `toIngestMessage`, `orgIdFromState` | `gmail/service.ts` | Ready API client; redirect URI from APP_URL; Gmail message → ingest shape. |
-| `GmailClient` (`getProfile`, `listMessages`, `listHistory`, `getMessage`, `listSendAs`, `createDraft`), `exchangeCode`, `GMAIL_SCOPES` | `gmail/client.ts` | Minimal Gmail REST client: **no send method**. Retries 429/5xx/403-rate-limit. |
+| `GmailClient` (`getProfile`, `listMessages`, `listHistory`, `getMessage`, `listSendAs`, `createDraft`, `sendMessage`), `exchangeCode`, `GMAIL_SCOPES`, `attachmentNames` | `gmail/client.ts` | Minimal Gmail REST client. `sendMessage` may only be called by `outbound/send.ts` (a test enforces it). Retries 429/5xx/403-rate-limit. |
 | `GmailReauthRequired`, `GmailHistoryExpired`, `GmailMessageGone` | `gmail/client.ts` | Error types the sync reacts to. |
 | `header`, `extractBodies`, `parseAddressList`, `parseFrom`, `gmailDraftUrl`, `gmailThreadUrl` | `gmail/client.ts` | MIME helpers and Gmail web links. |
 | `saveTradeIndiaCredentials`, `testTradeIndiaConnection` / `testConnectionInternal`, `syncTradeIndia` | `tradeindia/service.ts` | Settings → TradeIndia and the 10-minute sync (30-day first load, 2-day overlap). Resumable: 35 s budget, position saved per 7-day window in `TradeIndiaCursor`, a window with failed leads is not passed until three attempts. |
@@ -255,9 +272,13 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `/leads` Inbox (+ Needs details and International tabs; intent filter) | `(app)/leads/page.tsx` | `components/leads/inbox-list.tsx` (keyboard j/k/e/w/q/?; intent, below-MOQ and needs-details badges), `new-lead.tsx` |
 | `/leads/[id]` Lead detail | `(app)/leads/[id]/page.tsx` | `(app)/leads/actions.ts`: `setStatusAction`, `addNoteAction`, `quoteAction`, `whatsappTextAction`, `updateLeadAction`, `createLeadAction`, `deleteLeadAction` (owners and admins; `DeleteLeadButton` in `detail-client.tsx`); components `leads/actions.tsx` (Copy/Call/WhatsApp/Quote buttons), `leads/detail-client.tsx` (status, notes, edit incl. intent and kg), `leads/labels.ts` (`filledByLabel`: who filled product, intent, quantity) |
 | `/review` Review queue | `(app)/review/page.tsx` | `(app)/review/actions.ts`: `classifyAction`; `components/review/review-item.tsx` |
+| Settings → Sending | `(app)/settings/page.tsx` (`SendingTab`) | `saveSendingAction`, `removeOutboundRuleAction`; `components/settings/sending.tsx` |
 | `/rates` Rates | `(app)/rates/page.tsx` | `(app)/rates/actions.ts`: `saveRatesAction`, `rateHistoryAction`, `addProductAction`, `updateProductAction`, `removeProductAction`, `restoreProductAction`; `components/rates/rates-editor.tsx`, `add-product.tsx`, `edit-product.tsx` (incl. Remove), `removed-products.tsx` (Restore) |
 | `/rates/import` Import price list | `(app)/rates/import/page.tsx` | `(app)/rates/actions.ts`: `planPriceListAction` (reads only), `applyPriceListAction`, `savePriceListMapAction`; `components/rates/price-list-import.tsx` (list, folded mapping editor, preview) |
-| `/templates` | `(app)/templates/page.tsx` | `(app)/templates/actions.ts`: `saveTemplateAction`; `components/templates/editor.tsx` |
+| `/templates?purpose=…` | `(app)/templates/page.tsx` | `(app)/templates/actions.ts`: `saveTemplateAction`; `components/templates/editor.tsx` (shows the version) |
+| `/outbox?view=…` Outbox | `(app)/outbox/page.tsx` | `(app)/outbox/actions.ts`: `approveAction`, `editAction`, `rejectAction`, `prepareAction`; `components/outbox/message-card.tsx`, `prepare-message.tsx` (lead page) |
+| `/more` (phones) | `(app)/more/page.tsx` | Every page the person may open; menu list in `components/shell/nav-items.ts` |
+| Notifications (bell) | `components/shell/notification-bell.tsx` | `(app)/notifications/actions.ts`: `openNotificationsAction`; services `listNotifications`, `markNotificationsSeen`, `notifyOnceInternal` in `core/service.ts` |
 | `/documents` Documents | `(app)/documents/page.tsx` | `(app)/documents/actions.ts`: `uploadDocumentAction` (form with the file), `removeDocumentAction`; `components/documents/upload-form.tsx`, `remove-document.tsx`. Filters by product and type (URL). |
 | `/indiamart` Buy-lead log | `(app)/indiamart/page.tsx` | — |
 | `/settings?tab=…` | `(app)/settings/page.tsx` | `(app)/settings/actions.ts`: TradeIndia save/test, IndiaMART key/test/push address (`IndiaMartCard` in `components/settings/integrations.tsx`), Sync now, Gmail save/connect/disconnect, MCP tokens, email rules, buy-lead rules, org settings, members (`inviteMemberAction`, `changeMemberRoleAction`, `removeMemberAction`, `setMemberAccessAction`; `components/settings/members.tsx`), AI tiers (`saveAiTierAction`, `testAiTierAction`, `removeAiKeyAction`; `AiTierCard`, `AiIntro` in `components/settings/ai.tsx`); components in `components/settings/*` |
@@ -356,7 +377,9 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `tests/members.test.ts` | Members as signed-in roles under RLS: add, restore, roles, last owner, other company; Supabase accounts fake. |
 | `tests/documents.test.ts` | Documents: upload rules, who may do what, latest valid, attachments on quote drafts (expired never), both storage adapters. |
 | `tests/sync-and-quotes.test.ts` | Gmail/TradeIndia sync, dedupe, quotes, review queue (Google faked in `tests/helpers/fake-google.ts`, which throws on any send). |
-| `tests/mcp.test.ts` | MCP tools (incl. the needs-details queue), tokens, OAuth flow. |
+| `tests/mcp.test.ts` | MCP tools (incl. the needs-details queue and reply drafts), tokens, OAuth flow. |
+| `tests/outbound.test.ts` | The pipeline: only one file sends; shadow drafts; a person's send (signature, audit with rule set, template version, rates); WhatsApp link; owner-only mode; automatic sending with window, pause and caps; re-check before sending; held reasons and one notification; rules from corrections; blank terms; hand quotes cancel; documents; samples; follow-ups; AI replies held; template versions; roles. |
+| `tests/knowledge-base.test.ts` | Product terms, rate validity and range, sample policy, lead score and its nightly refresh. |
 | `tests/ai.test.ts` | AI tiers against `tests/helpers/fake-ai.ts`: every key off, redaction (nothing personal reaches Basic), confident / unsure / malformed answers, Basic → Advanced, rate limit and backoff, daily limit, review emails, injection, corrections and accuracy, keys never shown. |
 | `src/modules/ai/ai.test.ts`, `src/modules/leads/understanding.test.ts` | Redaction, reply checks, the three adapters' requests and error mapping; quantity units, intent rules, below MOQ. |
 | `src/**/*.test.ts` | Unit tests next to the code (parsers, catalog, leads, lib). |

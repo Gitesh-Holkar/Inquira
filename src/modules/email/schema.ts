@@ -38,6 +38,10 @@ export const emailMessages = app.table("email_messages", {
   leadId: uuid(),
   /** When the Advanced AI tier looked at this review email (null = not yet); see src/modules/ai. */
   aiCheckedAt: timestamp({ withTimezone: true }),
+  /** File names of attachments the sender included (a held-reply rule, G-OUT-2). */
+  attachmentNames: text().array().notNull().default([]),
+  /** When the outbound pipeline decided how to answer this buyer reply; null = not yet. */
+  replyPlannedAt: timestamp({ withTimezone: true }),
 }, (t) => [
   uniqueIndex("email_org_msg_uq").on(t.orgId, t.gmailMessageId),
   index("email_org_class_idx").on(t.orgId, t.classification, t.receivedAt),

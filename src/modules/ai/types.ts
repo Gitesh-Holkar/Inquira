@@ -34,7 +34,7 @@ export const AI_DEFAULTS = {
 } as const;
 
 /** What a decision was about. One model call can produce several decisions (product, intent, quantity). */
-export const AI_TASKS = ["lead.product", "lead.intent", "lead.quantity", "email.classify"] as const;
+export const AI_TASKS = ["lead.product", "lead.intent", "lead.quantity", "email.classify", "email.reply"] as const;
 export type AiTask = (typeof AI_TASKS)[number];
 
 /**

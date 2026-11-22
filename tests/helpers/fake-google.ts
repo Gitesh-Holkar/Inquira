@@ -32,14 +32,16 @@ export type FakeGoogle = {
   messages: Map<string, GmailMessage>;
   historyAdds: string[];
   drafts: { raw: string; threadId?: string; uploaded?: boolean }[];
+  /** Messages sent through /messages/send: only possible when the test passed `allowSend` (the outbound pipeline). */
+  sent: { raw: string; threadId?: string }[];
   historyExpired: boolean;
   revoked: boolean;
 };
 
-export function fakeGoogle(opts: { messages?: GmailMessage[]; signature?: string } = {}): FakeGoogle {
+export function fakeGoogle(opts: { messages?: GmailMessage[]; signature?: string; allowSend?: boolean } = {}): FakeGoogle {
   const state: FakeGoogle = {
     fetch: undefined as unknown as typeof fetch, calls: [], messages: new Map((opts.messages ?? []).map((m) => [m.id, m])),
-    historyAdds: [], drafts: [], historyExpired: false, revoked: false,
+    historyAdds: [], drafts: [], sent: [], historyExpired: false, revoked: false,
   };
   const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { "Content-Type": "application/json" } });
   state.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -54,6 +56,12 @@ export function fakeGoogle(opts: { messages?: GmailMessage[]; signature?: string
     const p = u.pathname.replace("/gmail/v1/users/me", "");
     if (p === "/profile") return json({ emailAddress: "sales@seller.example", historyId: "200" });
     if (p === "/settings/sendAs") return json({ sendAs: [{ sendAsEmail: "sales@seller.example", displayName: "Seller Foods", isDefault: true, isPrimary: true, signature: opts.signature ?? "<b>With Regards</b><br>Seller Foods Pvt. Ltd.<br>+91 90000 00000" }] });
+    if (p === "/messages/send" && method === "POST" && opts.allowSend) {
+      const body = JSON.parse(String(init?.body)) as { raw: string; threadId?: string };
+      state.sent.push({ raw: Buffer.from(body.raw, "base64url").toString("utf8"), threadId: body.threadId });
+      return json({ id: `sent-${state.sent.length}`, threadId: body.threadId ?? `sent-thread-${state.sent.length}` });
+    }
+    if (/\/(messages|drafts)\/send/.test(p)) throw new Error("SEND MUST NEVER BE CALLED");
     if (p === "/messages" && method === "GET") return json({ messages: [...state.messages.values()].map((m) => ({ id: m.id, threadId: m.threadId })) });
     if (p.startsWith("/messages/")) {
       const m = state.messages.get(decodeURIComponent(p.split("/")[2]!));

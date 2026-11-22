@@ -9,6 +9,9 @@ import { formatPhone } from "@/lib/phone";
 import { getLead } from "@/modules/leads/service";
 import { listEmailsForLead } from "@/modules/email/service";
 import { listQuotationsForLead } from "@/modules/quotes/service";
+import { messagesForLead } from "@/modules/outbound/service";
+import { MessageCard } from "@/components/outbox/message-card";
+import { PrepareMessageButton } from "@/components/outbox/prepare-message";
 import { documentsForProduct } from "@/modules/documents/service";
 import { listAudit } from "@/modules/core/service";
 import { listProducts } from "@/modules/catalog/service";
@@ -43,8 +46,9 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
     throw e;
   }
   const { lead, notes, statusChanges } = detail;
-  const [emails, quotes, auditRows, products] = await Promise.all([
+  const [emails, quotes, auditRows, products, outgoing] = await Promise.all([
     listEmailsForLead(s.ctx, { leadId: id }), listQuotationsForLead(s.ctx, { leadId: id }), listAudit(s.ctx, { entityType: "lead", entityId: id, limit: 50 }), listProducts(s.ctx, {}),
+    can(s.ctx, "quotes.read") ? messagesForLead(s.ctx, { leadId: id }) : Promise.resolve([]),
   ]);
   const product = products.find((p) => p.id === lead.productId);
   const docs = lead.productId && can(s.ctx, "documents.read") && product ? await documentsForProduct(s.ctx, { productId: lead.productId }) : [];
@@ -149,6 +153,26 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                     </li>
                   ))}
                 </ol>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Messages</CardTitle>
+              {can(s.ctx, "quotes.create") ? <PrepareMessageButton leadId={lead.id} hasEmail={!!lead.email} hasPhone={!!lead.phone} /> : null}
+            </CardHeader>
+            <CardContent>
+              {outgoing.length === 0 ? <p className="text-sm text-muted">No messages prepared yet. New enquiries get one within minutes; you can also prepare one yourself.</p> : (
+                <ul className="grid gap-2">
+                  {outgoing.map((m) => (
+                    <MessageCard key={m.id} canAct={can(s.ctx, "quotes.create")} m={{
+                      id: m.id, channel: m.channel as "email", purpose: m.purpose as "first_quotation", state: m.state as "draft", toAddress: m.toAddress, subject: m.subject, body: m.body,
+                      holdReasons: m.holdReasons, mode: m.mode, autoApproved: m.autoApproved, edited: m.edited, templateVersion: m.templateVersion, documents: m.documentIds.length,
+                      createdAt: m.createdAt.toISOString(), sentAt: m.sentAt?.toISOString() ?? null, sentBy: m.sentBy, error: m.error, cancelledReason: m.cancelledReason, lead: null,
+                    }} />
+                  ))}
+                </ul>
               )}
             </CardContent>
           </Card>

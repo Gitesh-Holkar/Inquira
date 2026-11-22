@@ -11,6 +11,8 @@ import { createClassificationRule, updateClassificationRule } from "@/modules/em
 import { updateBuyleadRules } from "@/modules/buyleads/service";
 import { authorize } from "@/modules/core/permissions";
 import { removeAiKey, saveAiTier, testAiTier, type saveAiTierInput } from "@/modules/ai/service";
+import { removeOutboundRule, saveOutboundSettings } from "@/modules/outbound/service";
+import type { OutboundSettings } from "@/modules/outbound/types";
 import type { z } from "zod";
 import { changeMemberRole, createSignInLink, inviteMember, removeMember, setMemberAccess } from "@/modules/core/members";
 import type { AbilityId } from "@/modules/core/permissions";
@@ -125,3 +127,13 @@ export async function removeAiKeyAction(tier: "basic" | "advanced") {
   const s = await requireSession("integrations.manage");
   return done(await runAction(() => removeAiKey(s.ctx, { tier })));
 }
+
+export async function saveSendingAction(input: OutboundSettings) {
+  const s = await requireSession("settings.write");
+  return done(await runAction(() => saveOutboundSettings(s.ctx, input)));
+}
+export async function removeOutboundRuleAction(id: string) {
+  const s = await requireSession("settings.write");
+  return done(await runAction(() => removeOutboundRule(s.ctx, { id })));
+}
+

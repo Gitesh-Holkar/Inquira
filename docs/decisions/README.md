@@ -15,7 +15,7 @@ Each file has: Context, Problem, Options, Decision, Reasoning, Consequences, Sta
 | [ADR-007](ADR-007-jobs-and-one-cron-endpoint.md) | Background work: outbox, job table and one cron endpoint | Accepted | 29 Sep 2026 |
 | [ADR-008](ADR-008-contact-de-duplication.md) | Contact de-duplication | Accepted | 29 Sep 2026 |
 | [ADR-009](ADR-009-lead-de-duplication.md) | Lead de-duplication, including API and notification email copies | Accepted | 29 Sep 2026 |
-| [ADR-010](ADR-010-gmail-drafts-only.md) | Gmail access: `gmail.readonly` and `gmail.compose`, drafts only | Accepted | 29 Sep 2026 |
+| [ADR-010](ADR-010-gmail-drafts-only.md) | Gmail access: `gmail.readonly` and `gmail.compose`, drafts only | Superseded by ADR-032 | 29 Sep 2026 |
 | [ADR-011](ADR-011-dev-only-sign-in.md) | Development-only sign-in | Accepted | 29 Sep 2026 |
 | [ADR-012](ADR-012-tradeindia-sync-windows.md) | TradeIndia sync windows | Accepted | 29 Sep 2026 |
 | [ADR-013](ADR-013-mcp-authentication.md) | MCP authentication: OAuth 2.1 with client registration and PKCE, plus bearer tokens | Accepted | 29 Sep 2026 |
@@ -37,10 +37,10 @@ Each file has: Context, Problem, Options, Decision, Reasoning, Consequences, Sta
 | [ADR-029](ADR-029-local-mode.md) | Local mode runs in Docker with its own sign-in, scheduler and file storage | Accepted | 18 Nov 2026 |
 | [ADR-030](ADR-030-indiamart-push-and-pull.md) | IndiaMART through Push plus Pull, with email as the cross-check | Accepted | 18 Nov 2026 |
 | [ADR-031](ADR-031-ai-tiers.md) | AI tiers behind one provider interface, rules first, code decides | Accepted | 18 Nov 2026 |
+| [ADR-032](ADR-032-outbound-pipeline.md) | One outbound pipeline with hold rules and modes; sending only through it | Accepted | 22 Nov 2026 |
 
 ## To be written when the work reaches them
 
 | Decision | Planned status | Milestone |
 | --- | --- | --- |
 | Open-source licence | Deferred by the owner on 17 Nov 2026 (`QUESTIONS.md` Q-016) | M1, later |
-| Outbound pipeline with hold rules and modes | Accepted; marks ADR-010 Superseded | M7 |

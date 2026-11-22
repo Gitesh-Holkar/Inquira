@@ -63,6 +63,7 @@ tests/, e2e/              Vitest integration tests; Playwright smoke tests
 | `buyleads` | buylead_rules, buylead_decisions | rules (full + compact), log decision (cap enforced), summary |
 | `dashboard` | (no tables) | one-shot dashboard data |
 | `documents` | documents | upload (checked by content), list, download, latest valid per type, attachments for quotation drafts; file storage adapter `storage.ts` (Supabase bucket or disk) |
+| `outbound` | outgoing_messages, outbound_rules | prepare (template, rates, terms, documents), hold rules, modes, the only send path, Outbox actions, follow-ups (see "Outbound pipeline" below) |
 | `ai` | ai_decisions (tier settings are `integrations` rows `ai_basic` / `ai_advanced`) | provider adapters (Gemini, Anthropic, OpenAI-compatible), redaction, task schemas, settings, the `ai.work` job, accuracy (see "AI tiers" below) |
 
 **Common columns** (brief §6.3): every table has `id uuid`, `created_at`, `updated_at` (trigger), `created_by` (actor string `human:<uuid>` / `mcp:<token>` / `system:<job>` / `ai:<tier>`), and `org_id`. `deleted_at` exists where soft delete makes sense.
@@ -150,6 +151,8 @@ Every source implements the same three steps: **fetch → normalize to `Normaliz
 | `gmail.sync` | historyId incremental sync. Falls back to a date resync if the historyId has expired. At most 150 messages per run; the rest wait in a backlog. | enqueued by every tick, and right after connect |
 | `tradeindia.sync` | 30-day backfill on first run, then (last success − 2d) → now in 7-day windows | every tick, and after a successful Test connection |
 | `indiamart.sync` | One Pull API call per run (ADR-030) | every tick |
+| `outbound.plan` | Prepares messages for new leads, buyer replies (documents, or an AI draft held for a person) and follow-ups; only items from the last 48 hours | every tick |
+| `outbound.send` | Sends emails the pipeline approved: inside the send window, under the caps, not while paused, after re-checking the rules | every tick |
 | `leads.rescore` | Refreshes scores of open leads not scored today (MOQs change with rates); 300 per run | every tick; does nothing once the day's pass is done |
 | `ai.work` | Leads the rules left open go to Basic, then Advanced, then the review queue; review emails go to Advanced (ADR-031). 15 s budget, 10 items per run; `{ more: true }` queues a follow-up | when a lead or review email arrives that rules could not settle, and every tick |
 
@@ -211,6 +214,19 @@ review email ──────────────────────�
 - Basic sees only redacted product and requirement text (`ai/redact.ts`). Buyer text is wrapped in markers it cannot close and the system prompt says it is data.
 - Every decision is logged in `ai_decisions`; a person's later change marks it corrected, and the dashboard shows accuracy per tier.
 - The Claude connector serves the same review queue with `list_leads_needing_details` and `submit_lead_details` (fills empty fields only).
+
+## Outbound pipeline (ADR-032)
+
+```
+lead understood ─┐                          ┌─ held (a reason) ──────────► a person: send anyway / edit / don't send (+ rule)
+buyer reply ─────┼─► prepare (template,  ─► │─ draft (shadow, or by a person) ► a person sends (email now; WhatsApp link)
+quote sent N days┘    rates, terms, docs)   └─ approved (mode allows) ──► outbound.send: window · caps · pause · re-check ─► sent
+```
+
+- Purpose follows the lead: international → acknowledgement; complaint, order, negotiation → an AI draft (held) or a notification; documents → document reply with the latest valid files; sample → sample reply; below MOQ → below-MOQ reply; otherwise the first quotation. Email when the lead has a real email, WhatsApp when it has a phone (G-OUT-5).
+- Modes (email): shadow (default), assisted, automatic. WhatsApp is always a person's tap.
+- `src/modules/outbound/send.ts` is the only code that sends; a test enforces it.
+- Held messages, failed sends and buyer replies are told once under the bell (`notifications`).
 
 ## Who may do what
 

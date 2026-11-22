@@ -3,7 +3,9 @@ import { headers } from "next/headers";
 import { AlertTriangle, LogOut } from "lucide-react";
 import { requireSession } from "@/lib/auth";
 import { appUrl } from "@/lib/env";
-import { listIntegrations } from "@/modules/core/service";
+import { listIntegrations, listNotifications } from "@/modules/core/service";
+import { getOutboxCounts } from "@/modules/outbound/service";
+import { NotificationBell } from "@/components/shell/notification-bell";
 import { getReconciliation } from "@/modules/email/service";
 import { BottomNav, Sidebar } from "@/components/shell/nav";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
@@ -18,9 +20,12 @@ const ROLE_NAMES = { owner: "owner", admin: "admin", sales: "sales", qa: "QA", a
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const s = await requireSession();
-  const [integrations, rec] = await Promise.all([can(s.ctx, "integrations.read") ? listIntegrations(s.ctx, {}) : Promise.resolve([]), getReconciliation(s.ctx, {})]);
+  const [integrations, rec, outbox, notes] = await Promise.all([
+    can(s.ctx, "integrations.read") ? listIntegrations(s.ctx, {}) : Promise.resolve([]), getReconciliation(s.ctx, {}),
+    can(s.ctx, "quotes.read") ? getOutboxCounts(s.ctx, {}) : Promise.resolve({ review: 0 }), listNotifications(s.ctx, { limit: 1 }),
+  ]);
   const allowed = Object.entries(PAGE_PERMISSION).filter(([, perm]) => can(s.ctx, perm)).map(([href]) => href);
-  const reviewCount = rec.pendingReview + rec.olderBacklog;
+  const counts = { review: rec.pendingReview + rec.olderBacklog, outbox: outbox.review };
   const problems = integrations.filter((i) => i.status !== "connected");
   const isAdmin = can(s.ctx, "integrations.manage");
   // A wrong APP_URL silently breaks Gmail OAuth, the Claude connector URL and email links.
@@ -36,7 +41,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <span className="grid size-7 place-items-center rounded-md bg-primary text-sm font-bold text-primary-foreground">In</span>
           Inquira
         </Link>
-        <Sidebar reviewCount={reviewCount} allowed={allowed} />
+        <Sidebar counts={counts} allowed={allowed} />
         <div className="mt-auto grid gap-2 px-3 text-xs text-muted">
           <p className="truncate" title={s.orgName}>{s.orgName}</p>
           <p className="truncate" title={s.user.email}>{s.user.email} · {ROLE_NAMES[s.role]}</p>
@@ -50,6 +55,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
           <p className="hidden min-w-0 truncate text-sm text-muted lg:block">{s.orgName}</p>
           <div className="ml-auto flex items-center gap-1">
+            <NotificationBell key={notes.unread} unread={notes.unread} />
             <ThemeToggle />
             <form action={signOut}>
               <Button variant="ghost" size="icon" aria-label="Sign out" type="submit"><LogOut /></Button>
@@ -81,7 +87,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         ) : null}
         <main className="mx-auto w-full max-w-6xl px-4 py-4 sm:py-6">{children}</main>
       </div>
-      <BottomNav reviewCount={reviewCount} allowed={allowed} />
+      <BottomNav counts={counts} allowed={allowed} />
     </div>
   );
 }

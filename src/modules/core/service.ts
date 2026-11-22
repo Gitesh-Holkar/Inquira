@@ -8,7 +8,7 @@ import { audit, emit } from "./audit";
 import { defineService } from "./service-kit";
 import { can } from "./permissions";
 import { actorString, type Ctx } from "./types";
-import { auditLogs, integrations, integrationSecrets, jobs, memberships, organizations, orgSettings, syncRuns } from "./schema";
+import { auditLogs, integrations, integrationSecrets, jobs, memberships, notifications, organizations, orgSettings, syncRuns } from "./schema";
 
 export type Provider = "gmail" | "tradeindia" | "indiamart" | "ai_basic" | "ai_advanced";
 export type Integration = typeof integrations.$inferSelect;
@@ -248,4 +248,53 @@ export const listAudit = defineService({
 
 export async function listOrgIdsInternal(tx: Tx) {
   return (await tx.select({ id: organizations.id }).from(organizations).where(isNull(organizations.deletedAt))).map((r) => r.id);
+}
+
+// ---------- notifications (GOAL G-OUT-9: tell the team once) ----------
+
+/** Adds a notification unless one of the same kind already exists for this entity (so each thing is told once). */
+export async function notifyOnceInternal(tx: Tx, ctx: Ctx, n: { kind: string; title: string; body?: string | null; href?: string | null; entityType?: string; entityId?: string }) {
+  const [row] = await tx.insert(notifications).values({
+    orgId: ctx.orgId, kind: n.kind, title: n.title.slice(0, 200), body: n.body?.slice(0, 500) ?? null, href: n.href ?? null,
+    entityType: n.entityType ?? null, entityId: n.entityId ?? null, createdBy: actorString(ctx.actor),
+  }).onConflictDoNothing().returning();
+  return row ?? null;
+}
+
+/** The bell: the latest notifications and how many this person has not seen. */
+export const listNotifications = defineService({
+  name: "core.notifications",
+  input: z.object({ limit: z.number().int().min(1).max(50).default(20) }).default({ limit: 20 }),
+  permission: "dashboard.read",
+  handler: async (ctx, input, tx) => {
+    const items = await tx.select().from(notifications).where(eq(notifications.orgId, ctx.orgId)).orderBy(desc(notifications.createdAt)).limit(input.limit);
+    let seenAt: Date | null = null;
+    if (ctx.actor.kind === "human") {
+      const [m] = await tx.select({ seen: memberships.notificationsSeenAt }).from(memberships)
+        .where(and(eq(memberships.orgId, ctx.orgId), eq(memberships.userId, ctx.actor.userId)));
+      seenAt = m?.seen ?? null;
+    }
+    const [{ unread = 0 } = {}] = await tx.select({ unread: sql<number>`count(*)::int` }).from(notifications)
+      .where(and(eq(notifications.orgId, ctx.orgId), seenAt ? sql`${notifications.createdAt} > ${seenAt.toISOString()}::timestamptz` : undefined));
+    return { items, unread, seenAt };
+  },
+});
+
+/** Marks everything up to now as seen, for the signed-in person only (their own membership row). */
+export const markNotificationsSeen = defineService({
+  name: "core.notificationsSeen",
+  input: z.object({}).default({}),
+  permission: "dashboard.read",
+  runAs: "system",
+  handler: async (ctx, _i, tx) => {
+    if (ctx.actor.kind !== "human") return { ok: true };
+    await tx.update(memberships).set({ notificationsSeenAt: new Date() })
+      .where(and(eq(memberships.orgId, ctx.orgId), eq(memberships.userId, ctx.actor.userId)));
+    return { ok: true };
+  },
+});
+
+/** Stores the sending settings (the outbound module validates their shape and audits the change). */
+export async function setOutboundSettingsInternal(tx: Tx, orgId: string, value: unknown) {
+  await tx.update(orgSettings).set({ outbound: value }).where(eq(orgSettings.orgId, orgId));
 }

@@ -16,8 +16,7 @@ import type { IngestMessage } from "@/modules/email/types";
 import { emptyStats, type SyncStats } from "../types";
 import {
   exchangeCode, extractBodies, GMAIL_SCOPES, GmailClient, GmailHistoryExpired, GmailMessageGone, GmailReauthRequired, header, parseAddressList, parseFrom,
-  type GmailCredentials, type GmailMessage,
-} from "./client";
+  type GmailCredentials, type GmailMessage, attachmentNames } from "./client";
 
 export type GmailSecrets = { clientId?: string; clientSecret?: string; refreshToken?: string; pendingVerifier?: string };
 export type GmailCursor = { historyId?: string; backlog?: string[]; lastFullSyncAt?: string };
@@ -163,6 +162,7 @@ export function toIngestMessage(msg: GmailMessage): IngestMessage {
     gmailMessageId: msg.id, gmailThreadId: msg.threadId, historyId: msg.historyId ?? null, rfcMessageId: header(msg, "Message-ID") ?? header(msg, "Message-Id"),
     fromEmail: from.email, fromName: from.name, toEmails: parseAddressList(header(msg, "To")), ccEmails: parseAddressList(header(msg, "Cc")),
     subject: header(msg, "Subject") ?? "(no subject)", snippet: msg.snippet ?? null, text, html, labelIds: msg.labelIds ?? [], headers, receivedAt: received,
+    attachments: attachmentNames(msg.payload),
   };
 }
 

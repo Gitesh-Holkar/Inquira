@@ -15,6 +15,8 @@ export type IngestMessage = {
   labelIds: string[];
   headers: Record<string, string>;
   receivedAt: Date;
+  /** Attachment file names (none for portal notifications). */
+  attachments?: string[];
 };
 
 export const EMAIL_CLASSES = ["inquiry", "conversation", "ignored", "international", "needs_review"] as const;

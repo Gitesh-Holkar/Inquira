@@ -626,3 +626,35 @@ export async function rescoreLeadsInternal(tx: Tx, ctx: Ctx, now = new Date()) {
   return { rescored: Math.min(rows.length, 300), more: rows.length > 300 };
 }
 
+
+// ---------- outbound pipeline (src/modules/outbound) ----------
+
+/** New leads the pipeline has not planned yet: understood, still new, received in the last `hours`. */
+export async function leadsToPlanInternal(tx: Tx, orgId: string, opts: { hours: number; limit: number }) {
+  return tx.select().from(leads).where(and(
+    eq(leads.orgId, orgId), isNull(leads.deletedAt), eq(leads.status, "new"), isNotNull(leads.understoodAt), isNull(leads.outreachPlannedAt),
+    gte(leads.receivedAt, new Date(Date.now() - opts.hours * 3600_000)),
+  )).orderBy(asc(leads.receivedAt)).limit(opts.limit);
+}
+
+export async function markLeadPlannedInternal(tx: Tx, orgId: string, leadId: string) {
+  await tx.update(leads).set({ outreachPlannedAt: new Date() }).where(and(eq(leads.id, leadId), eq(leads.orgId, orgId)));
+}
+
+/** The buyer behind this lead already bought (another of their leads is won): G-OUT-2 "existing customer". */
+export async function isExistingCustomerInternal(tx: Tx, orgId: string, lead: Pick<Lead, "id" | "contactId">): Promise<boolean> {
+  if (!lead.contactId) return false;
+  const [r] = await tx.select({ id: leads.id }).from(leads).where(and(
+    eq(leads.orgId, orgId), eq(leads.contactId, lead.contactId), ne(leads.id, lead.id), eq(leads.status, "won"), isNull(leads.deletedAt),
+  )).limit(1);
+  return !!r;
+}
+
+/** This buyer's leads (same contact), optionally for one product: "already received this quotation" check. */
+export async function leadIdsOfContactInternal(tx: Tx, orgId: string, contactId: string | null, productId?: string | null): Promise<string[]> {
+  if (!contactId) return [];
+  const rows = await tx.select({ id: leads.id }).from(leads).where(and(
+    eq(leads.orgId, orgId), eq(leads.contactId, contactId), productId ? eq(leads.productId, productId) : undefined,
+  ));
+  return rows.map((r) => r.id);
+}

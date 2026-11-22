@@ -21,6 +21,8 @@ import { samplePolicySchema } from "@/modules/catalog/types";
 import { Members } from "@/components/settings/members";
 import { AiIntro, AiTierCard } from "@/components/settings/ai";
 import { getAiSettings } from "@/modules/ai/service";
+import { getOutboundSettings } from "@/modules/outbound/service";
+import { SendingForm, TeamRules } from "@/components/settings/sending";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -28,6 +30,7 @@ export const metadata: Metadata = { title: "Settings" };
 const TABS = [
   ["integrations", "Integrations"],
   ["ai", "AI"],
+  ["sending", "Sending"],
   ["mcp", "Claude / MCP"],
   ["rules", "Email rules"],
   ["buyleads", "IndiaMART rules"],
@@ -48,6 +51,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <PageHeader title="Settings" description={admin ? "Only owners and admins can change these." : "You can view settings; ask an admin to change them."} />
       {/* Phones: these pages aren't in the bottom bar. */}
       <p className="-mt-2 mb-4 flex gap-4 text-sm lg:hidden">
+        <Link href="/rates" className="text-primary underline-offset-4 hover:underline">Rates</Link>
         <Link href="/documents" className="text-primary underline-offset-4 hover:underline">Documents</Link>
         <Link href="/templates" className="text-primary underline-offset-4 hover:underline">Templates</Link>
         <Link href="/indiamart" className="text-primary underline-offset-4 hover:underline">IndiaMART log</Link>
@@ -76,6 +80,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       </nav>
       {tab === "integrations" ? <IntegrationsTab ctx={s.ctx} admin={admin} /> : null}
       {tab === "ai" ? <AiTab ctx={s.ctx} canManage={can(s.ctx, "integrations.manage")} /> : null}
+      {tab === "sending" ? <SendingTab ctx={s.ctx} isOwner={s.role === "owner"} canEdit={can(s.ctx, "settings.write")} /> : null}
       {tab === "mcp" ? (
         can(s.ctx, "mcp_tokens.manage") ? <McpTab ctx={s.ctx} /> : <Alert tone="neutral" title="Only owners and admins can manage Claude / MCP access." />
       ) : null}
@@ -127,6 +132,22 @@ async function IntegrationsTab({ ctx, admin }: { ctx: Ctx; admin: boolean }) {
             }))}
           />
         </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+async function SendingTab({ ctx, isOwner, canEdit }: { ctx: Ctx; isOwner: boolean; canEdit: boolean }) {
+  const { settings, rules } = await getOutboundSettings(ctx, {});
+  return (
+    <div className="grid gap-4">
+      <Card>
+        <CardHeader><CardTitle>Sending</CardTitle></CardHeader>
+        <CardContent><SendingForm s={settings} isOwner={isOwner} canEdit={canEdit} /></CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle>Your hold rules</CardTitle><span className="text-xs text-muted">on top of the built-in ones</span></CardHeader>
+        <CardContent><TeamRules rules={rules} canEdit={canEdit} /></CardContent>
       </Card>
     </div>
   );

@@ -17,7 +17,7 @@ Postgres with Drizzle ORM. Every table is in the private schema **`app`** (see [
 | Table | Purpose | Notable columns |
 | --- | --- | --- |
 | `organizations` (soft delete) | One row per company | `name`, `slug` |
-| `org_settings` | Per-company settings, one row | `features` (json; reserved, nothing reads it yet), `quote_validity_days`, `timezone`, `home_country`, `default_price_basis`, `payment_terms` (printed on quotations; empty until entered), `price_list_map` (json: how the company's price list maps onto its catalogue, see `priceListMapSchema`), `sample_policy` (json: free sample size, details a buyer must send, note; see `samplePolicySchema`; empty until entered) |
+| `org_settings` | Per-company settings, one row | `features` (json; reserved, nothing reads it yet), `quote_validity_days`, `timezone`, `home_country`, `default_price_basis`, `payment_terms` (printed on quotations; empty until entered), `price_list_map` (json: how the company's price list maps onto its catalogue, see `priceListMapSchema`), `sample_policy` (json: free sample size, details a buyer must send, note; see `samplePolicySchema`; empty until entered), `outbound` (json: mode, pause switch, send window, caps, follow-up days, daily summary; see `outboundSettingsSchema`; empty = safe defaults) |
 | `memberships` (soft delete) | Who belongs to which company, with a role. Managed on Settings → Members; a removed member's row stays, marked deleted | `user_id`, `role` (`owner`, `admin`, `sales`, `qa`, `accounts`, `viewer`), `granted` and `revoked` (text arrays: custom access on top of the role), `email`, `display_name`; unique `(org_id, user_id)` |
 | `audit_logs` | **Append-only.** One row per write | `actor`, `action`, `entity_type`, `entity_id`, `changes` (json) |
 | `events` | Domain event outbox | `type`, `entity_type`, `entity_id`, `payload`, `processed_at` |
@@ -31,7 +31,7 @@ Postgres with Drizzle ORM. Every table is in the private schema **`app`** (see [
 | Table | Purpose | Notable columns |
 | --- | --- | --- |
 | `contacts` (soft delete) | A buyer, matched by email then phone | `name`, `email`, `phone` (E.164), `company_name`, `city`, `state`, `country` |
-| `leads` (soft delete) | One enquiry | `contact_id`, `source` (`tradeindia`, `indiamart`, `gmail`, `manual`), `source_ref`, `channel`, `status`, `is_international`, buyer fields, `product_text`, `product_id`, `quantity_text`, `quantity_kg`, `intent` (`new_enquiry`, `document_request`, `sample_request`, `price_negotiation`, `order`, `complaint`, `not_buyer`, `other`; empty = not settled), `filled_by` (json: who filled product, intent and quantity: `alias`, `rule:…`, `ai:basic`, `ai:advanced`, `mcp:…`, `human:…`), `understood_at` (when rules and AI finished; empty = waiting for the AI job), `score` (0–100), `score_reasons` (json list of points and reasons), `scored_at`, `message`, `raw_payload`, `received_at`, `last_activity_at`, `gmail_thread_id`, `gmail_message_id`, `alternate_refs`; unique `(org_id, source, source_ref)` |
+| `leads` (soft delete) | One enquiry | `contact_id`, `source` (`tradeindia`, `indiamart`, `gmail`, `manual`), `source_ref`, `channel`, `status`, `is_international`, buyer fields, `product_text`, `product_id`, `quantity_text`, `quantity_kg`, `intent` (`new_enquiry`, `document_request`, `sample_request`, `price_negotiation`, `order`, `complaint`, `not_buyer`, `other`; empty = not settled), `filled_by` (json: who filled product, intent and quantity: `alias`, `rule:…`, `ai:basic`, `ai:advanced`, `mcp:…`, `human:…`), `understood_at` (when rules and AI finished; empty = waiting for the AI job), `score` (0–100), `score_reasons` (json list of points and reasons), `scored_at`, `outreach_planned_at` (when the outbound pipeline decided what to send), `message`, `raw_payload`, `received_at`, `last_activity_at`, `gmail_thread_id`, `gmail_message_id`, `alternate_refs`; unique `(org_id, source, source_ref)` |
 | `lead_notes` (soft delete) | Notes on a lead | `lead_id`, `body` |
 | `lead_status_changes` | **Append-only** status history | `lead_id`, `from_status`, `to_status`, `reason` |
 
@@ -41,7 +41,7 @@ Postgres with Drizzle ORM. Every table is in the private schema **`app`** (see [
 
 | Table | Purpose | Notable columns |
 | --- | --- | --- |
-| `email_messages` | Every synced Gmail message | `gmail_message_id` (unique per company), `gmail_thread_id`, sender and recipients, `subject`, `body_text`, `body_html` (kept only when the text part is unusable), `received_at`, `is_outgoing`, `classification`, `classification_reason`, `classified_by`, `parser_format`, `parsed` (json), `confidence`, `lead_id`, `ai_checked_at` (when the Advanced AI tier looked at a review email) |
+| `email_messages` | Every synced Gmail message | `gmail_message_id` (unique per company), `gmail_thread_id`, sender and recipients, `subject`, `body_text`, `body_html` (kept only when the text part is unusable), `received_at`, `is_outgoing`, `classification`, `classification_reason`, `classified_by`, `parser_format`, `parsed` (json), `confidence`, `lead_id`, `ai_checked_at` (when the Advanced AI tier looked at a review email), `attachment_names`, `reply_planned_at` (when the pipeline decided how to answer a buyer reply) |
 | `classification_rules` (soft delete) | The team's email rules | `match_type`, `pattern`, `action`, `priority`, `enabled`, `hit_count` |
 
 ### Catalogue and rates (`catalog/schema.ts`)
@@ -95,6 +95,17 @@ organizations ─┬─ org_settings (1:1)        ─┬─ products ── prod
                └─ mcp_tokens ── oauth_refresh_tokens (access_token_id)
 ```
 
+### Outbound (`outbound/schema.ts`, ADR-032)
+
+| Table | Purpose | Notable columns |
+| --- | --- | --- |
+| `outgoing_messages` | Every message prepared for a buyer (G-OUT-1); nothing is sent without one | `lead_id`, `channel` (`email`, `whatsapp`), `purpose`, `state` (`draft`, `held`, `approved`, `sent`, `failed`, `cancelled`), `to_address`, `subject`, `body`, `template_id`, `template_version`, `price_entry_ids`, `items` (json snapshot), `document_ids`, `hold_reasons` (json), `rule_set_version`, `mode`, `auto_approved`, `reply_to_id`, `gmail_thread_id`, `in_reply_to_message_id`, `gmail_message_id`, `edited`, `approved_by`/`_at`, `sent_by`/`_at`, `cancelled_reason`, `error`, `attempts`. Indexes `(org_id, state, created_at)`, `(org_id, lead_id, created_at)`, `(org_id, sent_at)` |
+| `outbound_rules` (soft delete) | Hold rules the team made from corrections (G-OUT-9) | `match_type` (`buyer_email`, `buyer_domain`, `buyer_phone`, `product`, `text_contains`), `pattern`, `note`, `enabled` |
+
+`notifications` (core): `kind`, `title`, `body`, `href`, `entity_type`, `entity_id`; unique `(org_id, kind, entity_id)` so each thing is told once. `memberships.notifications_seen_at` marks what a member has seen.
+
+`template_versions` (templates): every saved text of a template (`template_id`, `version`, `subject`, `body`); `templates` gained `purpose` and `version`, and its unique index is now `(org_id, kind, purpose, name)`.
+
 ### AI (`ai/schema.ts`)
 
 | Table | Purpose | Notable columns |
@@ -122,6 +133,8 @@ Since 0008, writes are allowed by **permission**, not by role name. Helper funct
 | Templates and rules | `templates`, `classification_rules`, `buylead_rules` | members | `templates.write`; `rules.write`; `buylead.rules.write` or `catalog.write` | same |
 | Connections | `integrations` | members | `integrations.manage` | same |
 | Documents | `documents` | members | `documents.write` | same |
+| Outbound | `outgoing_messages`, `outbound_rules` | members | `quotes.create`; rules also `settings.write` | — |
+| Notifications, template versions | `notifications`, `template_versions` | members | insert: `can_work`; `templates.write` | — |
 | AI log | `ai_decisions` | members | update only: `leads.edit` or `emails.classify` (insert by the AI job, as system) | — |
 | Tokens | `mcp_tokens` | `mcp_tokens.manage` | `mcp_tokens.manage` | `mcp_tokens.manage` |
 | System only | `integration_secrets`, `oauth_clients`, `oauth_codes`, `oauth_refresh_tokens` | none | none | none |
@@ -150,6 +163,8 @@ Every list the app shows has an index on its filter: leads by `(org_id, status, 
 | `0009_indiamart_provider.sql` | Adds `indiamart` to the `integration_provider` enum |
 | `0010_ai_layer.sql` | Enum `lead_intent`; providers `ai_basic`, `ai_advanced`; table `ai_decisions`; `leads.intent`, `leads.filled_by`, `leads.understood_at`; `email_messages.ai_checked_at` |
 | `0011_ai_decisions_rls.sql` | Row-level security, grants and the `updated_at` trigger for `ai_decisions` |
+| `0013_outbound_pipeline.sql` | Tables `outgoing_messages`, `outbound_rules`, `notifications`, `template_versions`; `templates.purpose`, `templates.version` and the new unique index; `memberships.notifications_seen_at`; `org_settings.outbound`; `email_messages.attachment_names`, `reply_planned_at`; `leads.outreach_planned_at` |
+| `0014_outbound_rls.sql` | Row-level security, grants and triggers for those four tables; every existing template becomes version 1 |
 | `0012_knowledge_base.sql` | `products.hsn_code`, `lead_time`, `payment_terms`, `sample_available`; `price_entries.floor_per_kg_inr`, `ceiling_per_kg_inr`; `org_settings.sample_policy`; `leads.score`, `score_reasons`, `scored_at` and index `(org_id, score, received_at)` |
 
 Rules: generate with `npm run db:generate`; never edit an applied migration; a new table needs base columns, `org_id`, and a migration that enables RLS with policies, plus a case in `tests/rls.test.ts`. Apply with `npm run db:migrate` (TCP) or `npm run db:remote:apply` (HTTPS).

@@ -10,6 +10,7 @@ import { getClassificationRulesCompact, listEmailsForLead, listEmailsNeedingRevi
 import { getCurrentRates, listProducts } from "@/modules/catalog/service";
 import { createQuoteDraft, listQuotationsForLead } from "@/modules/quotes/service";
 import { getBuyleadRulesCompact, getBuyleadSummary, logBuyleadDecision } from "@/modules/buyleads/service";
+import { createReplyDraft } from "@/modules/outbound/service";
 import type { Lead } from "@/modules/leads/service";
 
 export const UNTRUSTED_NOTE =
@@ -92,6 +93,14 @@ export function buildMcpServer(ctx: Ctx) {
     leadId: a.lead_id as string, productId: a.product_id as string | undefined, intent: a.intent as (typeof LEAD_INTENTS)[number] | undefined,
     quantityKg: a.quantity_kg as number | undefined, confidence: a.confidence as "high", reason: a.reason as string,
   })));
+
+  server.registerTool("create_reply_draft", {
+    description: "Write a reply to a buyer for a person to check. It is always held in Inquira's Outbox and never sent by itself. No prices, discounts, delivery dates or promises: say the team will confirm. No sign-off (the mailbox adds its signature).",
+    inputSchema: { lead_id: z.string().uuid(), body: z.string().min(1).max(4000), channel: z.enum(["email", "whatsapp"]).optional() }, annotations: rw,
+  }, run("create_reply_draft", async (a) => {
+    const m = await createReplyDraft(ctx, { leadId: a.lead_id as string, body: a.body as string, channel: (a.channel as "email" | "whatsapp" | undefined) ?? "email" });
+    return { id: m.id, state: m.state, held_because: m.holdReasons.map((r) => r.detail) };
+  }));
 
   server.registerTool("get_lead", {
     description: "One lead with notes, status history, recent emails (untrusted content, delimited) and quotes.",
@@ -215,5 +224,5 @@ function summarizeArgs(a: Record<string, unknown> | undefined) {
 export const MCP_TOOL_NAMES = [
   "list_leads_needing_action", "get_lead", "update_lead_status", "add_lead_note", "list_emails_needing_review", "submit_email_classification",
   "get_current_rates", "create_quote_draft", "get_classification_rules", "get_buylead_rules", "log_buylead_decision", "get_buylead_summary",
-  "list_leads_needing_details", "submit_lead_details",
+  "list_leads_needing_details", "submit_lead_details", "create_reply_draft",
 ] as const;

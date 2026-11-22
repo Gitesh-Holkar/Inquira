@@ -3,11 +3,11 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Alert, Card, CardContent, CardHeader, CardTitle, Field, Input, Textarea } from "@/components/ui/primitives";
-import { DEFAULT_ITEM_BLOCK, PLACEHOLDERS, render, unknownPlaceholders, type TemplateVars } from "@/modules/templates/engine";
+import { DEFAULT_ITEM_BLOCK, PLACEHOLDERS, TEMPLATE_PURPOSE_LABELS, render, unknownPlaceholders, type TemplatePurpose, type TemplateVars } from "@/modules/templates/engine";
 import { saveTemplateAction } from "@/app/(app)/templates/actions";
 
-export function TemplateEditor({ id, kind, name, subject, body, sample, canEdit }: {
-  id?: string; kind: "quote_email" | "whatsapp"; name: string; subject: string | null; body: string; sample: TemplateVars; canEdit: boolean;
+export function TemplateEditor({ id, kind, purpose, version, name, subject, body, sample, canEdit }: {
+  id?: string; kind: "quote_email" | "whatsapp"; purpose: TemplatePurpose; version: number | null; name: string; subject: string | null; body: string; sample: TemplateVars; canEdit: boolean;
 }) {
   const [s, setS] = useState(subject ?? "");
   const [b, setB] = useState(body);
@@ -28,10 +28,13 @@ export function TemplateEditor({ id, kind, name, subject, body, sample, canEdit 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card>
-        <CardHeader><CardTitle>{kind === "quote_email" ? "Quotation email" : "WhatsApp message"}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{TEMPLATE_PURPOSE_LABELS[purpose]} · {kind === "quote_email" ? "email" : "WhatsApp"}</CardTitle>
+          <span className="text-xs text-muted">{version ? `version ${version}` : "not saved yet (starting text)"}</span>
+        </CardHeader>
         <CardContent className="grid gap-3">
           {kind === "quote_email" ? (
-            <Field label="Subject (used when there is no inquiry thread)" htmlFor={`${kind}-subject`}>
+            <Field label="Subject (used when there is no enquiry thread)" htmlFor={`${kind}-subject`}>
               <Input id={`${kind}-subject`} value={s} onChange={(e) => setS(e.target.value)} disabled={!canEdit} />
             </Field>
           ) : null}
@@ -52,7 +55,7 @@ export function TemplateEditor({ id, kind, name, subject, body, sample, canEdit 
             <div className="flex justify-end gap-2">
               <Button variant="outline" disabled={!dirty || pending} onClick={() => { setB(body); setS(subject ?? ""); }}>Reset</Button>
               <Button disabled={!dirty || pending || unknown.length > 0} onClick={() => start(async () => {
-                const r = await saveTemplateAction({ id, kind, name, subject: kind === "quote_email" ? s : null, body: b });
+                const r = await saveTemplateAction({ id, kind, purpose, name, subject: kind === "quote_email" ? s : null, body: b });
                 if (r.ok) toast.success("Template saved"); else { setError(r.fieldErrors?.body?.[0] ?? r.error); toast.error(r.error); }
               })}>{pending ? "Saving…" : "Save template"}</Button>
             </div>
