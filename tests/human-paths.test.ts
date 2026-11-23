@@ -6,15 +6,16 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { closeDb, getDb, withSystemTx } from "@/db/client";
-import { auditLogs, integrations, jobs } from "@/modules/core/schema";
+import { auditLogs, integrations, jobs, organizations } from "@/modules/core/schema";
 import { emailMessages } from "@/modules/email/schema";
-import { getIntegrationInternal, getOrgSettings, listAudit, listIntegrations, listSyncRuns, readSecretsInternal, updateIntegrationInternal, writeSecretsInternal } from "@/modules/core/service";
+import { getIntegrationInternal, getOrgSettings, listAudit, renameOrganization, listIntegrations, listSyncRuns, readSecretsInternal, updateIntegrationInternal, writeSecretsInternal } from "@/modules/core/service";
 import { disconnectGmail, saveGmailClient, startGmailConnect, syncGmail } from "@/modules/sources/gmail/service";
-import { saveTradeIndiaCredentials } from "@/modules/sources/tradeindia/service";
+import { disconnectTradeIndia, saveTradeIndiaCredentials, syncTradeIndia } from "@/modules/sources/tradeindia/service";
 import { tick } from "@/modules/sources/jobs";
 import { getDashboard } from "@/modules/dashboard/service";
-import { addLeadNote, createManualLead, deleteLead, getLead, listLeads, updateLead, updateLeadStatus } from "@/modules/leads/service";
+import { addLeadNote, createManualLead, deleteLead, getLead, listLeads, removeLeadNote, updateLead, updateLeadStatus } from "@/modules/leads/service";
 import { createProduct, getCurrentRates, listProducts } from "@/modules/catalog/service";
+import { createOutboundRule, getOutboundSettings } from "@/modules/outbound/service";
 import { planPriceListImport } from "@/modules/catalog/price-list-service";
 import { listTemplates } from "@/modules/templates/service";
 import { getBuyleadRules, getBuyleadSummary, listBuyleadDecisions, logBuyleadDecision, updateBuyleadRules } from "@/modules/buyleads/service";
@@ -122,6 +123,59 @@ describe("signed-in users (RLS) can use every screen", () => {
     const v = await createUser();
     await addMember(org.id, v, "viewer");
     await expect(addLeadNote(human(org.id, v, "viewer"), { leadId, body: "x" })).rejects.toThrow(/Not allowed/);
+  });
+});
+
+describe("settings that were missing (audit of 23 Nov 2026)", () => {
+  beforeEach(resetDb);
+
+  it("only an owner renames the company; it is audited", async () => {
+    const { org, ctx } = await setupOrgWithUser("owner");
+    const admin = await createUser();
+    await addMember(org.id, admin, "admin");
+    await expect(renameOrganization(human(org.id, admin, "admin"), { name: "Other Name" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await renameOrganization(ctx, { name: "Renamed Foods Pvt. Ltd." });
+    const [o] = await getDb().select().from(organizations).where(eq(organizations.id, org.id));
+    expect(o).toMatchObject({ name: "Renamed Foods Pvt. Ltd.", slug: org.slug });
+    expect((await getOrgSettings(ctx, {})).orgName).toBe("Renamed Foods Pvt. Ltd.");
+    expect((await getDb().select().from(auditLogs).where(eq(auditLogs.action, "org.rename")))).toHaveLength(1);
+    await expect(renameOrganization(ctx, { name: " " })).rejects.toMatchObject({ code: "VALIDATION" });
+  });
+
+  it("an owner disconnects TradeIndia: credentials are gone and the sync stops", async () => {
+    const { org, ctx } = await setupOrgWithUser("owner");
+    await saveTradeIndiaCredentials(ctx, { userId: "u1", profileId: "p1", key: "key-12345678" });
+    await disconnectTradeIndia(ctx, {});
+    const [ti] = await getDb().select().from(integrations).where(and(eq(integrations.orgId, org.id), eq(integrations.provider, "tradeindia")));
+    expect(ti).toMatchObject({ status: "not_connected" });
+    expect(ti!.config).not.toHaveProperty("userId");
+    const secrets = await withSystemTx(async (tx) => readSecretsInternal<Record<string, string>>(tx, ti!.id));
+    expect(secrets ?? {}).toEqual({});
+    expect(await syncTradeIndia(systemCtx(org.id))).toMatchObject({ skipped: "not configured" });
+  });
+
+  it("a note is removed by its author or by someone who may delete leads; another sales member cannot; the text stays in the audit", async () => {
+    const { org, ctx } = await setupOrgWithUser("owner");
+    const lead = await createManualLead(ctx, { contactName: "Test Buyer", phone: "+919000000909", productText: "Sample Protein" });
+    const [a, b] = [await createUser(), await createUser()];
+    await addMember(org.id, a, "sales");
+    await addMember(org.id, b, "sales");
+    const note = await addLeadNote(human(org.id, a, "sales"), { leadId: lead.leadId, body: "Called, wrong number" });
+    await expect(removeLeadNote(human(org.id, b, "sales"), { noteId: note.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await removeLeadNote(human(org.id, a, "sales"), { noteId: note.id });
+    expect((await getLead(ctx, { leadId: lead.leadId })).notes).toHaveLength(0);
+    const other = await addLeadNote(human(org.id, b, "sales"), { leadId: lead.leadId, body: "Sent COA" });
+    await removeLeadNote(ctx, { noteId: other.id }); // the owner may delete leads
+    const [audit] = await getDb().select().from(auditLogs).where(and(eq(auditLogs.orgId, org.id), eq(auditLogs.action, "lead.note_remove")));
+    expect(audit!.changes).toMatchObject({ body: "Called, wrong number" });
+  });
+
+  it("an admin adds a team hold rule directly (not only from Don't send)", async () => {
+    const { org } = await setupOrgWithUser("owner");
+    const admin = await createUser();
+    await addMember(org.id, admin, "admin");
+    await createOutboundRule(human(org.id, admin, "admin"), { matchType: "buyer_domain", pattern: "distributor.example", note: "Existing distributor" });
+    expect((await getOutboundSettings(human(org.id, admin, "admin"), {})).rules).toMatchObject([{ matchType: "buyer_domain", pattern: "distributor.example" }]);
   });
 });
 

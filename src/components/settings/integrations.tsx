@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Alert, Badge, Card, CardContent, CardHeader, CardTitle, Field, Input } from "@/components/ui/primitives";
 import { formatDateTime, formatRelative } from "@/lib/format";
-import { connectGmailAction, createIndiaMartPushAddressAction, disconnectGmailAction, saveGmailClientAction, saveIndiaMartKeyAction, saveTradeIndiaAction, syncNowAction, testIndiaMartAction, testTradeIndiaAction } from "@/app/(app)/settings/actions";
+import { connectGmailAction, createIndiaMartPushAddressAction, disconnectGmailAction, disconnectIndiaMartAction, disconnectTradeIndiaAction, saveGmailClientAction, saveIndiaMartKeyAction, saveTradeIndiaAction, syncNowAction, testIndiaMartAction, testTradeIndiaAction } from "@/app/(app)/settings/actions";
 
 export type IntegrationView = { provider: "gmail" | "tradeindia" | "indiamart"; status: string; accountEmail: string | null; lastSyncAt: string | null; lastSuccessAt: string | null; lastError: string | null; config: Record<string, unknown> };
 export type RunView = { id: string; provider: string; kind: string; startedAt: string; status: string; fetched: number; created: number; duplicates: number; errors: number; errorMessage: string | null };
@@ -72,6 +72,12 @@ export function TradeIndiaCard({ i, canManage }: { i: IntegrationView; canManage
                 if (r.ok) toast.success(`Connected to TradeIndia (${r.data.sample} inquiries in the last day). Backfilling 30 days…`); else toast.error(r.error);
               })}><PlugZap />Test connection</Button>
               <SyncNow provider="tradeindia" disabled={i.status !== "connected" && i.status !== "error"} />
+              {i.status !== "not_connected" ? (
+                <ConfirmDialog danger title="Disconnect TradeIndia?" confirmLabel="Disconnect"
+                  description="Inquira forgets the saved User ID, Profile ID and key and stops checking TradeIndia. Enquiries already imported stay. TradeIndia emails in Gmail are still read."
+                  trigger={<Button type="button" variant="ghost" className="text-danger" disabled={pending}>Disconnect</Button>}
+                  onConfirm={() => start(async () => { const r = await disconnectTradeIndiaAction(); if (r.ok) toast.success("TradeIndia disconnected"); else toast.error(r.error); })} />
+              ) : null}
             </div>
           </form>
         ) : null}
@@ -131,6 +137,12 @@ export function IndiaMartCard({ i, canManage, httpsReady }: { i: IntegrationView
                     if (r.ok) setPushUrl(r.data.url); else toast.error(r.error);
                   })} />
               ) : <p className="text-xs text-muted">Push needs a public https address (the cloud site); it is not available on a computer-only install.</p>}
+              {i.status !== "not_connected" || cfg.pushAddressCreatedAt ? (
+                <ConfirmDialog danger title="Disconnect IndiaMART?" confirmLabel="Disconnect"
+                  description="Inquira forgets the Pull API key, turns the push address off and stops checking IndiaMART. Leads already imported stay. IndiaMART emails in Gmail are still read. Also remove the address in IndiaMART's Lead Manager."
+                  trigger={<Button type="button" variant="ghost" className="text-danger" disabled={pending}>Disconnect</Button>}
+                  onConfirm={() => start(async () => { const r = await disconnectIndiaMartAction(); if (r.ok) { setPushUrl(null); toast.success("IndiaMART disconnected"); } else toast.error(r.error); })} />
+              ) : null}
             </div>
             {pushUrl ? (
               <Alert tone="success" title="Push address (shown once)">

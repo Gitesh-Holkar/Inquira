@@ -96,6 +96,41 @@ export const listDocuments = defineService({
   },
 });
 
+const editInput = z.object({
+  documentId: z.string().uuid(),
+  productId: z.string().uuid().nullish(),
+  type: z.enum(DOCUMENT_TYPES),
+  title: z.string().trim().min(1, "Enter a title").max(160),
+  batch: z.string().trim().max(80).nullish(),
+  issueDate: ymd.nullish(),
+  expiryDate: ymd.nullish(),
+  notes: z.string().trim().max(500).nullish(),
+}).refine((d) => !d.issueDate || !d.expiryDate || d.expiryDate >= d.issueDate, { message: "The expiry date is before the issue date", path: ["expiryDate"] });
+
+/** Documents → Edit details: corrects the product, type, title, batch, dates or note. The file stays the same; upload a new one for a new batch. */
+export const updateDocument = defineService({
+  name: "documents.update",
+  input: editInput,
+  permission: "documents.write",
+  handler: async (ctx, input, tx) => {
+    const [d] = await tx.select().from(documents).where(and(eq(documents.orgId, ctx.orgId), eq(documents.id, input.documentId), isNull(documents.deletedAt)));
+    if (!d) throw notFound("Document");
+    if (input.productId && input.productId !== d.productId) {
+      const p = await productInfoById(tx, ctx.orgId, input.productId);
+      if (!p || p.removed) throw notFound("Product");
+    }
+    const next = {
+      productId: input.productId ?? null, type: input.type, title: input.title, batch: input.batch || null,
+      issueDate: input.issueDate || null, expiryDate: input.expiryDate || null, notes: input.notes || null,
+    };
+    const changes = Object.fromEntries(Object.entries(next).filter(([k, v]) => (d as Record<string, unknown>)[k] !== v).map(([k, v]) => [k, [(d as Record<string, unknown>)[k], v]]));
+    if (!Object.keys(changes).length) return d;
+    const [row] = await tx.update(documents).set(next).where(eq(documents.id, d.id)).returning();
+    await audit(tx, ctx, { action: "document.update", entityType: "document", entityId: d.id, changes });
+    return row!;
+  },
+});
+
 export const removeDocument = defineService({
   name: "documents.remove",
   input: z.object({ documentId: z.string().uuid() }),

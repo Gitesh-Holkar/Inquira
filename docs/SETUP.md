@@ -186,6 +186,8 @@ If you ever see the red **Reconnect Gmail** banner (password changed, access rem
 - **Recent sync runs** shows a TradeIndia `backfill` row with `ok`.
 - Inquiries that arrived both by API and by email show once, with "Also received via: tradeindia api (source ref)".
 
+**To stop it:** Settings → Integrations → TradeIndia → **Disconnect** forgets the three values and stops the sync; enquiries already imported stay, and TradeIndia emails in Gmail are still read.
+
 Not everything about TradeIndia's API is documented publicly (limits, some field names). See [TRADEINDIA_API.md](TRADEINDIA_API.md). If the test fails, the exact error appears on the card.
 
 ## 6a. Connect IndiaMART (Lead Manager API)
@@ -203,6 +205,8 @@ Two parts. Do both; each covers what the other might miss.
 3. The card then shows "last lead received" after the next lead.
 
 If you ever lose the address or think someone else has it, click **New push address** and paste the new one into IndiaMART at once; the old one stops working.
+
+**To stop it:** **Disconnect** on the IndiaMART card forgets the key and turns the push address off; leads already imported stay. Also remove the address in IndiaMART's Lead Manager.
 
 The dashboard card **API and email today** compares how leads arrived. "API missed" means a lead came only by notification email although the API is connected: check the IndiaMART card for errors.
 
@@ -347,15 +351,17 @@ npm run dev                  # sign in as owner@example.com (dev sign-in button)
 3. Press **Show changes**. Read the list: new products, price changes, renames, and anything that will not be saved and why. Nothing is saved at this point.
 4. Press **Apply**. The new rates start today; the old ones stay in each rate's history.
 
-The folded section **How Inquira reads your list (mapping)** on the same screen holds which heading has which GST % and pack size, the MOQ and price basis for every rate, and which name on your list is which product. It is prepared with your price list; paste it there once and save. Change it when a GST rate or pack size changes.
+The folded section **How Inquira reads your list (mapping)** on the same screen holds which heading has which GST % and pack size, the MOQ and price basis for every rate, and which name on your list is which product. It is a form: add or change a heading, a product exception or a name, then **Save mapping**. A mapping someone prepared for you can be pasted under **Paste a mapping as text instead**. Change it when a GST rate or pack size changes.
 
 A product that is not in your catalogue is only added when Inquira knows its GST rate (from the heading it sits under, in the mapping). Otherwise it is listed under "Will NOT be written": add it with **Add product**, enter its rate once on the Rates screen, and it will match from then on.
 
 **One price:** change it directly on the **Rates** screen.
 
-**A product's name, its other names or its grades:** **Rates → Edit product**. Other names are what buyers call the product; they help match enquiries and price list lines to it. A grade can be renamed or added, not removed, because its rates are history.
+**A product's name, its other names or its grades:** the pencil on the product's row on **Rates** (or **Edit product** at the top). Other names are what buyers call the product; they help match enquiries and price list lines to it. A grade can be renamed, added, or removed when it is no longer sold: its rates stay in history, and adding the same grade name again brings it back.
 
-**A discontinued product:** **Rates → Edit product** → choose it → **Remove product**. It disappears from rates, quotations, lead matching and Buy Lead suggestions; its rates and history are kept. To bring it back: **Removed products** at the bottom of the Rates screen → **Restore**.
+**A discontinued product:** the bin on the product's row on **Rates** → **Delete product**. It disappears from rates, quotations, lead matching and Buy Lead suggestions; its rates and history are kept. To bring it back: **Deleted products** at the bottom of the Rates screen → **Restore**.
+
+**Company name:** **Settings → Organisation → Company name** (owners only).
 
 **Payment terms, price basis, quotation validity:** **Settings → Organisation**. Payment terms are printed on every quotation; leave the field empty to leave the line out. MOQ and pack size are part of each rate.
 

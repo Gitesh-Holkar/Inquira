@@ -61,6 +61,7 @@ How a request flows: **page or server action** (`src/app`) → **service** (`src
 |---|---|
 | `membershipsForUserInternal(tx, userId)` | A user's organisations and roles (used by sign-in). |
 | `getOrgSettingsInternal` / `getOrgSettings` / `updateOrgSettings` | Organisation settings (quote validity days, default price basis, payment terms). |
+| `renameOrganization` | Settings → Organisation → Company name: owners only, audited; the slug stays. |
 | `setPriceListMapInternal` | Saves the company's price list mapping (validated by the catalog module) and audits that it changed. |
 | `getIntegrationInternal(tx, orgId, provider)` | The Gmail/TradeIndia integration row; creates it (audited) if missing. |
 | `readSecretsInternal` / `writeSecretsInternal` | Decrypt/encrypt integration secrets (AES-256-GCM). Server-only; audit logs field names, never values. Need a system transaction. |
@@ -87,6 +88,7 @@ How a request flows: **page or server action** (`src/app`) → **service** (`src
 |---|---|
 | `uploadDocument(ctx, input, deps?)` | Checks the file (type by content, up to 4 MB, dates, live product), stores it, then saves its row; a failed save removes the file. |
 | `listDocuments`, `removeDocument` | List with product name and validity; soft delete. |
+| `updateDocument` | Documents → Edit details: product, type, title, batch, dates, note; the file stays. Audited with what changed. |
 | `getDocumentFile` | The file for the download route. |
 | `latestValidDocumentsInternal(tx, orgId, productId, types?, today?)` | One document per type: newest issue date, never expired, the product's own before a company-wide one. Used for quotation attachments. |
 | `documentsForProduct` | What the lead page offers to attach. |
@@ -116,6 +118,7 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 | `listLeads` | Inbox query: filters (incl. intent, `needsDetails`, `minScore`), sort newest or best score, search (incl. phone digits), pagination; adds `moqKg` and `belowMoq` per lead. |
 | `getLead` / `getLeadInternal` | One lead with notes and status history. |
 | `updateLeadStatus`, `markQuotedInternal` | Status changes (+ history row, audit, event); quotes move new/contacted → quoted. |
+| `removeLeadNote` | Removes a note (soft); its author or someone who may delete leads; the text stays in the audit trail. |
 | `addLeadNote`, `updateLead`, `createManualLead`, `deleteLead` (soft) | Lead editing from the UI. `updateLead` sets intent and kg too, records `filled_by`, and marks an AI decision corrected when a person changes what AI filled. |
 | `listLeadsNeedingAction` | For Claude: new leads + stale open leads. |
 | `leadStatsInternal`, `countLeadsByChannelSinceInternal` | Dashboard counts (by arrival time `received_at`). |
@@ -158,9 +161,10 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 | `rateHistory` | All price entries for a grade. |
 | `updateRates` / `insertRatesInternal` | Append new price rows (never overwrite); refuses back-dated `valid_from`; optional `valid_to`; lowest and highest price (a range not given is carried over while the new price is inside it). The internal form is shared with the price list import. |
 | `listProducts`, `createProduct` / `createProductInternal` | Products and grades. A duplicate name is refused with a plain message. |
-| `removeProduct` / `restoreProduct` / `listRemovedProducts` | Take a discontinued product out of the catalogue (rates screen, quotations, lead matching, Buy Lead terms) and bring it back. Nothing is deleted: grades, rates and history stay. |
+| `removeProduct` / `restoreProduct` / `listRemovedProducts` | Delete a discontinued product (the bin on its row on Rates: it leaves the rates screen, quotations, lead matching and Buy Lead terms) and bring it back (Deleted products). A soft delete: grades, rates and history stay. |
 | `productInfoById`, `removedProductNamesInternal` | Name and removed state of a product; names of removed products (so a new product or a price list line with that name is explained). |
-| `updateProduct` | Corrects a product: name, category, other names (aliases), grade names, extra grades, and its commercial terms (HSN code, lead time, payment terms, free samples). Grades are renamed or added, never removed; rates and their history are untouched. |
+| `updateProduct` | Corrects a product: name, category, other names (aliases), grade names, extra grades, grades no longer sold (`removeGrades`: soft delete, history kept, the last grade stays), and its commercial terms (HSN code, lead time, payment terms, free samples). Rates and their history are untouched. |
+| `addOrRestoreGradeInternal` | Adds a grade, or brings back a removed grade of the same name with its history (Edit product and the price list import). |
 | `matchProduct`, `normalizeProductText`, `productMatcherCatalog` | Free text ("soy isolate protein") → catalogue product. |
 | `productNameById`, `countProducts` | Small lookups. |
 | `types.ts`: `updateRatesInput`, `rateUpdateItem`, `moneyString`, `percentString`, `CurrentRate` | Rate input validation. |
@@ -197,7 +201,7 @@ Each module has `schema.ts` (tables), `service.ts` (logic) and sometimes `types.
 | `service.ts`: `runOutboundPlan` (`planNewLeadsInternal`, `planRepliesInternal`, `planFollowUpsInternal`) | Job `outbound.plan`: what to send for new leads (by intent, MOQ, international), buyer replies (documents, or an AI draft held for a person), follow-ups. Only items from the last 48 hours. |
 | `service.ts`: `runOutboundSend` | Job `outbound.send`: sends automatically approved emails inside the window, under the caps, not while paused, after re-checking the rules. |
 | `service.ts`: `approveAndSend` / `approveAndSendInternal`, `editMessage`, `rejectMessage`, `prepareMessage`, `createReplyDraft`, `listOutbox`, `getOutboxCounts`, `messagesForLead` | What people (and the connector) do in the Outbox and on the lead page. |
-| `service.ts`: `getOutboundSettings`, `saveOutboundSettings` (mode owner-only), `createOutboundRule`, `removeOutboundRule` | Settings → Sending and the team's hold rules (G-OUT-9). |
+| `service.ts`: `getOutboundSettings`, `saveOutboundSettings` (mode owner-only), `createOutboundRule` (from “Don't send” or Settings → Sending → Add rule; a product rule stores the product id), `removeOutboundRule` | Settings → Sending and the team's hold rules (G-OUT-9). |
 | `send.ts`: `sendEmailInternal` | **The only code that sends email** (Gmail signature, thread, attachments). |
 | `cancel.ts`: `cancelPendingMessagesInternal` | Cancels unsent messages of a lead (used by the quotes module). |
 | `service.ts`: `outboundStatsInternal`, `sendDailySummaryInternal`, `dailySummaryDoneInternal` | Report numbers (sent automatically / by people, held, ready, first replies); the owner's daily summary as an outgoing message with no lead, sent through `send.ts`; whether today's went. |
@@ -260,6 +264,7 @@ IndiaMART (`sources/indiamart/*`, ADR-030):
 |---|---|
 | `client.ts`: `IndiaMartClient.list(from, to)`, `indiaMartTime`, `IndiaMartAuthError`, `IndiaMartRateLimited` | Pull API call for up to 7 days; IST times `DD-Mon-YYYYHH:MM:SS`; 204 = no leads; 401 / 429 as errors. The key is in the URL, which is never logged. |
 | `normalize.ts`: `normalizeIndiaMart`, `indiaMartQueryTime` | IndiaMART lead → `NormalizedLead`; channel `indiamart_api_<w|b|p|biz|wa>`; drops the "IndiaMART Buyer" placeholder. |
+| `service.ts`: `disconnectIndiaMart` | Forgets the key, turns the push address off, stops the sync (keeps the five-minute timestamp). |
 | `service.ts`: `saveIndiaMartKey`, `testIndiaMartConnection` / `testIndiaMartInternal` | Save the Pull key (encrypted); test it (counts as the 5-minute call). |
 | `service.ts`: `createIndiaMartPushAddress`, `receiveIndiaMartPush` | A new push address (secret shown once, hash stored); store one pushed lead (null for an unknown secret). |
 | `service.ts`: `syncIndiaMart` | One Pull call per run: first 30 days a week at a time, then incremental with a 5-minute overlap; never twice within 5 minutes. Job `indiamart.sync`. |
@@ -274,6 +279,7 @@ IndiaMART (`sources/indiamart/*`, ADR-030):
 | `GmailClient` (`getProfile`, `listMessages`, `listHistory`, `getMessage`, `listSendAs`, `createDraft`, `sendMessage`), `exchangeCode`, `GMAIL_SCOPES`, `attachmentNames` | `gmail/client.ts` | Minimal Gmail REST client. `sendMessage` may only be called by `outbound/send.ts` (a test enforces it). Retries 429/5xx/403-rate-limit. |
 | `GmailReauthRequired`, `GmailHistoryExpired`, `GmailMessageGone` | `gmail/client.ts` | Error types the sync reacts to. |
 | `header`, `extractBodies`, `parseAddressList`, `parseFrom`, `gmailDraftUrl`, `gmailThreadUrl` | `gmail/client.ts` | MIME helpers and Gmail web links. |
+| `disconnectTradeIndia` | `tradeindia/service.ts` | Forgets the credentials and stops the sync. |
 | `saveTradeIndiaCredentials`, `testTradeIndiaConnection` / `testConnectionInternal`, `syncTradeIndia` | `tradeindia/service.ts` | Settings → TradeIndia and the 10-minute sync (30-day first load, 2-day overlap). Resumable: 35 s budget, position saved per 7-day window in `TradeIndiaCursor`, a window with failed leads is not passed until three attempts. |
 | `TradeIndiaClient` (`page`, `url`), `inquiryWindows`, `tradeIndiaDay`, `TradeIndiaAuthError`, `TradeIndiaRateLimited` | `tradeindia/client.ts` | TradeIndia My Inquiry API client. Dates are IST calendar dates; ranges are split into 7-day windows. |
 | `normalizeTradeIndia`, `tradeIndiaDate` | `tradeindia/normalize.ts` | API row → `NormalizedLead`. |
@@ -289,19 +295,19 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 |---|---|---|
 | `/` Dashboard | `(app)/page.tsx` | "Last 7 days" card (`data-testid="week-card"`) from `getDashboard().week` |
 | `/leads` Inbox (+ Needs details and International tabs; intent filter) | `(app)/leads/page.tsx` | `components/leads/inbox-list.tsx` (keyboard j/k/e/w/q/?; intent, below-MOQ and needs-details badges), `new-lead.tsx` |
-| `/leads/[id]` Lead detail | `(app)/leads/[id]/page.tsx` | `(app)/leads/actions.ts`: `setStatusAction`, `addNoteAction`, `quoteAction`, `whatsappTextAction`, `updateLeadAction`, `createLeadAction`, `deleteLeadAction` (owners and admins; `DeleteLeadButton` in `detail-client.tsx`); components `leads/actions.tsx` (Copy/Call/WhatsApp/Quote buttons), `leads/detail-client.tsx` (status, notes, edit incl. intent and kg), `leads/labels.ts` (`filledByLabel`: who filled product, intent, quantity) |
+| `/leads/[id]` Lead detail | `(app)/leads/[id]/page.tsx` | `(app)/leads/actions.ts`: `setStatusAction`, `addNoteAction`, `removeNoteAction` (`RemoveNoteButton` in `detail-client.tsx`), `quoteAction`, `whatsappTextAction`, `updateLeadAction`, `createLeadAction`, `deleteLeadAction` (owners and admins; `DeleteLeadButton` in `detail-client.tsx`); components `leads/actions.tsx` (Copy/Call/WhatsApp/Quote buttons), `leads/detail-client.tsx` (status, notes, edit incl. intent and kg), `leads/labels.ts` (`filledByLabel`: who filled product, intent, quantity) |
 | `/review` Review queue | `(app)/review/page.tsx` | `(app)/review/actions.ts`: `classifyAction`; `components/review/review-item.tsx` |
-| Settings → Sending | `(app)/settings/page.tsx` (`SendingTab`) | `saveSendingAction`, `removeOutboundRuleAction`; `components/settings/sending.tsx` |
-| `/rates` Rates | `(app)/rates/page.tsx` | `(app)/rates/actions.ts`: `saveRatesAction`, `rateHistoryAction`, `addProductAction`, `updateProductAction`, `removeProductAction`, `restoreProductAction`; `components/rates/rates-editor.tsx`, `add-product.tsx`, `edit-product.tsx` (incl. Remove), `removed-products.tsx` (Restore) |
-| `/rates/import` Import price list | `(app)/rates/import/page.tsx` | `(app)/rates/actions.ts`: `planPriceListAction` (reads only), `applyPriceListAction`, `savePriceListMapAction`; `components/rates/price-list-import.tsx` (list, folded mapping editor, preview) |
-| `/templates?purpose=…` | `(app)/templates/page.tsx` | `(app)/templates/actions.ts`: `saveTemplateAction`; `components/templates/editor.tsx` (shows the version) |
+| Settings → Sending | `(app)/settings/page.tsx` (`SendingTab`) | `saveSendingAction`, `createOutboundRuleAction`, `removeOutboundRuleAction`; `components/settings/sending.tsx` (`TeamRules` with Add rule; product rules show the product's name) |
+| `/rates` Rates | `(app)/rates/page.tsx` | `(app)/rates/actions.ts`: `saveRatesAction`, `rateHistoryAction`, `addProductAction`, `updateProductAction`, `removeProductAction`, `restoreProductAction`; `components/rates/rates-editor.tsx` (Edit and Delete on each product's first row), `add-product.tsx`, `edit-product.tsx` (`EditProductButton`: picker or one product; grades rename, add, remove; `DeleteProductButton`), `removed-products.tsx` (Deleted products → Restore) |
+| `/rates/import` Import price list | `(app)/rates/import/page.tsx` | `(app)/rates/actions.ts`: `planPriceListAction` (reads only), `applyPriceListAction`, `savePriceListMapAction`; `components/rates/price-list-import.tsx` (list, folded mapping, preview), `price-list-map-form.tsx` (the mapping as a form; paste as text is still offered); rows ⇄ mapping in `catalog/price-list-map-edit.ts` (`fromMap`, `toMap`) |
+| `/templates?purpose=…` | `(app)/templates/page.tsx` | `(app)/templates/actions.ts`: `saveTemplateAction`; `components/templates/editor.tsx` (shows the version; Earlier versions and Inquira's starting text → Use this text, then save) |
 | `/outbox?view=…` Outbox | `(app)/outbox/page.tsx` | `(app)/outbox/actions.ts`: `approveAction`, `editAction`, `rejectAction`, `prepareAction`; `components/outbox/message-card.tsx`, `prepare-message.tsx` (lead page) |
 | `/more` (phones) | `(app)/more/page.tsx` | Every page the person may open; menu list in `components/shell/nav-items.ts` |
 | Notifications (bell) | `components/shell/notification-bell.tsx` | `(app)/notifications/actions.ts`: `openNotificationsAction`; services `listNotifications`, `markNotificationsSeen`, `notifyOnceInternal` in `core/service.ts` |
-| `/documents` Documents | `(app)/documents/page.tsx` | `(app)/documents/actions.ts`: `uploadDocumentAction` (form with the file), `removeDocumentAction`; `components/documents/upload-form.tsx`, `remove-document.tsx`. Filters by product and type (URL). |
+| `/documents` Documents | `(app)/documents/page.tsx` | `(app)/documents/actions.ts`: `uploadDocumentAction` (form with the file), `updateDocumentAction`, `removeDocumentAction`; `components/documents/upload-form.tsx`, `edit-document.tsx` (Edit details), `remove-document.tsx`. Filters by product and type (URL). |
 | `/indiamart` Buy-lead log | `(app)/indiamart/page.tsx` | — |
 | Settings → Backups | `(app)/settings/page.tsx` (`BackupsTab`) | `backupNowAction`; `components/settings/backups.tsx` (warns when file storage is not set up) |
-| `/settings?tab=…` | `(app)/settings/page.tsx` | `(app)/settings/actions.ts`: TradeIndia save/test, IndiaMART key/test/push address (`IndiaMartCard` in `components/settings/integrations.tsx`), Sync now, Gmail save/connect/disconnect, MCP tokens, email rules, buy-lead rules, org settings, members (`inviteMemberAction`, `changeMemberRoleAction`, `removeMemberAction`, `setMemberAccessAction`; `components/settings/members.tsx`), AI tiers (`saveAiTierAction`, `testAiTierAction`, `removeAiKeyAction`; `AiTierCard`, `AiIntro` in `components/settings/ai.tsx`); components in `components/settings/*` |
+| `/settings?tab=…` | `(app)/settings/page.tsx` | `(app)/settings/actions.ts`: company name (`renameOrgAction`, `CompanyNameForm` in `components/settings/org-form.tsx`), TradeIndia save/test/disconnect (`disconnectTradeIndiaAction`), IndiaMART disconnect (`disconnectIndiaMartAction`), IndiaMART key/test/push address (`IndiaMartCard` in `components/settings/integrations.tsx`), Sync now, Gmail save/connect/disconnect, MCP tokens, email rules, buy-lead rules, org settings, members (`inviteMemberAction`, `changeMemberRoleAction`, `removeMemberAction`, `setMemberAccessAction`; `components/settings/members.tsx`), AI tiers (`saveAiTierAction`, `testAiTierAction`, `removeAiKeyAction`; `AiTierCard`, `AiIntro` in `components/settings/ai.tsx`); components in `components/settings/*` |
 | `/login` | `login/page.tsx` | `login/actions.ts`: `signIn`, `sendReset` (first password / reset email), `updatePassword`, `devSignIn` (local only), `signOut`; `login/forms.tsx`; local sign-in: `localSignIn`, `createFirstOwnerAction`, `setPasswordWithLinkAction`, forms `LocalLoginForm`, `FirstOwnerForm`, `SetPasswordForm` |
 | `/login/set-password?token=` | `login/set-password/page.tsx` | Opened from a one-time sign-in link (local sign-in): choose a password, then signed in. |
 | `/auth/callback` | `auth/callback/route.ts` | Email links (PKCE `code` or `token_hash`) → session → set password |
@@ -406,6 +412,6 @@ Server actions only call services (`requireSession(permission)` → `runAction((
 | `tests/knowledge-base.test.ts` | Product terms, rate validity and range, sample policy, lead score and its nightly refresh. |
 | `tests/ai.test.ts` | AI tiers against `tests/helpers/fake-ai.ts`: every key off, redaction (nothing personal reaches Basic), confident / unsure / malformed answers, Basic → Advanced, rate limit and backoff, daily limit, review emails, injection, corrections and accuracy, keys never shown. |
 | `src/modules/ai/ai.test.ts`, `src/modules/leads/understanding.test.ts` | Redaction, reply checks, the three adapters' requests and error mapping; quantity units, intent rules, below MOQ. |
-| `src/**/*.test.ts` | Unit tests next to the code (parsers, catalog, leads, lib). |
+| `src/**/*.test.ts` | Unit tests next to the code (parsers, catalog incl. the mapping form round trip for every seed folder, leads, lib). |
 | `e2e/local-mode.spec.ts` + `playwright.local.config.ts` (`test:e2e:local`) | A fresh local install end to end: create owner, example data, document on disk, teammate link, sign in. Runs against `docker compose up`. |
 | `e2e/smoke.spec.ts` | Playwright: main flows on desktop 1440 and phone 390, sign-in messages, screenshots → `docs/screenshots/`. |

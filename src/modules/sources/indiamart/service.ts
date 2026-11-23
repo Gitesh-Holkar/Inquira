@@ -53,6 +53,26 @@ export const saveIndiaMartKey = defineService({
 });
 
 /**
+ * Settings → IndiaMART → Disconnect: forgets the Pull API key, turns the push address off (IndiaMART's pushes
+ * then get "not found") and stops the sync. Leads already imported stay.
+ */
+export const disconnectIndiaMart = defineService({
+  name: "indiamart.disconnect",
+  input: z.object({}).default({}),
+  permission: "integrations.manage",
+  runAs: "system", // writes integration_secrets
+  handler: async (ctx, _i, tx) => {
+    const integ = await getIntegrationInternal(tx, ctx.orgId, "indiamart");
+    await writeSecretsInternal(tx, ctx, integ, { key: null });
+    const { pushSecretHash: _h, pushAddressCreatedAt: _a, ...config } = integ.config as Record<string, unknown>;
+    // Keep the time of the last call: IndiaMART's five-minute rule still applies after a quick reconnect.
+    const { lastCallAt } = (integ.cursor ?? {}) as IndiaMartCursor;
+    await updateIntegrationInternal(tx, ctx, integ.id, { status: "not_connected", config, cursor: lastCallAt ? { lastCallAt } : {}, lastError: null, consecutiveFailures: 0, backoffUntil: null }, "integration.disconnect");
+    return { ok: true };
+  },
+});
+
+/**
  * A new push address (the old one stops working). The secret is shown once, here, for pasting into
  * IndiaMART's Lead Manager → Push API; only its hash is kept.
  */

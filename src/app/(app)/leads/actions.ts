@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth";
 import { runAction } from "@/lib/actions";
-import { addLeadNote, createManualLead, deleteLead, updateLead, updateLeadStatus } from "@/modules/leads/service";
+import { addLeadNote, removeLeadNote, createManualLead, deleteLead, updateLead, updateLeadStatus } from "@/modules/leads/service";
 import { createQuoteDraft, whatsappForLead } from "@/modules/quotes/service";
 import type { LeadStatus } from "@/modules/leads/types";
 import type { DocumentType } from "@/modules/documents/types";
@@ -20,6 +20,14 @@ export async function addNoteAction(leadId: string, body: string) {
   const r = await runAction(() => addLeadNote(s.ctx, { leadId, body }), "Note added");
   revalidatePath(`/leads/${leadId}`);
   return r.ok ? { ok: true as const, message: r.message } : r;
+}
+
+/** Lead page → a note → Remove (its author, or someone who may delete leads). */
+export async function removeNoteAction(noteId: string) {
+  const s = await requireSession("notes.write");
+  const r = await runAction(() => removeLeadNote(s.ctx, { noteId }), "Note removed");
+  if (r.ok) revalidatePath(`/leads/${r.data.leadId}`);
+  return r.ok ? { ok: true as const } : r;
 }
 
 export async function quoteAction(leadId: string, gradeIds?: string[], attach?: DocumentType[]) {

@@ -11,7 +11,7 @@ import { leads } from "@/modules/leads/schema";
 import { arrivalRoutesInternal, upsertLeadInternal } from "@/modules/leads/service";
 import { indiaMartTime } from "@/modules/sources/indiamart/client";
 import { normalizeIndiaMart } from "@/modules/sources/indiamart/normalize";
-import { createIndiaMartPushAddress, receiveIndiaMartPush, saveIndiaMartKey, syncIndiaMart, testIndiaMartInternal, type IndiaMartCursor } from "@/modules/sources/indiamart/service";
+import { createIndiaMartPushAddress, disconnectIndiaMart, receiveIndiaMartPush, saveIndiaMartKey, syncIndiaMart, testIndiaMartInternal, type IndiaMartCursor } from "@/modules/sources/indiamart/service";
 import { startOfTodayIST } from "@/lib/format";
 import { addMember, createUser, resetDb, setupOrgWithUser, systemCtx } from "./helpers/db";
 import type { Ctx } from "@/modules/core/types";
@@ -114,6 +114,22 @@ describe("IndiaMART Push API (G-SRC-1)", () => {
     const integ = await cursorOf(org.id);
     expect(JSON.stringify(integ.config)).not.toContain(secret);
     expect(JSON.stringify(await getDb().select().from(auditLogs))).not.toContain(url.split("/").pop()!);
+  });
+
+  it("Disconnect forgets the key, turns the push address off and stops the sync; leads stay; sales cannot", async () => {
+    const { org, ctx, secret } = await withAddress();
+    await saveIndiaMartKey(ctx, { key: KEY });
+    expect(await receiveIndiaMartPush(secret, push())).toMatchObject({ created: true });
+    const u = await createUser();
+    await addMember(org.id, u, "sales");
+    await expect(disconnectIndiaMart({ orgId: org.id, actor: { kind: "human", userId: u.id, email: u.email, role: "sales" } }, {})).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await disconnectIndiaMart(ctx, {}); // as the owner, under row-level security
+    expect(await receiveIndiaMartPush(secret, push(lead({ UNIQUE_QUERY_ID: "2600000002" })))).toBeNull();
+    const integ = await cursorOf(org.id);
+    expect(integ.status).toBe("not_connected");
+    expect(integ.config).not.toHaveProperty("pushSecretHash");
+    expect(await syncIndiaMart(systemCtx(org.id), { fetchImpl: fakePull().f })).toMatchObject({ skipped: "not configured" });
+    expect(await getDb().select().from(leads).where(eq(leads.orgId, org.id))).toHaveLength(1);
   });
 
   it("needs a public https address, and only people who manage connections can create one", async () => {

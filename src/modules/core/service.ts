@@ -3,7 +3,7 @@ import { z } from "zod";
 import { samplePolicySchema } from "@/modules/catalog/types";
 import type { Tx } from "@/db/client";
 import { decryptJson, encryptJson } from "@/lib/crypto";
-import { notFound } from "@/lib/errors";
+import { forbidden, notFound } from "@/lib/errors";
 import { audit, emit } from "./audit";
 import { defineService } from "./service-kit";
 import { can } from "./permissions";
@@ -60,6 +60,25 @@ export const updateOrgSettings = defineService({
     const [after] = await tx.update(orgSettings).set(patch).where(eq(orgSettings.orgId, ctx.orgId)).returning();
     await audit(tx, ctx, { action: "settings.update", entityType: "org_settings", entityId: after!.id, changes: patch });
     return after!;
+  },
+});
+
+/**
+ * Renames the company (Settings → Organisation). Owners only: the name is printed on quotations and emails. The
+ * internal slug stays as it was, so the seed keeps finding the company.
+ */
+export const renameOrganization = defineService({
+  name: "core.renameOrganization",
+  input: z.object({ name: z.string().trim().min(2, "Enter the company name").max(120) }),
+  permission: "settings.write",
+  handler: async (ctx, input, tx) => {
+    if (!(ctx.actor.kind === "human" && ctx.actor.role === "owner")) throw forbidden("Only an owner can change the company name.");
+    const [before] = await tx.select({ name: organizations.name }).from(organizations).where(eq(organizations.id, ctx.orgId));
+    if (!before) throw notFound("Company");
+    if (before.name === input.name) return { name: input.name };
+    await tx.update(organizations).set({ name: input.name }).where(eq(organizations.id, ctx.orgId));
+    await audit(tx, ctx, { action: "org.rename", entityType: "organization", entityId: ctx.orgId, changes: { name: [before.name, input.name] } });
+    return { name: input.name };
   },
 });
 

@@ -49,7 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </aside>
       <div className="min-w-0 pb-20 lg:pb-8">
         <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-surface/95 px-4 backdrop-blur">
-          <Link href="/" className="flex items-center gap-2 font-semibold lg:hidden">
+          <Link href="/" className="flex min-h-11 items-center gap-2 font-semibold lg:hidden">
             <span className="grid size-7 place-items-center rounded-md bg-primary text-sm font-bold text-primary-foreground">In</span>
             <span className="sr-only sm:not-sr-only">Inquira</span>
           </Link>
@@ -81,7 +81,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                   </span>
                 ))}
               </span>
-              {isAdmin ? <Link href="/settings" className="font-medium underline underline-offset-2">{problems.some((p) => p.status === "reauth_required" && p.provider === "gmail") ? "Reconnect Gmail" : "Open Settings"}</Link> : null}
+              {isAdmin ? <Link href="/settings" className="inline-flex min-h-11 items-center font-medium underline underline-offset-2 lg:min-h-0">{problems.some((p) => p.status === "reauth_required" && p.provider === "gmail") ? "Reconnect Gmail" : "Open Settings"}</Link> : null}
             </div>
           </div>
         ) : null}

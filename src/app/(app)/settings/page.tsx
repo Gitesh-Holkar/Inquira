@@ -16,12 +16,13 @@ import { GmailCard, IndiaMartCard, SyncRuns, TradeIndiaCard, type IntegrationVie
 import { McpTokens } from "@/components/settings/tokens";
 import { RulesEditor } from "@/components/settings/rules";
 import { BuyleadRulesEditor } from "@/components/settings/buylead-rules";
-import { OrgForm } from "@/components/settings/org-form";
+import { CompanyNameForm, OrgForm } from "@/components/settings/org-form";
 import { samplePolicySchema } from "@/modules/catalog/types";
 import { Members } from "@/components/settings/members";
 import { AiIntro, AiTierCard } from "@/components/settings/ai";
 import { getAiSettings } from "@/modules/ai/service";
 import { getOutboundSettings } from "@/modules/outbound/service";
+import { listProducts } from "@/modules/catalog/service";
 import { SendingForm, TeamRules } from "@/components/settings/sending";
 import { Backups } from "@/components/settings/backups";
 import { backupStorageReady, listBackups } from "@/modules/backup/service";
@@ -53,11 +54,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     <>
       <PageHeader title="Settings" description={admin ? "Only owners and admins can change these." : "You can view settings; ask an admin to change them."} />
       {/* Phones: these pages aren't in the bottom bar. */}
-      <p className="-mt-2 mb-4 flex gap-4 text-sm lg:hidden">
-        <Link href="/rates" className="text-primary underline-offset-4 hover:underline">Rates</Link>
-        <Link href="/documents" className="text-primary underline-offset-4 hover:underline">Documents</Link>
-        <Link href="/templates" className="text-primary underline-offset-4 hover:underline">Templates</Link>
-        <Link href="/indiamart" className="text-primary underline-offset-4 hover:underline">IndiaMART log</Link>
+      <p className="-mt-2 mb-2 flex flex-wrap gap-x-4 text-sm lg:hidden">
+        <Link href="/rates" className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline">Rates</Link>
+        <Link href="/documents" className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline">Documents</Link>
+        <Link href="/templates" className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline">Templates</Link>
+        <Link href="/indiamart" className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline">IndiaMART log</Link>
       </p>
       {sp.gmail === "connected" ? (
         <Alert tone="success" className="mb-4" title={`Gmail connected${sp.account ? ` (${sp.account})` : ""}`}>
@@ -154,7 +155,7 @@ async function BackupsTab({ ctx, isOwner }: { ctx: Ctx; isOwner: boolean }) {
 }
 
 async function SendingTab({ ctx, isOwner, canEdit }: { ctx: Ctx; isOwner: boolean; canEdit: boolean }) {
-  const { settings, rules } = await getOutboundSettings(ctx, {});
+  const [{ settings, rules }, products] = await Promise.all([getOutboundSettings(ctx, {}), listProducts(ctx, {})]);
   return (
     <div className="grid gap-4">
       <Card>
@@ -163,7 +164,7 @@ async function SendingTab({ ctx, isOwner, canEdit }: { ctx: Ctx; isOwner: boolea
       </Card>
       <Card>
         <CardHeader><CardTitle>Your hold rules</CardTitle><span className="text-xs text-muted">on top of the built-in ones</span></CardHeader>
-        <CardContent><TeamRules rules={rules} canEdit={canEdit} /></CardContent>
+        <CardContent><TeamRules rules={rules} canEdit={canEdit} products={products.map((p) => ({ id: p.id, name: p.name }))} /></CardContent>
       </Card>
     </div>
   );
@@ -260,6 +261,7 @@ async function OrgTab({ ctx, canEdit }: { ctx: Ctx; canEdit: boolean }) {
         <CardTitle>{s.orgName}</CardTitle>
       </CardHeader>
       <CardContent>
+        <CompanyNameForm name={s.orgName} isOwner={ctx.actor.kind === "human" && ctx.actor.role === "owner"} />
         <OrgForm canEdit={canEdit} quoteValidityDays={s.quoteValidityDays} defaultPriceBasis={s.defaultPriceBasis} paymentTerms={s.paymentTerms ?? ""}
           samplePolicy={samplePolicySchema.catch({ freeSampleSize: null, requiredDetails: [], note: null }).parse(s.samplePolicy ?? {})} />
       </CardContent>

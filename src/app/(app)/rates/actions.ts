@@ -66,7 +66,7 @@ export async function savePriceListMapAction(json: string) {
 }
 
 export type ProductEdit = {
-  productId: string; name: string; category: string; aliases: string; grades: { id: string; name: string }[]; newGrades: string;
+  productId: string; name: string; category: string; aliases: string; grades: { id: string; name: string }[]; newGrades: string; removeGrades?: string[];
   hsnCode: string; leadTime: string; paymentTerms: string; sampleAvailable: "" | "yes" | "no";
 };
 
@@ -76,7 +76,7 @@ export async function updateProductAction(input: ProductEdit) {
   const split = (v: string) => v.split(",").map((x) => x.trim()).filter(Boolean);
   const r = await runAction(() => updateProduct(s.ctx, {
     productId: input.productId, name: input.name, category: input.category || null,
-    aliases: split(input.aliases).map((a) => a.toLowerCase()), grades: input.grades, newGrades: split(input.newGrades),
+    aliases: split(input.aliases).map((a) => a.toLowerCase()), grades: input.grades, newGrades: split(input.newGrades), removeGrades: input.removeGrades ?? [],
     hsnCode: input.hsnCode, leadTime: input.leadTime, paymentTerms: input.paymentTerms,
     sampleAvailable: input.sampleAvailable === "" ? null : input.sampleAvailable === "yes",
   }));
@@ -84,7 +84,7 @@ export async function updateProductAction(input: ProductEdit) {
   return r.ok ? { ok: true as const } : r;
 }
 
-/** Takes a product out of the catalogue; its rates and history are kept (Rates → Edit product → Remove). */
+/** Deletes a product from the catalogue (Rates → the bin on its row); its rates and history are kept and it can be restored. */
 export async function removeProductAction(productId: string) {
   const s = await requireSession("catalog.write");
   const r = await runAction(() => removeProduct(s.ctx, { productId }));

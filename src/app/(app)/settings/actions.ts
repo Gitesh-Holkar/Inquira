@@ -2,16 +2,16 @@
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth";
 import { runAction } from "@/lib/actions";
-import { updateOrgSettings } from "@/modules/core/service";
-import { saveTradeIndiaCredentials, syncTradeIndia, testTradeIndiaConnection } from "@/modules/sources/tradeindia/service";
+import { renameOrganization, updateOrgSettings } from "@/modules/core/service";
+import { disconnectTradeIndia, saveTradeIndiaCredentials, syncTradeIndia, testTradeIndiaConnection } from "@/modules/sources/tradeindia/service";
 import { disconnectGmail, saveGmailClient, startGmailConnect, syncGmail } from "@/modules/sources/gmail/service";
-import { createIndiaMartPushAddress, saveIndiaMartKey, syncIndiaMart, testIndiaMartConnection } from "@/modules/sources/indiamart/service";
+import { createIndiaMartPushAddress, disconnectIndiaMart, saveIndiaMartKey, syncIndiaMart, testIndiaMartConnection } from "@/modules/sources/indiamart/service";
 import { createMcpToken, revokeMcpToken } from "@/modules/mcp/service";
 import { createClassificationRule, updateClassificationRule } from "@/modules/email/service";
 import { updateBuyleadRules } from "@/modules/buyleads/service";
 import { authorize } from "@/modules/core/permissions";
 import { removeAiKey, saveAiTier, testAiTier, type saveAiTierInput } from "@/modules/ai/service";
-import { removeOutboundRule, saveOutboundSettings } from "@/modules/outbound/service";
+import { createOutboundRule, removeOutboundRule, saveOutboundSettings } from "@/modules/outbound/service";
 import { backupNow } from "@/modules/backup/service";
 import type { OutboundSettings } from "@/modules/outbound/types";
 import type { z } from "zod";
@@ -74,6 +74,22 @@ export async function saveOrgAction(input: { quoteValidityDays: number; defaultP
   return done(await runAction(() => updateOrgSettings(s.ctx, input)));
 }
 
+/** Settings → Organisation → Company name (owners only). */
+export async function renameOrgAction(name: string) {
+  const s = await requireSession("settings.write");
+  return done(await runAction(() => renameOrganization(s.ctx, { name })));
+}
+
+/** Settings → TradeIndia / IndiaMART → Disconnect. */
+export async function disconnectTradeIndiaAction() {
+  const s = await requireSession("integrations.manage");
+  return done(await runAction(() => disconnectTradeIndia(s.ctx, {})));
+}
+export async function disconnectIndiaMartAction() {
+  const s = await requireSession("integrations.manage");
+  return done(await runAction(() => disconnectIndiaMart(s.ctx, {})));
+}
+
 export async function inviteMemberAction(input: { email: string; role: Role }) {
   const s = await requireSession("members.manage");
   const r = await runAction(() => inviteMember(s.ctx, input));
@@ -133,6 +149,12 @@ export async function saveSendingAction(input: OutboundSettings) {
   const s = await requireSession("settings.write");
   return done(await runAction(() => saveOutboundSettings(s.ctx, input)));
 }
+/** Settings → Sending → Team hold rules → Add rule. */
+export async function createOutboundRuleAction(input: { matchType: "buyer_email" | "buyer_domain" | "buyer_phone" | "product" | "text_contains"; pattern: string; note: string }) {
+  const s = await requireSession("settings.write");
+  return done(await runAction(() => createOutboundRule(s.ctx, { matchType: input.matchType, pattern: input.pattern, note: input.note || null })));
+}
+
 export async function removeOutboundRuleAction(id: string) {
   const s = await requireSession("settings.write");
   return done(await runAction(() => removeOutboundRule(s.ctx, { id })));

@@ -45,6 +45,9 @@ describe("hold rules (GOAL G-OUT-2): one test per rule", () => {
     expect(holdReasons({ ...ok, customRules: team })).toEqual([{ rule: "team_rule", detail: "Team rule: Always a person for this buyer" }]);
     expect(matchingTeamRules([{ matchType: "buyer_phone", pattern: "9000000101", note: null }], { email: null, phone: "+919000000101", productId: null, text: "" })).toHaveLength(1);
     expect(matchingTeamRules([{ matchType: "text_contains", pattern: "tender", note: null }], { email: null, phone: null, productId: null, text: "Govt TENDER" })).toHaveLength(1);
+    // A product rule's pattern is an id: the reason must not show it.
+    expect(matchingTeamRules([{ matchType: "product", pattern: "0b8e6c1e-0000-4000-8000-000000000001", note: null }], { email: null, phone: null, productId: "0b8e6c1e-0000-4000-8000-000000000001", text: "" }))
+      .toEqual(["Team rule: this product is always held"]);
   });
 });
 

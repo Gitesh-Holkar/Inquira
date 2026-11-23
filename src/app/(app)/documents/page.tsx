@@ -12,6 +12,7 @@ import { Alert, Badge, Card, CardContent, CardHeader, CardTitle, EmptyState, Pag
 import { Button } from "@/components/ui/button";
 import { UploadDocumentForm } from "@/components/documents/upload-form";
 import { RemoveDocumentButton } from "@/components/documents/remove-document";
+import { EditDocumentButton } from "@/components/documents/edit-document";
 
 export const metadata: Metadata = { title: "Documents" };
 
@@ -80,8 +81,10 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
                       {[d.productName ?? "Whole company", d.batch ? `Batch ${d.batch}` : null, d.issueDate ? `Issued ${formatDate(d.issueDate)}` : null, d.expiryDate ? `Expires ${formatDate(d.expiryDate)}` : null, `${Math.max(1, Math.round(d.sizeBytes / 1024))} KB`].filter(Boolean).join(" · ")}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button asChild variant="outline" size="sm"><a href={`/api/documents/${d.id}`} aria-label={`Download ${d.fileName}`}><Download />Download</a></Button>
+                    {canWrite ? <EditDocumentButton products={sorted.map((p) => ({ id: p.id, name: p.name }))}
+                      doc={{ id: d.id, fileName: d.fileName, productId: d.productId, type: d.type, title: d.title, batch: d.batch, issueDate: d.issueDate, expiryDate: d.expiryDate, notes: d.notes }} /> : null}
                     {canWrite ? <RemoveDocumentButton id={d.id} name={d.fileName} /> : null}
                   </div>
                 </Card>

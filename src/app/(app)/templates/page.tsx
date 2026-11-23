@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { requireSession } from "@/lib/auth";
-import { listTemplates, SAMPLE_VARS } from "@/modules/templates/service";
+import { listTemplates, listTemplateVersions, SAMPLE_VARS } from "@/modules/templates/service";
 import { DEFAULT_TEMPLATES, TEMPLATE_PURPOSES, TEMPLATE_PURPOSE_LABELS, WHATSAPP_PURPOSES, type TemplatePurpose } from "@/modules/templates/engine";
 import { can } from "@/modules/core/permissions";
 import { PageHeader } from "@/components/ui/primitives";
@@ -23,6 +23,12 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
   const fallback = (k: "quote_email" | "whatsapp") => DEFAULT_TEMPLATES.find((d) => d.kind === k && d.purpose === purpose);
   const kinds = (["quote_email", "whatsapp"] as const).filter((k) => k === "quote_email" || WHATSAPP_PURPOSES.includes(purpose));
   const editable = can(s.ctx, "templates.write");
+  // Earlier saved texts of the templates on this tab (G-TPL-3), newest first.
+  const versions = Object.fromEntries(await Promise.all(kinds.map(async (k) => {
+    const t = pick(k);
+    const rows = t ? await listTemplateVersions(s.ctx, { templateId: t.id }) : [];
+    return [k, rows.map((v) => ({ version: v.version, subject: v.subject, body: v.body, savedAt: v.createdAt.toISOString() }))] as const;
+  })));
   return (
     <>
       <PageHeader title="Templates" description="One text per kind of message. Placeholders like {{price_per_kg}} are filled with the lead's details, today's rate and your settings. Every save is kept as a new version." />
@@ -40,7 +46,8 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
           const d = fallback(k);
           return (
             <TemplateEditor key={`${k}-${purpose}-${t?.id ?? "new"}-${t?.version ?? 0}`} id={t?.id} kind={k} purpose={purpose} version={t?.version ?? null}
-              name={t?.name ?? "Default"} subject={k === "quote_email" ? t?.subject ?? d?.subject ?? null : null} body={t?.body ?? d?.body ?? ""} sample={SAMPLE_VARS} canEdit={editable} />
+              name={t?.name ?? "Default"} subject={k === "quote_email" ? t?.subject ?? d?.subject ?? null : null} body={t?.body ?? d?.body ?? ""} sample={SAMPLE_VARS} canEdit={editable}
+              versions={versions[k] ?? []} starting={d ? { subject: d.subject, body: d.body } : null} />
           );
         })}
       </div>

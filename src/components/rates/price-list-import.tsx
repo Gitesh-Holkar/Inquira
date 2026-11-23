@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Alert, Card, CardContent, CardHeader, CardTitle, Field, Textarea } from "@/components/ui/primitives";
 import { applyPriceListAction, planPriceListAction, savePriceListMapAction, type PriceListPreview } from "@/app/(app)/rates/actions";
+import { PriceListMapForm, type CatalogChoice } from "./price-list-map-form";
 
 const rates = (n: number) => `${n} rate${n === 1 ? "" : "s"}`;
 
@@ -14,12 +15,15 @@ const rates = (n: number) => `${n} rate${n === 1 ? "" : "s"}`;
  * that. Editing the text after a preview hides the preview, so what is applied is what was shown.
  *
  * The mapping (folded away below the list) is the company's own reading of its list: which heading has
- * which GST % and pack size, and which name on the list is which product. `savedMap` is its JSON text.
+ * which GST % and pack size, and which name on the list is which product. It is edited as a form; a mapping
+ * someone prepared can also be pasted as text. `savedMap` is its JSON text; `catalog` fills the product lists.
  */
-export function PriceListImport({ savedMap }: { savedMap: string }) {
+export function PriceListImport({ savedMap, catalog = [] }: { savedMap: string; catalog?: CatalogChoice[] }) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [map, setMap] = useState(savedMap);
+  const [current, setCurrent] = useState(savedMap);
+  const [formKey, setFormKey] = useState(0);
   const [hasMap, setHasMap] = useState(!!savedMap);
   const [preview, setPreview] = useState<PriceListPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,13 +35,17 @@ export function PriceListImport({ savedMap }: { savedMap: string }) {
     if (r.ok) setPreview(r.data);
     else { setPreview(null); setError(r.error); }
   });
-  const saveMap = () => start(async () => {
-    const r = await savePriceListMapAction(map);
+  const saveMap = (json: string, fromText: boolean) => start(async () => {
+    const r = await savePriceListMapAction(json);
     if (!r.ok) { toast.error(r.error); return; }
     toast.success("Mapping saved");
     setHasMap(true);
     setPreview(null);
+    setCurrent(json);
+    setMap(json);
+    if (fromText) setFormKey((n) => n + 1); // show the pasted mapping in the form
   });
+  const parsedCurrent = (() => { try { return current ? JSON.parse(current) : {}; } catch { return {}; } })();
   const apply = () => start(async () => {
     const r = await applyPriceListAction(text);
     if (!r.ok) { toast.error(r.error); return; }
@@ -66,14 +74,20 @@ export function PriceListImport({ savedMap }: { savedMap: string }) {
             <div className="mt-2 grid gap-3">
               <p className="text-sm text-muted">
                 This tells Inquira which heading on your list has which GST % and pack size, the MOQ and price basis for every rate, and which name on the list is which product.
-                It is prepared together with your price list. Without it, lines are matched by product names only, and a product that is not in the catalogue cannot be added.
+                Without it, lines are matched by product names only, and a product that is not in the catalogue cannot be added. Prices are never part of it: they come from the list.
               </p>
-              <Field label="Mapping" htmlFor="pl-map" hint="Paste the mapping exactly as it was given to you, then save. Prices are never part of it.">
-                <Textarea id="pl-map" rows={8} className="font-mono text-xs sm:text-xs" spellCheck={false} value={map} onChange={(e) => setMap(e.target.value)} />
-              </Field>
-              <div className="flex justify-end">
-                <Button variant="outline" onClick={saveMap} disabled={pending || map.trim().length < 2 || map === savedMap}>Save mapping</Button>
-              </div>
+              <PriceListMapForm key={formKey} saved={parsedCurrent} catalog={catalog} pending={pending} onSave={(json) => saveMap(json, false)} />
+              <details className="rounded-md border border-border px-3">
+                <summary className="cursor-pointer py-3 text-sm font-medium">Paste a mapping as text instead</summary>
+                <div className="grid gap-2 pb-3">
+                  <Field label="Mapping" htmlFor="pl-map" hint="Paste the mapping exactly as it was given to you, then save. Prices are never part of it.">
+                    <Textarea id="pl-map" rows={8} className="font-mono text-xs sm:text-xs" spellCheck={false} value={map} onChange={(e) => setMap(e.target.value)} />
+                  </Field>
+                  <div className="flex justify-end">
+                    <Button variant="outline" onClick={() => saveMap(map, true)} disabled={pending || map.trim().length < 2 || map === current}>Save pasted mapping</Button>
+                  </div>
+                </div>
+              </details>
             </div>
           </details>
         </CardContent>

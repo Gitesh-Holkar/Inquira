@@ -38,7 +38,7 @@ export function MessageCard({ m, canAct }: { m: MessageView; canAct: boolean }) 
         <Badge tone={TONE[m.state]}>{STATE_LABELS[m.state]}</Badge>
         <Badge>{m.channel === "email" ? <Mail className="size-3" /> : <MessageCircle className="size-3" />}{m.channel === "email" ? "Email" : "WhatsApp"}</Badge>
         <span className="font-medium">{PURPOSE_LABELS[m.purpose]}</span>
-        {m.lead ? <Link href={`/leads/${m.lead.id}`} className="min-w-0 truncate text-primary underline-offset-4 hover:underline">{m.lead.name}{m.lead.product ? ` · ${m.lead.product}` : ""}</Link> : null}
+        {m.lead ? <Link href={`/leads/${m.lead.id}`} className="min-w-0 max-w-full truncate py-3 text-primary underline-offset-4 hover:underline lg:py-0">{m.lead.name}{m.lead.product ? ` · ${m.lead.product}` : ""}</Link> : null}
         <span className="ml-auto text-xs text-muted" title={formatDateTime(m.createdAt)}>{formatRelative(m.createdAt)}</span>
       </div>
       {m.holdReasons.length && m.state !== "sent" ? (

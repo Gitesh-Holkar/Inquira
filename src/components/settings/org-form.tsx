@@ -3,7 +3,24 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/primitives";
-import { saveOrgAction } from "@/app/(app)/settings/actions";
+import { renameOrgAction, saveOrgAction } from "@/app/(app)/settings/actions";
+
+/** Company name: owners only (it is printed on quotations and emails). */
+export function CompanyNameForm({ name, isOwner }: { name: string; isOwner: boolean }) {
+  const [pending, start] = useTransition();
+  return (
+    <form className="mb-4 grid gap-2 border-b border-border pb-4 sm:max-w-md" onSubmit={(e) => {
+      e.preventDefault();
+      const value = String(new FormData(e.currentTarget).get("orgName") ?? "").trim();
+      start(async () => { const r = await renameOrgAction(value); if (r.ok) toast.success("Company name saved"); else toast.error(r.error); });
+    }}>
+      <Field label="Company name" htmlFor="org-name" hint={isOwner ? "Shown in Inquira and printed where a template uses {{org_name}}." : "Only an owner can change it."}>
+        <Input id="org-name" name="orgName" required minLength={2} maxLength={120} defaultValue={name} disabled={!isOwner} />
+      </Field>
+      {isOwner ? <div><Button type="submit" variant="outline" disabled={pending}>{pending ? "Saving…" : "Save name"}</Button></div> : null}
+    </form>
+  );
+}
 
 export type SamplePolicyView = { freeSampleSize: string | null; requiredDetails: string[]; note: string | null };
 

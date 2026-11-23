@@ -15,7 +15,7 @@ import { createProduct, removeProduct, updateRates } from "@/modules/catalog/ser
 import { leads } from "@/modules/leads/schema";
 import { createQuoteDraft } from "@/modules/quotes/service";
 import { ensureDefaultTemplatesInternal } from "@/modules/templates/service";
-import { documentsForProduct, getDocumentFile, latestValidDocumentsInternal, listDocuments, removeDocument, uploadDocument } from "@/modules/documents/service";
+import { documentsForProduct, getDocumentFile, latestValidDocumentsInternal, listDocuments, removeDocument, updateDocument, uploadDocument } from "@/modules/documents/service";
 import { diskStore, supabaseStore } from "@/modules/documents/storage";
 import { fakeGoogle } from "./helpers/fake-google";
 import { addMember, createUser, mcpCtx, resetDb, setupOrgWithUser, systemCtx } from "./helpers/db";
@@ -65,6 +65,24 @@ describe("document library (G-KB-4)", () => {
     await removeDocument(ctx, { documentId: d.id });
     expect(await listDocuments(ctx, {})).toEqual([]);
     await expect(getDocumentFile(ctx, { documentId: d.id }, { store })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("details can be corrected without a new upload (a wrong expiry date stops it being attached); QA may, sales may not", async () => {
+    const { org, ctx, product } = await company();
+    const d = await upload(ctx, { productId: product.id, batch: "B-7", issueDate: addDays(today, -400), expiryDate: addDays(today, -10) });
+    expect(await withSystemTx((tx) => latestValidDocumentsInternal(tx, org.id, product.id, ["coa"]))).toEqual([]); // expired
+    const qa = await createUser();
+    await addMember(org.id, qa, "qa");
+    await updateDocument(human(org.id, qa, "qa"), { documentId: d.id, productId: product.id, type: "coa", title: "COA batch 7", batch: "B-7a", issueDate: addDays(today, -10), expiryDate: addDays(today, 300) });
+    const [row] = await listDocuments(ctx, {});
+    expect(row).toMatchObject({ batch: "B-7a", validity: { status: "valid" }, storageKey: d.storageKey });
+    expect((await withSystemTx((tx) => latestValidDocumentsInternal(tx, org.id, product.id, ["coa"]))).map((x) => x.id)).toEqual([d.id]);
+    await expect(updateDocument(ctx, { documentId: d.id, type: "coa", title: "x", issueDate: today, expiryDate: addDays(today, -1) })).rejects.toMatchObject({ code: "VALIDATION" });
+    const sales = await createUser();
+    await addMember(org.id, sales, "sales");
+    await expect(updateDocument(human(org.id, sales, "sales"), { documentId: d.id, type: "tds", title: "x" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const [a] = await getDb().select().from(auditLogs).where(and(eq(auditLogs.orgId, org.id), eq(auditLogs.action, "document.update")));
+    expect(a!.changes).toMatchObject({ batch: ["B-7", "B-7a"] });
   });
 
   it("refuses other file types, disguised files, files over 4 MB, wrong dates and removed products, and stores nothing then", async () => {

@@ -305,9 +305,11 @@ const updateProductInput = z.object({
   category: z.string().trim().max(80).nullish(),
   /** Other names buyers use; lead matching and the price list import read them. */
   aliases: z.array(z.string().trim().toLowerCase().min(1).max(120)).max(30),
-  /** Existing grades with the name each should have. Grades are renamed, never removed: their rates are history. */
+  /** Existing grades with the name each should have. */
   grades: z.array(z.object({ id: z.string().uuid(), name: z.string().trim().min(1).max(60) })).max(40).default([]),
   newGrades: z.array(z.string().trim().min(1).max(60)).max(20).default([]),
+  /** Grades to take off the product (no longer sold). Their rates stay in history; adding the same name again brings them back. */
+  removeGrades: z.array(z.string().uuid()).max(40).default([]),
   /** Commercial terms (G-KB-2); `undefined` leaves a term as it is, "" or null clears it. */
   hsnCode: z.string().trim().max(12).regex(/^\d{0,10}$/, "HSN codes are digits only").nullish(),
   leadTime: z.string().trim().max(60).nullish(),
@@ -316,8 +318,24 @@ const updateProductInput = z.object({
 });
 
 /**
- * Corrects a product: name, category, other names, grade names, and extra grades. Rates are not
- * touched (they hang on the grade's id), so a rename keeps the whole price history.
+ * Adds a grade to a product, or brings back a removed grade of the same name (with its rate history): grade
+ * names stay reserved after removal. Used by Rates → Edit product and the price list import.
+ */
+export async function addOrRestoreGradeInternal(tx: Tx, ctx: Ctx, productId: string, name: string, sortOrder = 0) {
+  const [gone] = await tx.select().from(productGrades)
+    .where(and(eq(productGrades.orgId, ctx.orgId), eq(productGrades.productId, productId), isNotNull(productGrades.deletedAt), sql`lower(${productGrades.name}) = ${name.toLowerCase()}`));
+  if (gone) {
+    const [g] = await tx.update(productGrades).set({ deletedAt: null, name }).where(eq(productGrades.id, gone.id)).returning();
+    return { grade: g!, restored: true };
+  }
+  const [g] = await tx.insert(productGrades).values({ orgId: ctx.orgId, productId, name, sortOrder, createdBy: actorString(ctx.actor) }).returning();
+  return { grade: g!, restored: false };
+}
+
+/**
+ * Corrects a product: name, category, other names, grade names, extra grades and grades no longer sold.
+ * Rates are not touched (they hang on the grade's id), so a rename keeps the whole price history; a removed
+ * grade disappears from rates and quotations but keeps its history.
  */
 export const updateProduct = defineService({
   name: "catalog.updateProduct",
@@ -328,10 +346,22 @@ export const updateProduct = defineService({
     if (!p) throw notFound("Product");
     const existing = await tx.select().from(productGrades)
       .where(and(eq(productGrades.orgId, ctx.orgId), eq(productGrades.productId, p.id), isNull(productGrades.deletedAt))).orderBy(asc(productGrades.sortOrder));
-    const wanted = new Map(input.grades.map((g) => [g.id, g.name]));
+    const removeIds = new Set(input.removeGrades);
+    for (const id of removeIds) if (!existing.some((g) => g.id === id)) throw notFound("Grade");
+    const kept = existing.filter((g) => !removeIds.has(g.id));
+    const wanted = new Map(input.grades.filter((g) => !removeIds.has(g.id)).map((g) => [g.id, g.name]));
     for (const id of wanted.keys()) if (!existing.some((g) => g.id === id)) throw notFound("Grade");
-    const finalNames = [...existing.map((g) => wanted.get(g.id) ?? g.name), ...input.newGrades].map((n) => n.toLowerCase());
+    if (kept.length + input.newGrades.length === 0) {
+      throw new AppError("VALIDATION", "A product needs at least one grade. To stop selling it, delete the product instead.", { fieldErrors: { grades: ["Keep at least one grade"] } });
+    }
+    const finalNames = [...kept.map((g) => wanted.get(g.id) ?? g.name), ...input.newGrades].map((n) => n.toLowerCase());
     if (new Set(finalNames).size !== finalNames.length) throw new AppError("VALIDATION", "Two grades of this product would have the same name", { fieldErrors: { grades: ["Give each grade a different name"] } });
+    const removedBefore = (await tx.select({ name: productGrades.name }).from(productGrades)
+      .where(and(eq(productGrades.orgId, ctx.orgId), eq(productGrades.productId, p.id), isNotNull(productGrades.deletedAt)))).map((g) => g.name.toLowerCase());
+    const renamedOntoRemoved = kept.find((g) => wanted.has(g.id) && wanted.get(g.id) !== g.name && removedBefore.includes(wanted.get(g.id)!.toLowerCase()));
+    if (renamedOntoRemoved) {
+      throw new AppError("VALIDATION", `A removed grade is called “${wanted.get(renamedOntoRemoved.id)}”. Add it under “Add grades” to bring it back with its rates.`, { fieldErrors: { grades: ["That name belongs to a removed grade"] } });
+    }
     if (input.name !== p.name) await assertNameFree(tx, ctx.orgId, input.name);
 
     const aliases = [...new Set(input.aliases)];
@@ -341,12 +371,16 @@ export const updateProduct = defineService({
     if (input.paymentTerms !== undefined) terms.paymentTerms = input.paymentTerms || null;
     if (input.sampleAvailable !== undefined) terms.sampleAvailable = input.sampleAvailable;
     await tx.update(products).set({ name: input.name, category: input.category || null, aliases, ...terms }).where(eq(products.id, p.id));
-    const renames = existing.filter((g) => wanted.has(g.id) && wanted.get(g.id) !== g.name);
+    const renames = kept.filter((g) => wanted.has(g.id) && wanted.get(g.id) !== g.name);
+    const removed = existing.filter((g) => removeIds.has(g.id));
+    if (removed.length) await tx.update(productGrades).set({ deletedAt: new Date() }).where(and(eq(productGrades.orgId, ctx.orgId), inArray(productGrades.id, removed.map((g) => g.id))));
     // Two steps, so that swapping two names never trips the unique index half-way.
     for (const g of renames) await tx.update(productGrades).set({ name: `~${g.id}` }).where(eq(productGrades.id, g.id));
     for (const g of renames) await tx.update(productGrades).set({ name: wanted.get(g.id)! }).where(eq(productGrades.id, g.id));
-    if (input.newGrades.length) {
-      await tx.insert(productGrades).values(input.newGrades.map((name, i) => ({ orgId: ctx.orgId, productId: p.id, name, sortOrder: existing.length + i, createdBy: actorString(ctx.actor) })));
+    const restored: string[] = [];
+    for (const [i, name] of input.newGrades.entries()) {
+      const r = await addOrRestoreGradeInternal(tx, ctx, p.id, name, existing.length + i);
+      if (r.restored) restored.push(name);
     }
     const changes = {
       ...(input.name !== p.name ? { name: [p.name, input.name] } : {}),
@@ -354,6 +388,8 @@ export const updateProduct = defineService({
       ...(JSON.stringify(aliases) !== JSON.stringify(p.aliases) ? { aliases: [p.aliases, aliases] } : {}),
       ...(renames.length ? { gradesRenamed: renames.map((g) => [g.name, wanted.get(g.id)!]) } : {}),
       ...(input.newGrades.length ? { gradesAdded: input.newGrades } : {}),
+      ...(restored.length ? { gradesRestored: restored } : {}),
+      ...(removed.length ? { gradesRemoved: removed.map((g) => g.name) } : {}),
       ...Object.fromEntries(Object.entries(terms).filter(([k, v]) => (p as Record<string, unknown>)[k] !== v).map(([k, v]) => [k, [(p as Record<string, unknown>)[k], v]])),
     };
     await audit(tx, ctx, { action: "product.update", entityType: "product", entityId: p.id, changes });

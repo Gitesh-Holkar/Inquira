@@ -77,7 +77,7 @@ export function ReviewItem({ e, canClassify, canRule }: { e: ReviewEmail; canCla
               <span className="min-w-0 break-all">Always ignore {ignoreRule.label}</span>
             </label>
           ) : null}
-          <Link href="/settings?tab=rules" className="ml-auto text-xs text-primary underline-offset-4 hover:underline">Rules</Link>
+          <Link href="/settings?tab=rules" className="ml-auto inline-flex min-h-11 items-center px-1 text-xs text-primary underline-offset-4 hover:underline lg:min-h-0">Rules</Link>
         </div>
       )}
     </Card>

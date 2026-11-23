@@ -39,9 +39,9 @@ export default async function RatesPage({ searchParams }: { searchParams: Promis
       {rates.length === 0 ? (
         <Card><EmptyState icon={<Tag />} title="No products yet">Add a product, or import your price list.</EmptyState></Card>
       ) : (
-        <RatesEditor canEdit={can(s.ctx, "rates.write")} today={todayIST()} defaultBasis={settings.defaultPriceBasis} initialQuery={q}
+        <RatesEditor canEdit={can(s.ctx, "rates.write")} today={todayIST()} defaultBasis={settings.defaultPriceBasis} initialQuery={q} products={editable}
           rows={rates.map((r) => ({
-            gradeId: r.gradeId, productName: r.productName, category: r.category, gradeName: r.gradeName, price: r.pricePerKgInr, gst: r.gstPercent,
+            productId: r.productId, gradeId: r.gradeId, productName: r.productName, category: r.category, gradeName: r.gradeName, price: r.pricePerKgInr, gst: r.gstPercent,
             moq: r.moqKg, basis: r.priceBasis ?? settings.defaultPriceBasis, pack: r.packSize, validFrom: r.validFrom, confirm: r.needsConfirmation, updatedAt: r.updatedAt?.toISOString() ?? null,
             validTo: r.validTo, floor: r.floorPerKgInr, ceiling: r.ceilingPerKgInr,
           }))} />

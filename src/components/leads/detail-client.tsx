@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog, Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/primitives";
 import { INTENT_LABELS, LEAD_INTENTS, LEAD_STATUSES, STATUS_LABELS, type LeadStatus } from "@/modules/leads/types";
-import { addNoteAction, deleteLeadAction, setStatusAction, updateLeadAction } from "@/app/(app)/leads/actions";
+import { addNoteAction, deleteLeadAction, removeNoteAction, setStatusAction, updateLeadAction } from "@/app/(app)/leads/actions";
 
 /** For spam, tests and duplicates. A real enquiry that went nowhere should be marked Lost or Not relevant instead. */
 export function DeleteLeadButton({ leadId }: { leadId: string }) {
@@ -122,5 +122,15 @@ export function EditLeadButton({ leadId, lead, products }: { leadId: string; lea
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Removes one note (a typo, the wrong lead); its text stays in the audit trail. */
+export function RemoveNoteButton({ noteId }: { noteId: string }) {
+  const [pending, start] = useTransition();
+  return (
+    <ConfirmDialog danger title="Remove this note?" confirmLabel="Remove note" description="It leaves the timeline. Its text stays in the audit trail."
+      trigger={<Button type="button" variant="ghost" size="sm" className="text-muted" disabled={pending} aria-label="Remove note"><Trash2 />Remove</Button>}
+      onConfirm={() => start(async () => { const r = await removeNoteAction(noteId); if (r.ok) toast.success("Note removed"); else toast.error(r.error); })} />
   );
 }

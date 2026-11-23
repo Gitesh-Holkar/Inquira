@@ -108,7 +108,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 </div>
               </div>
             ))}
-            <Link href="/settings" className="text-sm text-primary underline-offset-4 hover:underline">Manage integrations</Link>
+            <Link href="/settings" className="inline-flex min-h-11 items-center lg:min-h-0 text-sm text-primary underline-offset-4 hover:underline">Manage integrations</Link>
           </CardContent>
         </Card>
 
@@ -123,7 +123,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               <strong>{d.indiamart.skipped}</strong> skipped, <strong>{d.indiamart.arrivedByEmail}</strong> bought and arrived
             </p>
             <p className="mt-1 text-xs text-muted">Up to {d.indiamart.dailyCap} suggestions a day. A person buys on IndiaMART.</p>
-            <Link href="/indiamart" className="mt-2 inline-block text-sm text-primary underline-offset-4 hover:underline">Decision log</Link>
+            <Link href="/indiamart" className="mt-2 inline-flex min-h-11 items-center lg:min-h-0 text-sm text-primary underline-offset-4 hover:underline">Decision log</Link>
           </CardContent>
         </Card>
 

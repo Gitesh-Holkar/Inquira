@@ -178,6 +178,37 @@ describe("editing and removing a product (G-KB-1)", () => {
     expect((await getCurrentRates(ctx, {})).map((r) => [r.gradeId, r.gradeName])).toEqual([[p.grades[0]!.id, "Waxy"], [p.grades[1]!.id, "Native"]]);
   });
 
+  it("a grade no longer sold is removed with its history kept; adding it again, or a price list naming it, brings it back", async () => {
+    const { ctx, org, user } = await setupOrgWithUser("owner");
+    const p = await createProduct(ctx, { name: "Sample Fiber", category: "Fibers", grades: ["Soluble", "Insoluble"] });
+    const [soluble, insoluble] = p.grades;
+    await updateRates(ctx, { items: [{ gradeId: insoluble!.id, pricePerKgInr: "150", gstPercent: "5", priceBasis: "Ex-factory" }] });
+    const edit = (over: Partial<Parameters<typeof updateProduct>[1]>) => updateProduct(ctx, { productId: p.product.id, name: "Sample Fiber", aliases: [], ...over });
+
+    await edit({ grades: [{ id: soluble!.id, name: "Soluble" }], removeGrades: [insoluble!.id] });
+    expect((await getCurrentRates(ctx, {})).map((r) => r.gradeName)).toEqual(["Soluble"]);
+    expect(await rateHistory(ctx, { gradeId: insoluble!.id })).toHaveLength(1); // history kept
+    await expect(updateRates(ctx, { items: [{ gradeId: insoluble!.id, pricePerKgInr: "160", gstPercent: "5", priceBasis: "Ex-factory" }] })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    // The last grade cannot go: delete the product instead. A grade cannot be renamed onto a removed one.
+    await expect(edit({ removeGrades: [soluble!.id] })).rejects.toMatchObject({ code: "VALIDATION", message: expect.stringMatching(/at least one grade/) });
+    await expect(edit({ grades: [{ id: soluble!.id, name: "insoluble" }] })).rejects.toMatchObject({ code: "VALIDATION", message: expect.stringMatching(/removed grade/) });
+
+    // Added again by name: the same grade, with its rate.
+    await edit({ grades: [{ id: soluble!.id, name: "Soluble" }], newGrades: ["Insoluble"] });
+    const back = (await getCurrentRates(ctx, {})).find((r) => r.gradeName === "Insoluble")!;
+    expect(back).toMatchObject({ gradeId: insoluble!.id, pricePerKgInr: "150.00" });
+
+    // Removed again, then a price list names it: it comes back through the import too.
+    await edit({ grades: [{ id: soluble!.id, name: "Soluble" }], removeGrades: [insoluble!.id] });
+    await savePriceListMap(ctx, { map: { categories: { Fibers: { gst_percent: 5, pack_size: "25 Kg" } }, lines: { "sample fiber insoluble": { product: "Sample Fiber", grade: "Insoluble" } } } });
+    await applyPriceListImport(ctx, { text: "Fibers:\nSample Fiber Insoluble - 155 Rs/Kg" });
+    expect((await getCurrentRates(ctx, {})).find((r) => r.gradeName === "Insoluble")).toMatchObject({ gradeId: insoluble!.id, pricePerKgInr: "155.00" });
+
+    const actions = (await getDb().select().from(auditLogs).where(eq(auditLogs.orgId, org.id))).filter((a) => a.actor === `human:${user.id}`);
+    expect(actions.some((a) => a.action === "product.update" && JSON.stringify(a.changes).includes("gradesRemoved"))).toBe(true);
+    expect(actions.some((a) => a.action === "grade.restore")).toBe(true);
+  });
+
   it("sales and viewers cannot edit a product; another company's product is not found", async () => {
     const { org, fiber } = await company();
     for (const role of ["sales", "viewer"] as const) {

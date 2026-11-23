@@ -45,6 +45,21 @@ export const saveTradeIndiaCredentials = defineService({
   },
 });
 
+/** Settings → TradeIndia → Disconnect: forgets the saved credentials and stops the sync. Leads already imported stay. */
+export const disconnectTradeIndia = defineService({
+  name: "tradeindia.disconnect",
+  input: z.object({}).default({}),
+  permission: "integrations.manage",
+  runAs: "system", // writes integration_secrets
+  handler: async (ctx, _i, tx) => {
+    const integ = await getIntegrationInternal(tx, ctx.orgId, "tradeindia");
+    await writeSecretsInternal(tx, ctx, integ, { userId: null, profileId: null, key: null });
+    const { userId: _u, profileId: _p, ...config } = integ.config as Record<string, unknown>;
+    await updateIntegrationInternal(tx, ctx, integ.id, { status: "not_connected", config, cursor: {}, lastError: null, consecutiveFailures: 0, backoffUntil: null }, "integration.disconnect");
+    return { ok: true };
+  },
+});
+
 async function credsFor(ctx: Ctx) {
   return withSystemTx(async (tx) => {
     const integ = await getIntegrationInternal(tx, ctx.orgId, "tradeindia");

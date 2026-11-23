@@ -16,13 +16,14 @@ import { documentsForProduct } from "@/modules/documents/service";
 import { listAudit } from "@/modules/core/service";
 import { listProducts } from "@/modules/catalog/service";
 import { can } from "@/modules/core/permissions";
+import { actorString } from "@/modules/core/types";
 import { INTENT_LABELS, STATUS_LABELS } from "@/modules/leads/types";
 import { filledByLabel } from "@/components/leads/labels";
 import { Alert, Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 import { EMAIL_CLASS_LABEL, SourceBadge, StatusBadge } from "@/components/status";
 import { CallButton, CopyButton, QuoteButton, WhatsAppButton } from "@/components/leads/actions";
-import { DeleteLeadButton, EditLeadButton, NoteForm, StatusChanger } from "@/components/leads/detail-client";
+import { DeleteLeadButton, EditLeadButton, NoteForm, RemoveNoteButton, StatusChanger } from "@/components/leads/detail-client";
 
 export const metadata: Metadata = { title: "Lead" };
 
@@ -53,15 +54,17 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   const product = products.find((p) => p.id === lead.productId);
   const docs = lead.productId && can(s.ctx, "documents.read") && product ? await documentsForProduct(s.ctx, { productId: lead.productId }) : [];
   const canWrite = can(s.ctx, "leads.update_status");
+  // A note can be removed by its author, or by someone who may delete leads.
+  const canRemoveNote = (by: string) => can(s.ctx, "notes.write") && (by === actorString(s.ctx.actor) || can(s.ctx, "leads.delete"));
   const where = [lead.city, lead.state, lead.country].filter(Boolean).join(", ");
   const timeline = [
-    ...statusChanges.map((c) => ({ at: c.createdAt, kind: "status" as const, text: `${c.fromStatus ? STATUS_LABELS[c.fromStatus] + " → " : ""}${STATUS_LABELS[c.toStatus]}${c.reason ? ` — ${c.reason}` : ""}`, by: c.createdBy })),
-    ...notes.map((n) => ({ at: n.createdAt, kind: "note" as const, text: n.body, by: n.createdBy })),
+    ...statusChanges.map((c) => ({ id: c.id, at: c.createdAt, kind: "status" as const, text: `${c.fromStatus ? STATUS_LABELS[c.fromStatus] + " → " : ""}${STATUS_LABELS[c.toStatus]}${c.reason ? ` — ${c.reason}` : ""}`, by: c.createdBy })),
+    ...notes.map((n) => ({ id: n.id, at: n.createdAt, kind: "note" as const, text: n.body, by: n.createdBy })),
   ].sort((a, b) => b.at.getTime() - a.at.getTime());
 
   return (
     <>
-      <Link href="/leads" className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"><ArrowLeft className="size-4" />Leads</Link>
+      <Link href="/leads" className="mb-1 inline-flex min-h-11 items-center gap-1 text-sm text-muted hover:text-foreground lg:mb-3 lg:min-h-0"><ArrowLeft className="size-4" />Leads</Link>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -215,9 +218,12 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
             <CardContent className="grid gap-3">
               {can(s.ctx, "notes.write") ? <NoteForm leadId={lead.id} /> : null}
               <ol className="grid gap-3 border-l border-border pl-3">
-                {timeline.map((t, i) => (
-                  <li key={i} className="text-sm">
-                    <p className="text-xs text-muted">{formatDateTime(t.at)} · {actorLabel(t.by)}</p>
+                {timeline.map((t) => (
+                  <li key={`${t.kind}-${t.id}`} className="text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-x-2">
+                      <p className="text-xs text-muted">{formatDateTime(t.at)} · {actorLabel(t.by)}</p>
+                      {t.kind === "note" && canRemoveNote(t.by) ? <RemoveNoteButton noteId={t.id} /> : null}
+                    </div>
                     <p className={t.kind === "note" ? "whitespace-pre-wrap break-words" : "font-medium"}>{t.kind === "status" ? `Status: ${t.text}` : t.text}</p>
                   </li>
                 ))}

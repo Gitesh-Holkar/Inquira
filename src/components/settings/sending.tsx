@@ -1,11 +1,11 @@
 "use client";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Alert, Field, Input, Select } from "@/components/ui/primitives";
-import { removeOutboundRuleAction, saveSendingAction } from "@/app/(app)/settings/actions";
+import { createOutboundRuleAction, removeOutboundRuleAction, saveSendingAction } from "@/app/(app)/settings/actions";
 import type { OutboundSettings } from "@/modules/outbound/types";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -76,22 +76,61 @@ export function SendingForm({ s, isOwner, canEdit }: { s: OutboundSettings; isOw
   );
 }
 
-export function TeamRules({ rules, canEdit }: { rules: { id: string; matchType: string; pattern: string; note: string | null }[]; canEdit: boolean }) {
+const RULE_KINDS = [
+  ["buyer_email", "Buyer's email is", "name@buyer.com"],
+  ["buyer_domain", "Buyer's email domain is", "buyer.com"],
+  ["buyer_phone", "Buyer's phone is", "+91 98765 43210"],
+  ["product", "Product is", "Pea Protein Isolate"],
+  ["text_contains", "Enquiry mentions", "export, credit, discount…"],
+] as const;
+
+/** The team's own hold rules (G-OUT-9): every message that matches waits for a person. Add one here or from “Don't send”. */
+export function TeamRules({ rules, canEdit, products = [] }: { rules: { id: string; matchType: string; pattern: string; note: string | null }[]; canEdit: boolean; products?: { id: string; name: string }[] }) {
   const [pending, start] = useTransition();
-  if (!rules.length) return <p className="text-sm text-muted">None yet. When you choose “Don’t send” on a message, you can turn the reason into a rule here.</p>;
+  const [kind, setKind] = useState<(typeof RULE_KINDS)[number][0]>("buyer_domain");
+  // A product rule keeps the product's id; show its name (or say it was deleted).
+  const shown = (r: { matchType: string; pattern: string }) => r.matchType === "product" ? (products.find((p) => p.id === r.pattern)?.name ?? "a deleted product") : r.pattern;
   const what = (t: string) => ({ buyer_email: "buyer email", buyer_domain: "buyer domain", buyer_phone: "buyer phone", product: "product", text_contains: "enquiry mentions" }[t] ?? t);
   return (
-    <ul className="grid gap-2">
-      {rules.map((r) => (
-        <li key={r.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2 text-sm">
-          <span className="min-w-0 flex-1 break-words"><span className="text-muted">{what(r.matchType)}:</span> {r.pattern}{r.note ? <span className="text-muted"> · {r.note}</span> : null}</span>
-          {canEdit ? (
-            <ConfirmDialog danger title="Remove this rule?" confirmLabel="Remove" description="Messages that match it are no longer held because of it."
-              trigger={<Button size="sm" variant="outline" disabled={pending}><Trash2 />Remove</Button>}
-              onConfirm={() => start(async () => { const x = await removeOutboundRuleAction(r.id); if (x.ok) toast.success("Removed"); else toast.error(x.error); })} />
-          ) : null}
-        </li>
-      ))}
-    </ul>
+    <div className="grid gap-3">
+      {!rules.length ? <p className="text-sm text-muted">None yet. Add one below, or choose “Don’t send” on a message and turn the reason into a rule.</p> : (
+        <ul className="grid gap-2" aria-label="Team hold rules">
+          {rules.map((r) => (
+            <li key={r.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2 text-sm">
+              <span className="min-w-0 flex-1 break-words"><span className="text-muted">{what(r.matchType)}:</span> {shown(r)}{r.note ? <span className="text-muted"> · {r.note}</span> : null}</span>
+              {canEdit ? (
+                <ConfirmDialog danger title="Remove this rule?" confirmLabel="Remove" description="Messages that match it are no longer held because of it."
+                  trigger={<Button size="sm" variant="outline" disabled={pending}><Trash2 />Remove</Button>}
+                  onConfirm={() => start(async () => { const x = await removeOutboundRuleAction(r.id); if (x.ok) toast.success("Removed"); else toast.error(x.error); })} />
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      {canEdit ? (
+        <form className="grid gap-2 rounded-md border border-dashed border-border p-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-end" onSubmit={(e) => {
+          e.preventDefault();
+          const form = e.currentTarget;
+          const f = new FormData(form);
+          start(async () => {
+            const r = await createOutboundRuleAction({ matchType: kind, pattern: String(f.get("pattern") ?? ""), note: String(f.get("note") ?? "") });
+            if (r.ok) { toast.success("Rule added: matching messages will wait for a person"); form.reset(); setKind("buyer_domain"); } else toast.error(r.error);
+          });
+        }}>
+          <Field label="Hold a message when" htmlFor="tr-kind">
+            <Select id="tr-kind" name="kind" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>{RULE_KINDS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}</Select>
+          </Field>
+          {kind === "product" ? (
+            <Field label="Product" htmlFor="tr-pattern">
+              <Select id="tr-pattern" name="pattern" required defaultValue=""><option value="" disabled>Choose a product…</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select>
+            </Field>
+          ) : (
+            <Field label="Value" htmlFor="tr-pattern"><Input key={kind} id="tr-pattern" name="pattern" required maxLength={200} placeholder={RULE_KINDS.find(([k]) => k === kind)![2]} /></Field>
+          )}
+          <Field label="Why (optional)" htmlFor="tr-note" className="sm:col-span-2"><Input id="tr-note" name="note" maxLength={200} placeholder="Existing distributor: the owner replies" /></Field>
+          <div className="sm:col-span-2"><Button type="submit" variant="outline" disabled={pending}><Plus />Add rule</Button></div>
+        </form>
+      ) : null}
+    </div>
   );
 }

@@ -4,6 +4,18 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 23 Nov 2026 — Missing actions found in a check of every screen
+- **Rates:** each product now has its own **Edit** (pencil) and **Delete** (bin) on its row, on desktop and phones. Deleting keeps the rates and history; **Deleted products** at the bottom brings one back.
+- **Rates → Edit:** a grade no longer sold can be **removed** (its rates stay in history; adding the same grade name again, or a price list naming it, brings it back with its history).
+- **Rates → Import price list:** the mapping (headings with GST % and pack size, product exceptions, names on your list, the GST section) is now a **form**. Pasting a mapping as text is still possible.
+- **Settings → Organisation → Company name** (owners only).
+- **Settings → Integrations:** **Disconnect** for TradeIndia and IndiaMART (forgets the saved keys, turns the IndiaMART push address off, stops the sync; imported leads stay).
+- **Settings → Sending:** add a team hold rule directly (buyer email, domain, phone, product or words in the enquiry), not only from “Don't send”. Product rules now show the product's name; a held message no longer shows an internal code as its reason.
+- **Templates:** **Earlier versions** lists every saved version and Inquira's starting text; **Use this text** puts one back in the editor to save again. "Reset" is now called "Undo changes".
+- **Documents:** **Edit** fixes a document's product, type, title, batch, dates or note without uploading the file again.
+- **Lead page:** a note can be **removed** by the person who wrote it, or by someone who may delete leads; its text stays in the audit trail.
+- Phones: standalone links and small buttons are now at least 44 px tall.
+
 ### 22 Nov 2026 — Reports, daily summary, backups, open-source files (M8)
 - **Dashboard → Last 7 days:** leads received and matched to a product, replies sent by people and automatically, what is held or ready now, emails set aside, and the typical time to first reply.
 - **Daily summary email** (Settings → Sending, off until you switch it on): each evening after 7:30 PM IST the owners, or the addresses you enter, get the day's numbers from your Gmail. It stops while sending is paused.

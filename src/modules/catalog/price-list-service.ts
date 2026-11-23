@@ -12,9 +12,9 @@ import { audit } from "@/modules/core/audit";
 import { authorize } from "@/modules/core/permissions";
 import { getOrgSettingsInternal, setPriceListMapInternal } from "@/modules/core/service";
 import { defineService, parseInput } from "@/modules/core/service-kit";
-import { actorString, type Ctx } from "@/modules/core/types";
+import type { Ctx } from "@/modules/core/types";
 import { productGrades, products } from "./schema";
-import { createProductInternal, currentRatesInternal, insertRatesInternal, removedProductNamesInternal } from "./service";
+import { addOrRestoreGradeInternal, createProductInternal, currentRatesInternal, insertRatesInternal, removedProductNamesInternal } from "./service";
 import { parsePriceList, planImport, priceListMapSchema, type CatalogForImport, type ImportPlan } from "./price-list";
 import { updateRatesInput } from "./types";
 
@@ -83,7 +83,6 @@ export const applyPriceListImport = defineService({
   handler: async (ctx, input, tx) => {
     authorize(ctx, "catalog.write");
     const p = await plan(tx, ctx, input);
-    const by = actorString(ctx.actor);
     const counts = { productsCreated: 0, gradesCreated: 0, gradesRenamed: 0, ratesWritten: 0, skipped: 0 };
     const items: { gradeId: string; pricePerKgInr: string; gstPercent: string; priceBasis: string; moqKg: string | null; packSize: string | null; needsConfirmation: boolean; note: string }[] = [];
     const createdProducts = new Map<string, string>(); // product name → id, for lists with several grades of a new product
@@ -105,9 +104,10 @@ export const applyPriceListImport = defineService({
         createdProducts.set(row.product, productId);
         counts.productsCreated++;
       } else if (!gradeId) {
-        const [g] = await tx.insert(productGrades).values({ orgId: ctx.orgId, productId, name: row.grade, createdBy: by }).returning();
-        await audit(tx, ctx, { action: "grade.create", entityType: "product_grade", entityId: g!.id, changes: { product: row.product, grade: row.grade, source: "price list" } });
-        gradeId = g!.id;
+        // A grade removed earlier and back on the list returns with its history.
+        const { grade: g, restored } = await addOrRestoreGradeInternal(tx, ctx, productId, row.grade);
+        await audit(tx, ctx, { action: restored ? "grade.restore" : "grade.create", entityType: "product_grade", entityId: g.id, changes: { product: row.product, grade: row.grade, source: "price list" } });
+        gradeId = g.id;
         counts.gradesCreated++;
       } else if (row.renameGradeFrom) {
         await tx.update(productGrades).set({ name: row.grade }).where(and(eq(productGrades.id, gradeId), eq(productGrades.orgId, ctx.orgId)));

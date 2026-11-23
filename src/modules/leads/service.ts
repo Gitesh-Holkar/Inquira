@@ -1,7 +1,8 @@
 import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, notInArray, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { Tx } from "@/db/client";
-import { notFound, AppError } from "@/lib/errors";
+import { notFound, AppError, forbidden } from "@/lib/errors";
+import { can } from "@/modules/core/permissions";
 import { normalizeEmail, phoneCountry, toE164 } from "@/lib/phone";
 import { audit, emit } from "@/modules/core/audit";
 import { defineService } from "@/modules/core/service-kit";
@@ -302,6 +303,24 @@ export const addLeadNote = defineService({
     await audit(tx, ctx, { action: "lead.note", entityType: "lead", entityId: lead.id, changes: { noteId: note!.id } });
     await emit(tx, ctx, { type: "lead.note_added", entityType: "lead", entityId: lead.id, payload: { noteId: note!.id } });
     return note!;
+  },
+});
+
+/**
+ * Removes a note from a lead (a typo, the wrong lead). Its author may remove it, and so may anyone who may delete
+ * leads. The text stays in the audit trail.
+ */
+export const removeLeadNote = defineService({
+  name: "leads.removeNote",
+  input: z.object({ noteId: z.string().uuid() }),
+  permission: "notes.write",
+  handler: async (ctx, input, tx) => {
+    const [note] = await tx.select().from(leadNotes).where(and(eq(leadNotes.id, input.noteId), eq(leadNotes.orgId, ctx.orgId), isNull(leadNotes.deletedAt)));
+    if (!note) throw notFound("Note");
+    if (note.createdBy !== actorString(ctx.actor) && !can(ctx, "leads.delete")) throw forbidden("Only the person who wrote a note, or someone who may delete leads, can remove it.");
+    await tx.update(leadNotes).set({ deletedAt: new Date() }).where(eq(leadNotes.id, note.id));
+    await audit(tx, ctx, { action: "lead.note_remove", entityType: "lead", entityId: note.leadId, changes: { noteId: note.id, body: note.body, writtenBy: note.createdBy } });
+    return { ok: true, leadId: note.leadId };
   },
 });
 

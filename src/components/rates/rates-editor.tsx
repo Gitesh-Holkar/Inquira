@@ -8,9 +8,10 @@ import { Badge, Card, Input } from "@/components/ui/primitives";
 import { formatDate, formatDateTime, formatINR, formatNumber, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { rateHistoryAction, saveRatesAction, type RateChange } from "@/app/(app)/rates/actions";
+import { DeleteProductButton, EditProductButton, type EditableProduct } from "./edit-product";
 
 export type RateRow = {
-  gradeId: string; productName: string; category: string | null; gradeName: string; price: string | null; gst: string | null;
+  productId: string; gradeId: string; productName: string; category: string | null; gradeName: string; price: string | null; gst: string | null;
   moq: string | null; basis: string | null; pack: string | null; validFrom: string | null; confirm: boolean; updatedAt: string | null;
   validTo: string | null; floor: string | null; ceiling: string | null;
 };
@@ -40,7 +41,11 @@ function validate(e: Editable): string | null {
   return null;
 }
 
-export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }: { rows: RateRow[]; canEdit: boolean; today: string; defaultBasis: string; initialQuery?: string }) {
+/**
+ * The rate book: a spreadsheet on desktop, cards on phones. `products` (given to people who may change the
+ * catalogue) adds Edit and Delete on the first row of each product.
+ */
+export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery, products = [] }: { rows: RateRow[]; canEdit: boolean; today: string; defaultBasis: string; initialQuery?: string; products?: EditableProduct[] }) {
   const [query, setQuery] = useState(initialQuery ?? "");
   const [edits, setEdits] = useState<Record<string, Editable>>({});
   // Flagged rates ("Confirm" badge) the user marked as correct without changing them.
@@ -57,6 +62,13 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
   }, [edits, acks, base]);
   const errors = useMemo(() => Object.fromEntries(changed.map(([id, e]) => [id, validate(e)]).filter(([, v]) => v)), [changed]);
   const visible = rows.filter((r) => !query || `${r.productName} ${r.gradeName} ${r.category ?? ""}`.toLowerCase().includes(query.toLowerCase()));
+  const byProduct = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
+  /** Edit and Delete for a product, on its first visible row. */
+  const productActions = (r: RateRow, idx: number) => {
+    const p = byProduct.get(r.productId);
+    if (!p || (idx > 0 && visible[idx - 1]!.productId === r.productId)) return null;
+    return <span className="inline-flex shrink-0"><EditProductButton products={products} productId={p.id} /><DeleteProductButton product={p} /></span>;
+  };
 
   const toggleAck = (id: string) => setAcks((p) => {
     const next = { ...p };
@@ -103,7 +115,7 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
             <tr className="border-b border-border">
               <th className="px-3 py-2 font-medium">Product / grade</th>
               {COLS.map((c) => <th key={c.key} className="px-2 py-2 font-medium">{c.label}</th>)}
-              <th className="px-2 py-2 font-medium">Since</th><th className="sr-only">History</th>
+              <th className="px-2 py-2 font-medium">Since</th><th className="sr-only">History</th>{products.length ? <th className="sr-only">Product actions</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -127,6 +139,7 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
                     ))}
                     <td className="whitespace-nowrap px-2 py-1 text-xs text-muted">{r.validFrom ? formatDate(r.validFrom) : "—"}{r.validTo ? <><br />until {formatDate(r.validTo)}</> : null}</td>
                     <td className="px-2 py-1"><HistoryButton gradeId={r.gradeId} title={`${r.productName} · ${r.gradeName}`} /></td>
+                    {products.length ? <td className="px-1 py-1">{productActions(r, idx)}</td> : null}
                   </tr>
                 </Rows>
               );
@@ -137,7 +150,7 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
 
       {/* Phones/tablets: cards, no horizontal scroll */}
       <div className="grid gap-2 lg:hidden">
-        {visible.map((r) => (
+        {visible.map((r, idx) => (
           <Card key={r.gradeId} className={cn("p-3", errors[r.gradeId] && "border-danger")}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -145,7 +158,7 @@ export function RatesEditor({ rows, canEdit, today, defaultBasis, initialQuery }
                 <p className="text-sm text-muted">{r.price ? <>{formatINR(r.price)}/kg + GST {formatPercent(r.gst)}%{r.validTo ? ` · until ${formatDate(r.validTo)}` : ""}</> : "No rate yet"}</p>
                 {r.confirm ? <ConfirmFlag acked={!!acks[r.gradeId]} canEdit={canEdit && !!r.price} onToggle={() => toggleAck(r.gradeId)} /> : null}
               </div>
-              <HistoryButton gradeId={r.gradeId} title={`${r.productName} · ${r.gradeName}`} />
+              <span className="inline-flex shrink-0">{productActions(r, idx)}<HistoryButton gradeId={r.gradeId} title={`${r.productName} · ${r.gradeName}`} /></span>
             </div>
             {canEdit ? (
               <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -191,7 +204,7 @@ function ConfirmFlag({ acked, canEdit, onToggle }: { acked: boolean; canEdit: bo
 function Rows({ header, children }: { header: string | null; children: React.ReactNode }) {
   return (
     <>
-      {header ? <tr><th colSpan={10} scope="colgroup" className="bg-surface-2 px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-muted">{header}</th></tr> : null}
+      {header ? <tr><th colSpan={11} scope="colgroup" className="bg-surface-2 px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-muted">{header}</th></tr> : null}
       {children}
     </>
   );

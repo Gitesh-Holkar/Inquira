@@ -49,7 +49,7 @@ Postgres with Drizzle ORM. Every table is in the private schema **`app`** (see [
 | Table | Purpose | Notable columns |
 | --- | --- | --- |
 | `products` (soft delete) | Catalogue products | `name` (unique per company), `category`, `aliases`, `default_gst_percent`, `default_pack_size`, `website_url`, `hsn_code`, `lead_time`, `payment_terms` (overrides the company's), `sample_available` (true, false, or empty = not decided), `notes`, `sort_order` |
-| `product_grades` (soft delete) | Grades of a product | `product_id`, `name`; unique `(product_id, name)` |
+| `product_grades` (soft delete) | Grades of a product. A grade no longer sold is soft-deleted; its name stays reserved, so adding it again restores it with its rates | `product_id`, `name`; unique `(product_id, name)` |
 | `price_entries` | **Append-only** rate book | `grade_id`, `price_per_kg_inr`, `gst_percent`, `gst_inclusive`, `price_basis`, `moq_kg`, `pack_size`, `valid_from`, `valid_to` (last day; after it the grade has no current rate), `needs_confirmation`, `floor_per_kg_inr` and `ceiling_per_kg_inr` (internal negotiation range), `note` |
 
 The current rate of a grade is the newest entry with `valid_from` ≤ today and `valid_to` empty or ≥ today.

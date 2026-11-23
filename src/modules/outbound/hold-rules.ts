@@ -127,7 +127,8 @@ export function matchingTeamRules(rules: TeamRule[], m: { email: string | null; 
       : r.matchType === "product" ? m.productId === r.pattern
       : r.matchType === "text_contains" ? m.text.toLowerCase().includes(p)
       : false;
-    if (hit) out.push(`Team rule: ${r.note || `${r.matchType.replace("_", " ")} “${r.pattern}”`}`);
+    // A product rule's pattern is the product's id: say "this product" rather than show the id.
+    if (hit) out.push(`Team rule: ${r.note || (r.matchType === "product" ? "this product is always held" : `${r.matchType.replace("_", " ")} “${r.pattern}”`)}`);
   }
   return out;
 }

@@ -22,7 +22,7 @@ The first start builds Inquira and takes a few minutes. Then open **http://local
 
 The first time, the page says **Create the owner account**. Enter your email and a password (at least 10 characters). That account owns this Inquira; nobody else can use this screen afterwards.
 
-By default you see a **fictional example company** (Example Ingredients Pvt. Ltd.) so you can try everything safely.
+By default you see a **fictional example company** (Example Ingredients Pvt. Ltd.) so you can try everything safely. To make it yours, rename it under **Settings → Organisation → Company name**, delete the example products on **Rates** (the bin on each row) and add your own, or start with your own data folder as below.
 
 ## Use your own company's data
 

@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth";
 import { runAction } from "@/lib/actions";
-import { removeDocument, uploadDocument } from "@/modules/documents/service";
+import { removeDocument, updateDocument, uploadDocument } from "@/modules/documents/service";
 import type { DocumentType } from "@/modules/documents/types";
 
 /** Documents → Add document. The form posts the file itself (up to 4 MB). */
@@ -25,6 +25,17 @@ export async function uploadDocumentAction(form: FormData) {
 export async function removeDocumentAction(documentId: string) {
   const s = await requireSession("documents.write");
   const r = await runAction(() => removeDocument(s.ctx, { documentId }));
+  revalidatePath("/documents");
+  return r.ok ? { ok: true as const } : r;
+}
+
+/** Documents → Edit details. */
+export async function updateDocumentAction(input: { documentId: string; productId: string; type: DocumentType; title: string; batch: string; issueDate: string; expiryDate: string; notes: string }) {
+  const s = await requireSession("documents.write");
+  const r = await runAction(() => updateDocument(s.ctx, {
+    documentId: input.documentId, productId: input.productId || null, type: input.type, title: input.title, batch: input.batch || null,
+    issueDate: input.issueDate || null, expiryDate: input.expiryDate || null, notes: input.notes || null,
+  }));
   revalidatePath("/documents");
   return r.ok ? { ok: true as const } : r;
 }

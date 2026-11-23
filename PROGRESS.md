@@ -42,6 +42,25 @@ Work in order, one at a time. Stop at every **OWNER GATE**.
 | M8 | Operations: follow-ups, time to first reply, members screen, backups | G-FUP-1, G-RPT-*, G-PLT-2, G-PLT-7 | **Built 22 Nov 2026.** Follow-ups came with M7 and the members screen on 17 Nov. Dashboard "Last 7 days" with time to first reply; daily summary email (off until switched on); nightly backups kept 14 days, owner download, restore command, tested restore (`tests/operations.test.ts`, and once by hand into a fresh database: 649 rows, counts matched) (ADR-033) |
 | Later | WhatsApp Cloud API, orders, attendance | G-OUT-8, G-ORD-*, G-ATT-1 | Waits on the owner: the WhatsApp per-message cost (G-OUT-8); proforma samples and the ClearTax template (GOAL phase 5). Attendance is a separate application (G-ATT-1). Conversation replies (G-CNV-2, G-CNV-3) were built in M7 |
 
+## Feature check of 23 Nov 2026 (the owner found a missing action)
+
+The owner could not find how to delete a product: the action existed but sat at the bottom of the Edit product dialog after picking the product. Every screen was then checked for actions a person would look for, every service for a screen that uses it, and every page and tab was opened on desktop and phone (no errors, no sideways scroll).
+
+| Was missing or hidden | Now |
+| --- | --- |
+| Deleting a product (hidden in Edit product) | Edit and Delete on each product's row |
+| Removing a grade no longer sold | Edit → Remove on the grade; adding it again brings its history back |
+| Price list mapping only as raw text (planned for M6, not built) | A form; paste as text kept |
+| Renaming the company | Settings → Organisation → Company name (owners) |
+| Disconnecting TradeIndia or IndiaMART | Disconnect on each card |
+| Adding a team hold rule without a message | Settings → Sending → Add rule; product rules show names (they showed an internal id, also in held reasons) |
+| Template versions were saved but could not be seen | Earlier versions and the starting text, Use this text |
+| Correcting a document's batch or dates | Documents → Edit |
+| Removing a mistyped note | Remove on the note (author, or who may delete leads) |
+| Small tap targets on phones (standalone links, placeholder buttons) | At least 44 px |
+
+Still not built, on purpose (no screen shows them): restoring a deleted lead or a removed document (both ask for confirmation first; re-add instead), the priority order of email rules (rules apply in the order they were created), assigning a lead to a person.
+
 ## Feature check of 17 Nov 2026 ("complete before more")
 
 Every service, screen and setting was checked against the rule in `AGENTS.md` section 2.
@@ -68,7 +87,7 @@ Every service, screen and setting was checked against the rule in `AGENTS.md` se
 | Switching between companies for a user who belongs to two (the cookie is read, nothing sets it) | No (one company per install) | Not built. |
 | An end date on a rate | Yes, G-KB-3 (M6) | With the knowledge base. |
 | Roles QA and Accounts | Yes, G-PLT-2 | Built 18 Nov 2026 with custom access per person (ADR-028). |
-| A form for the price list mapping (today it is edited as text on the import screen) | M6, with commercial terms G-KB-2 |
+| A form for the price list mapping (today it is edited as text on the import screen) | Built 23 Nov 2026 |
 | Priority order of email rules (stored, no control on screen; rules apply in the order they were created) | When a second rule type needs it |
 | The `events` table records what happened but nothing consumes it yet | M7 (outbound pipeline) |
 | `npm run seed:website` reads the first company's website address from code | Fixed 18 Nov 2026: read from the seed folder's `settings.json` |

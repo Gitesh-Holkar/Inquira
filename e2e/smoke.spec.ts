@@ -62,6 +62,15 @@ test("main flows", async ({ page }) => {
   await page.getByLabel("New note").fill(note);
   await page.getByRole("button", { name: "Add note" }).click();
   await expect(page.getByText(note)).toBeVisible();
+  // A mistyped note can be removed
+  const typo = `E2E (${test.info().project.name}): wrong lead`;
+  await expect(page.getByLabel("New note")).toHaveValue(""); // the box clears after a note is saved
+  await page.getByLabel("New note").fill(typo);
+  await page.getByRole("button", { name: "Add note" }).click();
+  await expect(page.getByText(typo)).toBeVisible();
+  await page.getByRole("listitem").filter({ hasText: typo }).getByRole("button", { name: "Remove note" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Remove note" }).click();
+  await expect(page.getByText(typo)).toHaveCount(0);
 
   // Quote draft without Gmail → saved, with a clear warning (once a COA exists, it first asks what to attach)
   await page.getByRole("button", { name: "Create quote draft" }).first().click();
@@ -103,18 +112,36 @@ test("main flows", async ({ page }) => {
   await editDialog.getByRole("button", { name: "Save product" }).click();
   await expect(page.getByText("Product saved")).toBeVisible();
 
-  // Remove a discontinued product, then restore it from Removed products
-  await expect(async () => {
-    if (!(await editDialog.isVisible())) await page.getByRole("button", { name: "Edit product" }).click();
-    await expect(editDialog).toBeVisible({ timeout: 1500 });
-  }).toPass({ timeout: 30_000 });
-  await editDialog.getByLabel("Product", { exact: true }).selectOption({ label: "Wheat Starch" });
-  await editDialog.getByRole("button", { name: "Remove product" }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Remove product" }).click();
-  await expect(page.getByText("Wheat Starch removed")).toBeVisible();
-  await page.getByText("Removed products").click();
+  // Delete a discontinued product from its own row, then restore it from Deleted products
+  await page.getByLabel("Filter products").fill("Wheat Starch");
+  await page.getByRole("button", { name: "Delete Wheat Starch" }).locator("visible=true").first().click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete product" }).click();
+  await expect(page.getByText("Wheat Starch deleted")).toBeVisible();
+  await page.getByText("Deleted products").click();
   await page.getByRole("button", { name: "Restore" }).click();
   await expect(page.getByText("Wheat Starch restored")).toBeVisible();
+
+  // Remove a grade no longer sold from the product's own Edit, then bring it back by adding it again
+  await page.getByLabel("Filter products").fill("Mung Starch");
+  const rowEdit = page.getByRole("dialog", { name: "Edit Mung Starch" });
+  await expect(async () => {
+    if (!(await rowEdit.isVisible())) await page.getByRole("button", { name: "Edit Mung Starch" }).locator("visible=true").first().click();
+    await expect(rowEdit).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 30_000 });
+  await rowEdit.getByLabel("Add grades (comma separated)").fill(`Fine ${test.info().project.name}`);
+  await rowEdit.getByRole("button", { name: "Save product" }).click();
+  await expect(page.getByText("Product saved")).toBeVisible();
+  await expect(rowEdit).toBeHidden();
+  await expect(page.getByText(`Fine ${test.info().project.name}`).locator("visible=true").first()).toBeVisible(); // the new grade is on the table
+  await expect(async () => {
+    if (!(await rowEdit.isVisible())) await page.getByRole("button", { name: "Edit Mung Starch" }).locator("visible=true").first().click();
+    await expect(rowEdit).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 30_000 });
+  await rowEdit.getByRole("button", { name: `Remove grade Fine ${test.info().project.name}` }).click();
+  await rowEdit.getByRole("button", { name: "Save product" }).click();
+  await expect(page.getByText(/1 grade removed/)).toBeVisible();
+  await expect(page.getByText(`Fine ${test.info().project.name}`)).toHaveCount(0);
+  await page.getByLabel("Filter products").fill("");
 
   // Import a price list (G-KB-6): paste, read what would change, apply. A line with no known GST rate is left out.
   await page.getByRole("link", { name: "Import price list" }).click();
@@ -123,10 +150,25 @@ test("main flows", async ({ page }) => {
   const preview = page.getByTestId("price-list-preview");
   // The mapping (which heading has which GST % and pack size) is saved for this company and can be changed here.
   await page.getByText("How Inquira reads your list (mapping)").click();
-  await expect(page.getByLabel("Mapping")).toHaveValue(/"Proteins"/);
+  // As a form: each heading with its GST % and pack size; a wrong GST % is explained and nothing is saved.
+  const firstHeading = page.getByLabel("Heading", { exact: true }).first();
+  await expect(firstHeading).toHaveValue(/\S/);
+  const firstGst = page.getByLabel("GST %").first();
+  const gstBefore = await firstGst.inputValue();
   await expect(async () => {
-    await page.getByLabel("Mapping").fill("not a mapping");
+    await firstGst.fill("40");
     await page.getByRole("button", { name: "Save mapping" }).click();
+    await expect(page.getByText(/must be a number between 0 and 28/)).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
+  await firstGst.fill(gstBefore);
+  await page.getByRole("button", { name: "Save mapping" }).click();
+  await expect(page.getByText("Mapping saved")).toBeVisible();
+  // Pasting a mapping as text is still possible; a broken one is refused.
+  await page.getByText("Paste a mapping as text instead").click();
+  await expect(page.getByLabel("Mapping", { exact: true })).toHaveValue(/"categories"/);
+  await expect(async () => {
+    await page.getByLabel("Mapping", { exact: true }).fill("not a mapping");
+    await page.getByRole("button", { name: "Save pasted mapping" }).click();
     await expect(page.getByText(/could not be read/)).toBeVisible({ timeout: 3000 });
   }).toPass({ timeout: 30_000 });
   await page.reload(); // the saved mapping is untouched
@@ -242,6 +284,13 @@ test("documents: add, download and attach to a quote; members: add, change role,
   const item = page.getByRole("list", { name: "Documents" }).getByRole("listitem").filter({ hasText: title });
   await expect(item).toContainText("Batch B-42");
   await expect(item).toContainText(/Valid, \d+ days left/);
+  // A wrong batch number is corrected without uploading again
+  await item.getByRole("button", { name: `Edit details of ${title}.pdf` }).click();
+  const editDoc = page.getByRole("dialog", { name: "Edit document details" });
+  await editDoc.getByLabel("Batch number").fill("B-43");
+  await editDoc.getByRole("button", { name: "Save details" }).click();
+  await expect(page.getByText("Details saved")).toBeVisible();
+  await expect(item).toContainText("Batch B-43");
   await noHorizontalScroll(page);
   await shot(page, "12-documents");
   const href = await item.getByRole("link", { name: `Download ${title}.pdf` }).getAttribute("href");
@@ -357,9 +406,25 @@ test("Outbox: prepare a message on a lead, see it held or ready, sending setting
   await page.goto("/settings?tab=sending");
   await expect(page.getByLabel("Email mode")).toHaveValue("shadow");
   await expect(page.getByLabel("Pause all automatic sending")).toBeVisible();
+  // A team hold rule added straight from Settings
+  const domain = `distributor-${test.info().project.name}.example`;
+  await page.getByLabel("Hold a message when").selectOption("buyer_domain");
+  await page.getByLabel("Value").fill(domain);
+  await page.getByRole("button", { name: "Add rule" }).click();
+  await expect(page.getByRole("list", { name: "Team hold rules" })).toContainText(domain);
   await noHorizontalScroll(page);
   await page.goto("/templates?purpose=sample_request");
   await expect(page.getByRole("heading", { name: /Sample reply · email/ })).toBeVisible();
+  // Each save is a version; an earlier one (or Inquira's starting text) can be brought back
+  const body = page.getByLabel("Body").first();
+  await body.fill(`${await body.inputValue()}\nWe reply within one working day (${test.info().project.name}).`);
+  await page.getByRole("button", { name: "Save template" }).first().click();
+  await expect(page.getByText("Template saved")).toBeVisible();
+  await page.reload();
+  await page.getByText(/^Earlier versions/).first().click();
+  await page.getByRole("button", { name: "Use this text" }).first().click();
+  await expect(page.getByText(/is in the editor/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save template" }).first()).toBeEnabled();
 });
 
 test("reports and backups: last 7 days on the dashboard, back up now, download (owner)", async ({ page }) => {
