@@ -110,7 +110,7 @@ Every service, screen and setting was checked against the rule in `AGENTS.md` se
 
 **Your company's information (Inquira never makes these up)**
 5. Documents: upload COA, TDS and MSDS files with batch and expiry dates (Q-018).
-6. Rates → Edit product: HSN code, lead time and whether free samples are offered, per product; Settings → Organisation → Sample policy (Q-021). Replies that need an empty one wait for a person.
+6. Rates → the pencil on each product's row → Quotation terms: HSN code, lead time and whether free samples are offered, per product; Settings → Organisation → Sample policy (Q-021). Replies that need an empty one wait for a person.
 
 **Connections and keys**
 7. IndiaMART: paste the Pull API key and register the push address (`docs/SETUP.md` section 6a); then compare one lead with IndiaMART (Q-019).
