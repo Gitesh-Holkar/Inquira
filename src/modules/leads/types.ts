@@ -76,7 +76,7 @@ export const listLeadsInput = z.object({
   intent: z.enum(LEAD_INTENTS).optional(),
   /** Leads the rules and AI could not complete: no product or no intent (the review queue, G-AI-6). */
   needsDetails: z.boolean().optional(),
-  /** "no": not replied yet (the default Leads tab); "yes": replied (see `REPLIED` in service.ts). */
+  /** "no": not replied yet (the default Leads tab, "Pending"); "yes": replied (see `REPLIED` in service.ts). */
   replied: z.enum(["yes", "no"]).optional(),
   /** "score": best leads first (G-UND-6); default newest first. */
   sort: z.enum(["newest", "score"]).default("newest"),

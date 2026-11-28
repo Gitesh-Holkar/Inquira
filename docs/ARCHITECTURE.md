@@ -237,7 +237,7 @@ quote sent N days┘    rates, terms, docs)   └─ approved (mode allows) ─�
 ## Replied or not (the Leads tabs, ADR-034)
 
 ```
-new enquiry ──► Not replied ──(every prepared message sent or stopped, at least one reply out)──► Replied ──(N days)──► hidden
+new enquiry ──► Pending ─────(every prepared message sent or stopped, at least one reply out)──► Replied ──(N days)──► hidden
      ▲              ▲  ▲                                                                            │
      │              │  └── a message waits, is held or failed in the Outbox                         │
      │              └───── the buyer writes again ◄────────────────────────────────────────────────┘ (also brings a hidden one back)
@@ -245,7 +245,7 @@ new enquiry ──► Not replied ──(every prepared message sent or stopped,
 
 - The leads module owns the state (`replied_at`, `last_buyer_message_at`, `outbox_pending`); the outbound module calls `syncLeadOutboxInternal` / `noteReplySentInternal` after every prepare, send, failure and cancel; the email module calls `noteBuyerMessageInternal` for a buyer's reply and `noteOwnGmailReplyInternal` for a reply a person sent from Gmail (which also stops Inquira's unsent email for that lead).
 - "Mark as replied" (answered on WhatsApp or by phone) stops the lead's unsent messages so nobody gets two answers.
-- WhatsApp counts as sent when a person opens it from Inquira: Inquira cannot see inside WhatsApp.
+- WhatsApp counts as sent when a person opens it from Inquira (the Outbox, the Leads list or the lead page: `recordWhatsAppSent`), with no question afterwards; Inquira cannot see inside WhatsApp. "Move to Pending" undoes a mistake. A lead with an email and a phone needs both answered.
 
 ## Who may do what
 

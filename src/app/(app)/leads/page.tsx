@@ -18,10 +18,10 @@ export const metadata: Metadata = { title: "Leads" };
 type SP = { view?: string; status?: string; source?: string; product?: string; intent?: string; sort?: string; q?: string; from?: string; to?: string; page?: string };
 
 /**
- * "Not replied" (the default) and "Replied" (owner's request of 28 Nov 2026): a lead moves to Replied only when a
+ * "Pending" (not replied yet, the default) and "Replied" (owner's request of 28 Nov 2026): a lead moves to Replied only when a
  * reply went out and nothing for it waits or failed in the Outbox; replied leads leave after some days.
  */
-const VIEWS = [["inbox", "Not replied"], ["replied", "Replied"], ["details", "Needs details"], ["international", "International"]] as const;
+const VIEWS = [["inbox", "Pending"], ["replied", "Replied"], ["details", "Needs details"], ["international", "International"]] as const;
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const s = await requireSession("leads.read");
@@ -123,7 +123,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           intent: l.intent, belowMoq: l.belowMoq, score: l.score, needsDetails: !!l.understoodAt && (!l.productId || !l.intent) && !["won", "lost", "not_relevant"].includes(l.status),
           repliedAt: l.repliedAt?.toISOString() ?? null, outboxPending: l.outboxPending,
           buyerWroteAgain: !!l.repliedAt && !!l.lastBuyerMessageAt && l.lastBuyerMessageAt > l.repliedAt,
-        }))} removeAfterDays={keepDays}
+        }))} removeAfterDays={keepDays} canSend={can(s.ctx, "quotes.create")}
           bulk={{ markReplied: mayWork && view !== "replied", markNotReplied: mayWork && view === "replied", delete: can(s.ctx, "leads.delete") }} />
       )}
 

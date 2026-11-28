@@ -443,14 +443,32 @@ test("reports and backups: last 7 days on the dashboard, back up now, download (
   await shot(page, "15-backups");
 });
 
-test("Leads: Not replied and Replied; mark as replied and back; the removal setting; email rules keep their order", async ({ page }) => {
+test("Leads: Pending and Replied; WhatsApp counts as sent; mark as replied and back; the removal setting; email rules keep their order", async ({ page }) => {
   const proj = test.info().project.name;
+  await page.context().route(/wa\.me/, (r) => r.abort()); // never reach WhatsApp from a test
   await signIn(page);
   await page.goto("/leads");
-  await expect(page.getByRole("tab", { name: "Not replied", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Pending", exact: true })).toHaveAttribute("aria-selected", "true");
   await page.getByLabel("Search leads").fill("Sweet Potato Starch");
   await page.getByRole("button", { name: "Filter" }).click();
   const item = page.getByRole("list", { name: "Leads" }).getByRole("listitem").filter({ hasText: "Sweet Potato Starch" }).first();
+  // Opening WhatsApp from the list counts as sent: this lead (phone only) moves to Replied, no question asked.
+  const waDialog = page.getByRole("dialog", { name: "WhatsApp message" });
+  await expect(async () => {
+    if (!(await waDialog.isVisible())) await item.getByRole("button", { name: "WhatsApp" }).click();
+    await expect(waDialog).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 30_000 });
+  await expect(waDialog.getByRole("textbox", { name: "Message" })).not.toHaveValue("Loading…");
+  const [popup] = await Promise.all([page.waitForEvent("popup"), waDialog.getByRole("link", { name: "Open WhatsApp" }).click()]);
+  await popup.close();
+  await page.getByRole("tab", { name: "Replied", exact: true }).click();
+  const viaWa = page.getByRole("list", { name: "Leads" }).getByRole("listitem").filter({ hasText: "Sweet Potato Starch" }).first();
+  await expect(viaWa).toContainText(/Replied/);
+  await viaWa.getByRole("checkbox").check();
+  await page.getByRole("region", { name: "Selected leads" }).getByRole("button", { name: "Move to Pending" }).click();
+  await expect(page.getByText("1 moved to Pending")).toBeVisible();
+  // Mark as replied from the list (answered by phone), then back
+  await page.goto("/leads?q=Sweet+Potato+Starch");
   // The dev server hydrates lazily: a tick before hydration is lost, so untick and tick again until the bar shows.
   const pick = async (row: typeof item) => expect(async () => {
     const box = row.getByRole("checkbox");
@@ -469,8 +487,8 @@ test("Leads: Not replied and Replied; mark as replied and back; the removal sett
   await noHorizontalScroll(page);
   await shot(page, "16-leads-replied");
   await pick(done);
-  await page.getByRole("region", { name: "Selected leads" }).getByRole("button", { name: "Move to Not replied" }).click();
-  await expect(page.getByText("1 moved to Not replied")).toBeVisible();
+  await page.getByRole("region", { name: "Selected leads" }).getByRole("button", { name: "Move to Pending" }).click();
+  await expect(page.getByText("1 moved to Pending")).toBeVisible();
 
   await page.goto("/settings?tab=org");
   await expect(page.getByLabel("Remove replied leads after (days)")).toHaveValue("7");

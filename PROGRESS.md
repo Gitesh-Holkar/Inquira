@@ -42,9 +42,9 @@ Work in order, one at a time. Stop at every **OWNER GATE**.
 | M8 | Operations: follow-ups, time to first reply, members screen, backups | G-FUP-1, G-RPT-*, G-PLT-2, G-PLT-7 | **Built 22 Nov 2026.** Follow-ups came with M7 and the members screen on 17 Nov. Dashboard "Last 7 days" with time to first reply; daily summary email (off until switched on); nightly backups kept 14 days, owner download, restore command, tested restore (`tests/operations.test.ts`, and once by hand into a fresh database: 649 rows, counts matched) (ADR-033) |
 | Later | WhatsApp Cloud API, orders, attendance | G-OUT-8, G-ORD-*, G-ATT-1 | Waits on the owner: the WhatsApp per-message cost (G-OUT-8); proforma samples and the ClearTax template (GOAL phase 5). Attendance is a separate application (G-ATT-1). Conversation replies (G-CNV-2, G-CNV-3) were built in M7 |
 
-## 28 Nov 2026: Not replied / Replied (owner's request)
+## 28 Nov 2026: Pending / Replied (owner's request)
 
-Leads opens on **Not replied**; a lead moves to **Replied** only when its reply went out and nothing for it waits or failed in the Outbox; a new buyer message brings it back; replied leads are hidden after 7 days (setting) and restored by a buyer message (ADR-034). Mark as replied and Delete work on one or many leads. Email rules have an order (↑ / ↓). Migration 0017, applied live. Tests: `tests/replied.test.ts`, rule order in `tests/human-paths.test.ts`, a browser journey.
+Leads opens on **Pending** (not replied yet; one word, owner's choice); a lead moves to **Replied** only when its reply went out and nothing for it waits or failed in the Outbox; a new buyer message brings it back; replied leads are hidden after 7 days (setting) and restored by a buyer message (ADR-034). Mark as replied and Delete work on one or many leads. Opening WhatsApp from a lead counts as sent, with no confirmation (owner: keep it fast; a mistake is undone with Move to Pending); a lead with email and phone needs both answered (owner, 28 Nov 2026). Email rules have an order (↑ / ↓). Migration 0017, applied live. Tests: `tests/replied.test.ts`, rule order in `tests/human-paths.test.ts`, a browser journey.
 
 ## Feature check of 23 Nov 2026 (the owner found a missing action)
 

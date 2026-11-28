@@ -121,7 +121,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                 <dd>{lead.quantityKg ? <>{formatNumber(lead.quantityKg)} kg<FilledBy by={lead.filledBy.quantity} />{lead.moqKg ? <span className={lead.belowMoq ? "ml-1 text-warning" : "ml-1 text-muted"}>({lead.belowMoq ? "below" : "meets"} MOQ {formatNumber(lead.moqKg)} kg)</span> : null}</> : <span className="text-muted">{lead.quantityText ? `“${lead.quantityText}” has no weight` : "Not stated"}</span>}</dd>
               </dl>
               <div className="flex flex-wrap gap-2">
-                {lead.phone ? <><WhatsAppButton leadId={lead.id} phone={lead.phone} /><CallButton phone={lead.phone} /><CopyButton value={formatPhone(lead.phone)} label="phone" /></> : null}
+                {lead.phone ? <><WhatsAppButton leadId={lead.id} phone={lead.phone} record={can(s.ctx, "quotes.create")} /><CallButton phone={lead.phone} /><CopyButton value={formatPhone(lead.phone)} label="phone" /></> : null}
                 {lead.email ? <CopyButton value={lead.email} label="email" icon="email" /> : null}
                 {can(s.ctx, "quotes.create") ? <QuoteButton leadId={lead.id} disabled={lead.isInternational} reason="Quotes are disabled for international leads."
                   documents={docs.map((d) => ({ type: d.type, label: d.label, fileName: d.fileName, batch: d.batch, expiryDate: d.expiryDate }))} /> : null}

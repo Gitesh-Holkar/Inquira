@@ -38,7 +38,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       {sp.denied ? <Alert tone="warning" className="mb-4" title="You don't have access to that page">Ask an owner or admin to switch it on for you under Settings → Members → Access.</Alert> : null}
       <section aria-label="Key numbers" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="New leads today" value={d.newTodayTotal} href="/leads" icon={<Inbox />} />
-        <Stat label="Not replied" value={d.needingAction} href="/leads" icon={<AlertCircle />} tone="bg-info-soft text-info" />
+        <Stat label="Pending" value={d.needingAction} href="/leads" icon={<AlertCircle />} tone="bg-info-soft text-info" />
         <Stat label="Review queue" value={r.pendingReview + r.olderBacklog} href="/review" icon={<ListChecks />} tone="bg-danger-soft text-danger" />
         <Stat label="International (parked)" value={d.international} href="/leads?view=international" icon={<Globe2 />} tone="bg-warning-soft text-warning" />
       </section>

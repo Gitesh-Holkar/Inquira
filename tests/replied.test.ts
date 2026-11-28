@@ -13,7 +13,7 @@ import { leads } from "@/modules/leads/schema";
 import { cleanupRepliedLeads, deleteLeads, listLeads, markLeadsNotReplied, markLeadsReplied, upsertLeadInternal } from "@/modules/leads/service";
 import { ingestMessageInternal } from "@/modules/email/service";
 import { outgoingMessages } from "@/modules/outbound/schema";
-import { approveAndSendInternal, runOutboundPlan } from "@/modules/outbound/service";
+import { approveAndSendInternal, recordWhatsAppSent, runOutboundPlan } from "@/modules/outbound/service";
 import { getDashboard } from "@/modules/dashboard/service";
 import type { Ctx } from "@/modules/core/types";
 import { addMember, createUser, resetDb, setupOrgWithUser, systemCtx } from "./helpers/db";
@@ -88,6 +88,30 @@ describe("Not replied and Replied", () => {
     await approveAndSendInternal(ctx, { id: wa.id, confirmHeld: true });
     expect(await ids("yes")).toContain(id);
     expect(await ids("no")).not.toContain(id);
+  });
+
+  it("opening WhatsApp from the lead counts as sent (the Outbox message becomes it); a lead with email too still waits for its email", async () => {
+    const id = await lead();
+    await runOutboundPlan(sys);
+    await recordWhatsAppSent(ctx, { leadId: id, text: "Hello, our rate is attached." });
+    const wa = (await msgs(id)).filter((m) => m.channel === "whatsapp");
+    expect(wa).toHaveLength(1);
+    expect(wa[0]).toMatchObject({ state: "sent", body: "Hello, our rate is attached.", edited: true });
+    expect(await ids("no")).toContain(id); // the email is still to send: both are needed
+    const g = fakeGoogle({ allowSend: true });
+    await approveAndSendInternal(ctx, { id: (await msgs(id)).find((m) => m.channel === "email")!.id, confirmHeld: true }, { fetchImpl: g.fetch });
+    expect(await ids("yes")).toContain(id);
+    // A phone-only lead without anything prepared: the tap alone makes it replied; a mistake is undone with Move to Pending.
+    const phoneOnly = (await withSystemTx((tx) => upsertLeadInternal(tx, sys, {
+      source: "indiamart", sourceRef: "IM-PHONE-1", channel: "indiamart_api_b", receivedAt: new Date(), contactName: "Phone Buyer", phone: "+919000000799", productText: "Sample Protein Isolate",
+    }))).leadId;
+    await recordWhatsAppSent(ctx, { leadId: phoneOnly, text: "Hello" });
+    expect(await ids("yes")).toContain(phoneOnly);
+    await markLeadsNotReplied(ctx, { leadIds: [phoneOnly] });
+    expect(await ids("no")).toContain(phoneOnly);
+    const viewer = await createUser();
+    await addMember(orgId, viewer, "viewer");
+    await expect(recordWhatsAppSent({ orgId, actor: { kind: "human", userId: viewer.id, email: viewer.email, role: "viewer" } }, { leadId: phoneOnly, text: "x" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("a send that fails keeps the lead in Not replied, so it is never lost", async () => {

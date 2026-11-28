@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { recordWhatsAppSent } from "@/modules/outbound/service";
 import { requireSession } from "@/lib/auth";
 import { runAction } from "@/lib/actions";
 import { addLeadNote, deleteLeads, markLeadsNotReplied, markLeadsReplied, removeLeadNote, createManualLead, deleteLead, updateLead, updateLeadStatus } from "@/modules/leads/service";
@@ -92,4 +93,13 @@ export async function deleteLeadsAction(leadIds: string[]) {
   const r = await runAction(() => deleteLeads(s.ctx, { leadIds }));
   revalidatePath("/leads", "layout");
   return r.ok ? { ok: true as const, data: { count: r.data.count } } : r;
+}
+
+/** WhatsApp button (Leads list, lead page): opening WhatsApp counts as sent. */
+export async function whatsappSentAction(leadId: string, text: string) {
+  const s = await requireSession("quotes.create");
+  const r = await runAction(() => recordWhatsAppSent(s.ctx, { leadId, text }));
+  revalidatePath("/leads", "layout");
+  revalidatePath("/outbox");
+  return r.ok ? { ok: true as const } : r;
 }

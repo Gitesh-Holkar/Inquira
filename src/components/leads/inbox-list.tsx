@@ -20,7 +20,7 @@ export type InboxLead = {
   city: string | null; state: string | null; country: string | null; contactName: string | null; companyName: string | null;
   phone: string | null; email: string | null; receivedAt: string; isInternational: boolean;
   intent: LeadIntent | null; belowMoq: boolean | null; needsDetails: boolean; score: number;
-  /** Reply state (the Not replied / Replied tabs). */
+  /** Reply state (the Pending / Replied tabs). */
   repliedAt: string | null; outboxPending: boolean; buyerWroteAgain: boolean;
 };
 
@@ -29,7 +29,7 @@ export type BulkActions = { markReplied: boolean; markNotReplied: boolean; delet
 
 const SHORTCUTS = [["j / k", "Next / previous lead"], ["e or Enter", "Open lead"], ["w", "WhatsApp"], ["q", "Create quote draft"], ["?", "Show this help"]];
 
-export function InboxList({ leads, bulk = { markReplied: false, markNotReplied: false, delete: false }, removeAfterDays = null }: { leads: InboxLead[]; bulk?: BulkActions; removeAfterDays?: number | null }) {
+export function InboxList({ leads, bulk = { markReplied: false, markNotReplied: false, delete: false }, removeAfterDays = null, canSend = false }: { leads: InboxLead[]; bulk?: BulkActions; removeAfterDays?: number | null; canSend?: boolean }) {
   const router = useRouter();
   const [sel, setSel] = useState(0);
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -122,7 +122,7 @@ export function InboxList({ leads, bulk = { markReplied: false, markNotReplied: 
                 <div className="flex flex-wrap gap-2 md:flex-nowrap">
                   {l.phone ? (
                     <>
-                      <WhatsAppButton leadId={l.id} phone={l.phone} compact openRef={(fn) => (wa.current[l.id] = fn)} />
+                      <WhatsAppButton leadId={l.id} phone={l.phone} compact record={canSend} openRef={(fn) => (wa.current[l.id] = fn)} />
                       <CallButton phone={l.phone} compact />
                       <CopyButton value={formatPhone(l.phone)} label="phone" compact />
                     </>
@@ -146,7 +146,7 @@ export function InboxList({ leads, bulk = { markReplied: false, markNotReplied: 
                 onConfirm={() => run(markRepliedAction, (n) => `${n} marked as replied`)} />
             ) : null}
             {bulk.markNotReplied ? (
-              <Button variant="outline" disabled={pending} onClick={() => run(markNotRepliedAction, (n) => `${n} moved to Not replied`)}><Undo2 />Move to Not replied</Button>
+              <Button variant="outline" disabled={pending} onClick={() => run(markNotRepliedAction, (n) => `${n} moved to Pending`)}><Undo2 />Move to Pending</Button>
             ) : null}
             {bulk.delete ? (
               <ConfirmDialog danger title={`Delete ${picked.size} lead${picked.size === 1 ? "" : "s"}?`} confirmLabel="Delete"

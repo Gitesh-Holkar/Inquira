@@ -118,7 +118,7 @@ async function applyClassification(tx: Tx, ctx: Ctx, row: EmailRow, r: ClassifyR
       const l = await findRecentLeadByContactInternal(tx, ctx.orgId, { phone: f?.phone, email: f?.email ?? row.fromEmail }, r.parsed?.source, { includeAutoRemoved: true });
       leadId = l?.id ?? null;
     }
-    // The buyer wrote again: back to "Not replied" (and back in the list if it was removed after its reply).
+    // The buyer wrote again: back to "Pending" (and back in the list if it was removed after its reply).
     if (leadId && !row.isOutgoing && !(await noteBuyerMessageInternal(tx, ctx, leadId, row.receivedAt))) leadId = null;
   }
   if (leadId) await tx.update(emailMessages).set({ leadId }).where(eq(emailMessages.id, row.id));

@@ -4,6 +4,11 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 28 Nov 2026 — Pending tab; WhatsApp from a lead counts as sent
+- The **Not replied** tab is now called **Pending** (and "Move to Not replied" is **Move to Pending**).
+- Pressing **Open WhatsApp** on a lead (Leads list or lead page) now counts as sent, like the Outbox's WhatsApp button, with no question afterwards. The WhatsApp message waiting in the Outbox for that lead is recorded as sent with the text you opened. Opened by mistake? Tick the lead under Replied and press **Move to Pending**.
+- A lead with both an email and a phone still needs both answered before it moves to Replied.
+
 ### 28 Nov 2026 — Leads: Not replied and Replied; email rule order
 - **Leads** now opens on **Not replied**: enquiries nobody has answered yet. A lead moves to **Replied** only when its reply really went out (every message prepared for it, email and WhatsApp, was sent or stopped) and nothing waits or failed in the Outbox. A send that fails keeps the lead in Not replied, so it is never lost. When the buyer writes again, the lead comes back to Not replied.
 - A reply you send yourself from Gmail in the enquiry's thread counts as replied, and Inquira then stops its own unsent email for that lead so the buyer never gets two answers.

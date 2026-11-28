@@ -137,8 +137,8 @@ export function RemoveNoteButton({ noteId }: { noteId: string }) {
 }
 
 const REPLY_TEXT = {
-  not_replied: "Not replied yet.",
-  outbox: "Not replied: a message for this lead waits, is held or failed in the Outbox.",
+  not_replied: "Pending: not replied yet.",
+  outbox: "Pending: a message for this lead waits, is held or failed in the Outbox.",
   buyer_wrote: "The buyer wrote again after your reply.",
   replied: "Replied",
 } as const;
@@ -153,8 +153,8 @@ export function ReplyState({ leadId, state, repliedAt, canEdit }: { leadId: stri
         state === "replied" ? (
           <div><Button variant="outline" disabled={pending} onClick={() => start(async () => {
             const r = await markNotRepliedAction([leadId]);
-            if (r.ok) toast.success("Moved to Not replied"); else toast.error(r.error);
-          })}>Move to Not replied</Button></div>
+            if (r.ok) toast.success("Moved to Pending"); else toast.error(r.error);
+          })}>Move to Pending</Button></div>
         ) : (
           <div>
             <ConfirmDialog title="Mark as replied?" confirmLabel="Mark as replied"

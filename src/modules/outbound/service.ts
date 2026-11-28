@@ -285,7 +285,7 @@ export async function prepareMessageInternal(tx: Tx, ctx: Ctx, p: PrepareInput):
     template: c.templateId ? { id: c.templateId, version: c.templateVersion } : null, priceEntryIds: c.priceEntryIds, documentIds: c.documentIds,
   } });
   await emit(tx, ctx, { type: "message.prepared", entityType: "outgoing_message", entityId: m!.id, payload: { leadId: lead.id, purpose: p.purpose, state } });
-  await syncLeadOutboxInternal(tx, ctx.orgId, lead.id); // something waits: the lead is "Not replied"
+  await syncLeadOutboxInternal(tx, ctx.orgId, lead.id); // something waits: the lead is "Pending"
   if (state === "held") {
     await notifyOnceInternal(tx, ctx, {
       kind: "message_held", entityType: "outgoing_message", entityId: m!.id, href: "/outbox",
@@ -433,7 +433,7 @@ async function recordFailedInternal(ctx: Ctx, m: OutgoingMessage, error: string)
     await audit(tx, ctx, { action: "outbound.failed", entityType: "outgoing_message", entityId: m.id, changes: { error: error.slice(0, 300) } });
     await emit(tx, ctx, { type: "message.failed", entityType: "outgoing_message", entityId: m.id, payload: { leadId: m.leadId } });
     await notifyOnceInternal(tx, ctx, { kind: "message_failed", entityType: "outgoing_message", entityId: m.id, href: "/outbox?view=stopped", title: `Not sent: ${PURPOSE_LABELS[m.purpose as MessagePurpose].toLowerCase()}`, body: error.slice(0, 300) });
-    if (m.leadId) await syncLeadOutboxInternal(tx, ctx.orgId, m.leadId); // a failed send keeps the lead in "Not replied"
+    if (m.leadId) await syncLeadOutboxInternal(tx, ctx.orgId, m.leadId); // a failed send keeps the lead in "Pending"
     return after!;
   });
 }
@@ -625,6 +625,51 @@ export async function approveAndSendInternal(ctx: Ctx, raw: z.input<typeof appro
     return { message: after, whatsappUrl: null, error: after.error };
   }
 }
+
+/**
+ * The WhatsApp button on the Leads list or the lead page (owner's request of 28 Nov 2026): opening WhatsApp counts
+ * as sending, with no question afterwards (a mistake is undone with "Move to Pending"). The WhatsApp message waiting
+ * in the Outbox for this lead becomes this send, with the text the person opened; without one, a sent message is
+ * recorded. Other unsent WhatsApp messages for the lead are stopped. Email is untouched: a lead with both still needs
+ * its email.
+ */
+export const recordWhatsAppSent = defineService({
+  name: "outbound.whatsappSent",
+  input: z.object({ leadId: z.string().uuid(), text: z.string().trim().min(1).max(4000) }),
+  permission: "quotes.create",
+  handler: async (ctx, input, tx) => {
+    const lead = await getLeadInternal(tx, ctx.orgId, input.leadId);
+    if (!lead) throw notFound("Lead");
+    if (!lead.phone) throw new AppError("VALIDATION", "This lead has no phone number.");
+    const waiting = await tx.select().from(outgoingMessages).where(and(
+      eq(outgoingMessages.orgId, ctx.orgId), eq(outgoingMessages.leadId, lead.id), eq(outgoingMessages.channel, "whatsapp"),
+      inArray(outgoingMessages.state, ["draft", "held", "approved", "failed"]),
+    )).orderBy(desc(outgoingMessages.createdAt));
+    const by = actorString(ctx.actor);
+    let m: OutgoingMessage;
+    if (waiting[0]) {
+      const [u] = await tx.update(outgoingMessages).set({
+        body: input.text, edited: waiting[0].edited || input.text !== waiting[0].body, toAddress: lead.phone,
+        state: "approved", autoApproved: false, approvedBy: by, approvedAt: new Date(),
+      }).where(eq(outgoingMessages.id, waiting[0].id)).returning();
+      m = u!;
+    } else {
+      const [prior] = await tx.select({ id: outgoingMessages.id }).from(outgoingMessages)
+        .where(and(eq(outgoingMessages.orgId, ctx.orgId), eq(outgoingMessages.leadId, lead.id), eq(outgoingMessages.state, "sent"))).limit(1);
+      const [r] = await tx.insert(outgoingMessages).values({
+        orgId: ctx.orgId, leadId: lead.id, channel: "whatsapp", purpose: prior ? "reply" : "first_quotation", state: "approved", toAddress: lead.phone,
+        subject: null, body: input.text, ruleSetVersion: RULE_SET_VERSION, mode: "shadow", autoApproved: false, approvedBy: by, approvedAt: new Date(), createdBy: by,
+      }).returning();
+      m = r!;
+    }
+    for (const extra of waiting.slice(1)) {
+      await tx.update(outgoingMessages).set({ state: "cancelled", cancelledReason: "Sent on WhatsApp from the lead" }).where(eq(outgoingMessages.id, extra.id));
+      await audit(tx, ctx, { action: "outbound.cancel", entityType: "outgoing_message", entityId: extra.id, changes: { reason: "Sent on WhatsApp from the lead" } });
+    }
+    const after = await recordSentInternal(tx, ctx, m, { gmailMessageId: null, threadId: null, attached: [] });
+    return { message: after };
+  },
+});
 
 /** Messages of one lead, newest first (lead page). */
 export async function messagesForLeadInternal(tx: Tx, orgId: string, leadId: string) {

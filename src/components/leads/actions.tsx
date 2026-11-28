@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/primitives";
 import { whatsappUrl } from "@/lib/phone";
 import { formatDate } from "@/lib/format";
 import type { DocumentType } from "@/modules/documents/types";
-import { quoteAction, whatsappTextAction } from "@/app/(app)/leads/actions";
+import { quoteAction, whatsappSentAction, whatsappTextAction } from "@/app/(app)/leads/actions";
 
 export function CopyButton({ value, label, compact, icon }: { value: string; label: string; compact?: boolean; icon?: "email" }) {
   return (
@@ -34,8 +34,12 @@ export function CallButton({ phone, compact }: { phone: string; compact?: boolea
   );
 }
 
-/** Opens an editable prefilled message, then wa.me (manual sending only; no WhatsApp automation). */
-export function WhatsAppButton({ leadId, phone, compact, openRef }: { leadId: string; phone: string; compact?: boolean; openRef?: (open: () => void) => void }) {
+/**
+ * Opens an editable prefilled message, then wa.me (manual sending only; no WhatsApp automation). Opening WhatsApp
+ * counts as sent for this lead (owner's request of 28 Nov 2026); "Move to Pending" undoes a mistake. `record` is off
+ * for people who may not send messages: WhatsApp still opens, nothing is recorded.
+ */
+export function WhatsAppButton({ leadId, phone, compact, openRef, record = true }: { leadId: string; phone: string; compact?: boolean; openRef?: (open: () => void) => void; record?: boolean }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [pending, start] = useTransition();
@@ -53,13 +57,16 @@ export function WhatsAppButton({ leadId, phone, compact, openRef }: { leadId: st
       <Button variant="outline" size={compact ? "icon" : "touch"} onClick={load} aria-label="WhatsApp" title="WhatsApp (w)" className="text-success">
         <MessageCircle />{compact ? null : <span>WhatsApp</span>}
       </Button>
-      <DialogContent title="WhatsApp message" description="Edit the message, then open WhatsApp to send it yourself.">
+      <DialogContent title="WhatsApp message" description={record ? "Edit the message, then open WhatsApp to send it. Opening it counts as sent." : "Edit the message, then open WhatsApp to send it yourself."}>
         <Textarea aria-label="Message" rows={6} value={pending && !text ? "Loading…" : text} onChange={(e) => setText(e.target.value)} disabled={pending && !text} />
         <div className="mt-3 flex justify-end gap-2">
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
           {text.trim() ? (
             <Button asChild>
-              <a href={whatsappUrl(phone, text)} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>Open WhatsApp</a>
+              <a href={whatsappUrl(phone, text)} target="_blank" rel="noopener noreferrer" onClick={() => {
+                setOpen(false);
+                if (record) void whatsappSentAction(leadId, text).then((r) => { if (!r.ok) toast.error(r.error); });
+              }}>Open WhatsApp</a>
             </Button>
           ) : (
             <Button disabled>Open WhatsApp</Button>
