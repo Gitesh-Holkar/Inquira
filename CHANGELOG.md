@@ -4,6 +4,12 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 28 Nov 2026 — IndiaMART works with the Push key alone
+- **Settings → IndiaMART** now starts with **Step 1 · Push**: create the push address, paste it in IndiaMART's Push API page (Other, "Inquira"), confirm the OTP and press Test. The **Push key** IndiaMART gives you is not needed by Inquira; the card says so.
+- IndiaMART now shows **Connected** after the first pushed lead, without any Pull key (before, it stayed "Not connected" and the top bar kept warning). While the address waits for its first lead, the bar says "waiting for the first lead".
+- The **Pull key** is now **Step 2, optional** (older leads and a safety net), with **Test Pull key** and **Sync now** shown once a key is saved.
+- IndiaMART's **Test** button now gets an OK answer from Inquira (it sends no real lead). The card notes when such a request came.
+
 ### 28 Nov 2026 — Easier screens (Rates, Edit product, Leads on phones and more)
 - **Rates:** the table fits the screen with the Edit (pencil) and Delete (bin) buttons always in view. Prices look like plain text until you click one. **Lowest / highest price** columns appear only when you tick **Show lowest / highest price**. The **Valid from / until** dates sit in the save bar that appears once you change a price. On phones each grade is a short card; **Change rate** opens its boxes.
 - The **Edit product** button at the top of Rates is gone: use the pencil on the product's row.

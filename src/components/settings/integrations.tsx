@@ -87,75 +87,116 @@ export function TradeIndiaCard({ i, canManage }: { i: IntegrationView; canManage
 }
 
 /**
- * IndiaMART Lead Manager: the Pull API key (safety net and history) and the Push address (each lead the
- * moment it arrives). The push address is shown once, when it is created, for pasting into IndiaMART.
+ * IndiaMART Lead Manager. Step 1, Push (enough on its own): Inquira makes an https address, shown once, which is
+ * pasted into IndiaMART's Push API page; IndiaMART then sends each lead within seconds. The "CRM Push key"
+ * IndiaMART shows or emails is not needed. Step 2, optional: a Pull API key (a different key) for the leads from
+ * before Push was on, and as a safety net.
  */
 export function IndiaMartCard({ i, canManage, httpsReady }: { i: IntegrationView; canManage: boolean; httpsReady: boolean }) {
   const [pending, start] = useTransition();
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [pushUrl, setPushUrl] = useState<string | null>(null);
-  const cfg = i.config as { pushAddressCreatedAt?: string; lastPushAt?: string };
+  const cfg = i.config as { pushAddressCreatedAt?: string; lastPushAt?: string; lastEmptyPushAt?: string; pullSavedAt?: string };
+  // Before 28 Nov 2026 only a Pull key moved IndiaMART out of "not connected", so that also means a key is saved.
+  const pullSaved = !!cfg.pullSavedAt || (!cfg.pushAddressCreatedAt && i.status !== "not_connected");
   return (
     <Card>
       <CardHeader><CardTitle>IndiaMART</CardTitle><Badge>Lead Manager API</Badge></CardHeader>
       <CardContent className="grid gap-4">
-        {i.status === "reauth_required" ? <Alert tone="danger" title="IndiaMART refused the key">Generate a new Pull API key in IndiaMART&apos;s Lead Manager and paste it below.</Alert> : null}
+        {i.status === "reauth_required" ? <Alert tone="danger" title="IndiaMART refused the Pull key">Generate a new Pull API key in IndiaMART&apos;s Lead Manager and paste it under Step 2. Push is not affected.</Alert> : null}
         <Health i={i} />
-        <p className="text-sm text-muted">
-          Push: {cfg.pushAddressCreatedAt ? <>address created {formatDateTime(cfg.pushAddressCreatedAt)}{cfg.lastPushAt ? <>, last lead received {formatRelative(cfg.lastPushAt)}</> : ", no lead received yet"}</> : "not set up"}.
-          Pull: every 10 minutes once the key works; the first run loads the last 30 days, one week per run.
-        </p>
-        {canManage ? (
-          <>
-            <form className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end" onSubmit={(e) => {
-              e.preventDefault();
-              const key = String(new FormData(e.currentTarget).get("key") ?? "");
-              start(async () => {
-                const r = await saveIndiaMartKeyAction(key);
-                if (!r.ok) { setErrors(r.fieldErrors ?? {}); return void toast.error(r.error); }
-                setErrors({});
-                toast.success("Key saved. Now click Test connection.");
-              });
-            }}>
-              <Field label="Pull API key" htmlFor="im-key" error={errors.key} hint={i.status !== "not_connected" ? "Saved (hidden). Paste again to change." : "IndiaMART Lead Manager → ⋮ → Import/Export Leads → Pull API"}>
-                <Input id="im-key" name="key" type="password" autoComplete="off" required minLength={10} />
-              </Field>
-              <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save key"}</Button>
-            </form>
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" disabled={pending || i.status === "not_connected"} onClick={() => start(async () => {
-                const r = await testIndiaMartAction();
-                if (r.ok) toast.success(`Connected to IndiaMART (${r.data.sample} leads in the last hour). Loading the last 30 days, one week per run…`); else toast.error(r.error);
-              })}><PlugZap />Test connection</Button>
-              <SyncNow provider="indiamart" disabled={i.status !== "connected" && i.status !== "error"} />
-              {httpsReady ? (
+
+        <section aria-labelledby="im-push" className="grid gap-3 rounded-lg border border-border p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 id="im-push" className="text-sm font-semibold">Step 1 · Push: each lead within seconds</h3>
+            <Badge tone={cfg.lastPushAt ? "success" : cfg.pushAddressCreatedAt ? "warning" : "neutral"}>
+              {cfg.lastPushAt ? `Last lead ${formatRelative(cfg.lastPushAt)}` : cfg.pushAddressCreatedAt ? "Waiting for the first lead" : "Not set up"}
+            </Badge>
+          </div>
+          <ol className="grid list-decimal gap-1 pl-5 text-sm">
+            <li>{cfg.pushAddressCreatedAt ? <>Address created {formatDateTime(cfg.pushAddressCreatedAt)}. Lost it? Make a new one and paste that instead.</> : <>Press <strong>Create push address</strong> and copy it (it is shown once).</>}</li>
+            <li>In IndiaMART: <strong>Lead Manager → ⋮ → Import/Export Leads → Push API</strong>. Choose <strong>Other</strong>, type <strong>Inquira</strong> as the CRM name, paste the address as the <strong>Webhook Listener URL</strong>, and confirm with the OTP sent to your mobile.</li>
+            <li>Press <strong>Test</strong> there: it should show <strong>200</strong>. If the test adds a sample lead to Leads, tick it and delete it.</li>
+          </ol>
+          <p className="rounded-md bg-surface-2 px-3 py-2 text-xs text-muted">
+            <strong className="text-foreground">The Push key IndiaMART gives you is not needed here.</strong> IndiaMART sends each lead to the address above, and the
+            secret part of the address is what protects it. Keep the key private, like a password.
+          </p>
+          {cfg.lastEmptyPushAt ? (
+            <p className="text-xs text-muted">IndiaMART sent a request without a lead {formatRelative(cfg.lastEmptyPushAt)} (its Test button, or a format Inquira cannot read). Inquira answered OK so IndiaMART keeps Push on; if real leads do not arrive, they still come in by email.</p>
+          ) : null}
+          {canManage ? (
+            httpsReady ? (
+              <div>
                 <ConfirmDialog title={cfg.pushAddressCreatedAt ? "Create a new push address?" : "Create the push address?"} confirmLabel="Create address"
-                  description={cfg.pushAddressCreatedAt ? "The current address stops working at once. Paste the new one into IndiaMART straight away." : "You paste this address into IndiaMART's Lead Manager → Push API → Other. It is shown only once."}
-                  trigger={<Button type="button" variant="outline" disabled={pending}><Link2 />{cfg.pushAddressCreatedAt ? "New push address" : "Create push address"}</Button>}
+                  description={cfg.pushAddressCreatedAt ? "The current address stops working at once. Paste the new one into IndiaMART's Push API page straight away." : "You paste this address into IndiaMART's Lead Manager → Push API → Other. It is shown only once."}
+                  trigger={<Button type="button" variant={cfg.pushAddressCreatedAt ? "outline" : "default"} disabled={pending}><Link2 />{cfg.pushAddressCreatedAt ? "New push address" : "Create push address"}</Button>}
                   onConfirm={() => start(async () => {
                     const r = await createIndiaMartPushAddressAction();
                     if (r.ok) setPushUrl(r.data.url); else toast.error(r.error);
                   })} />
-              ) : <p className="text-xs text-muted">Push needs a public https address (the cloud site); it is not available on a computer-only install.</p>}
-              {i.status !== "not_connected" || cfg.pushAddressCreatedAt ? (
-                <ConfirmDialog danger title="Disconnect IndiaMART?" confirmLabel="Disconnect"
-                  description="Inquira forgets the Pull API key, turns the push address off and stops checking IndiaMART. Leads already imported stay. IndiaMART emails in Gmail are still read. Also remove the address in IndiaMART's Lead Manager."
-                  trigger={<Button type="button" variant="ghost" className="text-danger" disabled={pending}>Disconnect</Button>}
-                  onConfirm={() => start(async () => { const r = await disconnectIndiaMartAction(); if (r.ok) { setPushUrl(null); toast.success("IndiaMART disconnected"); } else toast.error(r.error); })} />
+              </div>
+            ) : <Alert tone="warning" title="Push needs the cloud site">IndiaMART only sends to a public https address, so Push works on the cloud site, not on a computer-only install. Use Step 2 and the IndiaMART emails instead.</Alert>
+          ) : null}
+          {pushUrl ? (
+            <Alert tone="success" title="Push address (shown once)">
+              <span className="mt-1 grid gap-2">
+                <code className="break-all rounded bg-surface px-2 py-1 text-xs">{pushUrl}</code>
+                <span>Paste it in IndiaMART as the Webhook Listener URL (Push API → Other), then confirm with the OTP.</span>
+                <span><Button type="button" variant="outline" size="sm" onClick={async () => {
+                  try { await navigator.clipboard.writeText(pushUrl); toast.success("Address copied"); } catch { toast.error("Couldn't copy. Select the address and copy it."); }
+                }}><Copy />Copy address</Button></span>
+              </span>
+            </Alert>
+          ) : null}
+        </section>
+
+        <section aria-labelledby="im-pull" className="grid gap-3 rounded-lg border border-border p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 id="im-pull" className="text-sm font-semibold">Step 2 · Pull key: older leads and a safety net</h3>
+            <Badge>{pullSaved ? "Key saved" : "Optional"}</Badge>
+          </div>
+          <p className="text-sm text-muted">
+            Brings in the last 30 days and anything Push missed, checking every 10 minutes. This is a <strong>different key</strong> from the Push key:
+            Lead Manager → ⋮ → Import/Export Leads → <strong>Pull API</strong> → Generate key. Skip it if IndiaMART does not offer it to you; Push and the emails are enough.
+          </p>
+          {canManage ? (
+            <>
+              <form className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end" onSubmit={(e) => {
+                e.preventDefault();
+                const key = String(new FormData(e.currentTarget).get("key") ?? "");
+                start(async () => {
+                  const r = await saveIndiaMartKeyAction(key);
+                  if (!r.ok) { setErrors(r.fieldErrors ?? {}); return void toast.error(r.error); }
+                  setErrors({});
+                  toast.success("Key saved. Now click Test Pull key.");
+                });
+              }}>
+                <Field label="Pull API key" htmlFor="im-key" error={errors.key} hint={pullSaved ? "Saved (hidden). Paste again to change." : undefined}>
+                  <Input id="im-key" name="key" type="password" autoComplete="off" required minLength={10} />
+                </Field>
+                <Button type="submit" variant="outline" disabled={pending}>{pending ? "Saving…" : "Save key"}</Button>
+              </form>
+              {pullSaved ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" disabled={pending} onClick={() => start(async () => {
+                    const r = await testIndiaMartAction();
+                    if (r.ok) toast.success(`IndiaMART accepted the Pull key (${r.data.sample} leads in the last hour). Loading the last 30 days, one week per run…`); else toast.error(r.error);
+                  })}><PlugZap />Test Pull key</Button>
+                  <SyncNow provider="indiamart" disabled={i.status === "reauth_required"} />
+                </div>
               ) : null}
-            </div>
-            {pushUrl ? (
-              <Alert tone="success" title="Push address (shown once)">
-                <span className="mt-1 grid gap-2">
-                  <code className="break-all rounded bg-surface px-2 py-1 text-xs">{pushUrl}</code>
-                  <span>IndiaMART → Lead Manager → ⋮ → Import/Export Leads → Push API → Other: paste this as the Webhook Listener URL and confirm with the OTP.</span>
-                  <span><Button type="button" variant="outline" size="sm" onClick={async () => {
-                    try { await navigator.clipboard.writeText(pushUrl); toast.success("Address copied"); } catch { toast.error("Couldn't copy. Select the address and copy it."); }
-                  }}><Copy />Copy address</Button></span>
-                </span>
-              </Alert>
-            ) : null}
-          </>
+            </>
+          ) : null}
+        </section>
+
+        {canManage && (i.status !== "not_connected" || cfg.pushAddressCreatedAt) ? (
+          <div>
+            <ConfirmDialog danger title="Disconnect IndiaMART?" confirmLabel="Disconnect"
+              description="Inquira turns the push address off, forgets the Pull key and stops checking IndiaMART. Leads already imported stay. IndiaMART emails in Gmail are still read. Also switch Push off in IndiaMART's Lead Manager."
+              trigger={<Button type="button" variant="ghost" className="text-danger" disabled={pending}>Disconnect IndiaMART</Button>}
+              onConfirm={() => start(async () => { const r = await disconnectIndiaMartAction(); if (r.ok) { setPushUrl(null); toast.success("IndiaMART disconnected"); } else toast.error(r.error); })} />
+          </div>
         ) : null}
       </CardContent>
     </Card>

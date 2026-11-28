@@ -192,21 +192,22 @@ Not everything about TradeIndia's API is documented publicly (limits, some field
 
 ## 6a. Connect IndiaMART (Lead Manager API)
 
-Two parts. Do both; each covers what the other might miss.
-
-**Pull (history and safety net):**
-1. In IndiaMART, open **Lead Manager → ⋮ → Import/Export Leads → Pull API** and generate the key. Generating a new key ends the old one.
-2. In Inquira: **Settings → Integrations → IndiaMART**, paste the key, **Save key**, then **Test connection**.
-3. Inquira then reads the last 30 days, one week every 10 minutes (IndiaMART allows one call every 5 minutes), and afterwards every 10 minutes.
-
-**Push (each lead within seconds):**
+**Step 1, Push (each lead within seconds; enough on its own):**
 1. **Settings → Integrations → IndiaMART → Create push address**. Copy the address; it is shown once.
-2. In IndiaMART: **Lead Manager → ⋮ → Import/Export Leads → Push API**, choose **Other**, enter "Inquira" as the platform and paste the address as the **Webhook Listener URL**. Confirm with the OTP sent to your mobile.
-3. The card then shows "last lead received" after the next lead.
+2. In IndiaMART: **Lead Manager → ⋮ → Import/Export Leads → Push API**, choose **Other**, enter "Inquira" as the CRM name and paste the address as the **Webhook Listener URL**. Confirm with the OTP sent to your mobile.
+3. Press **Test** on that IndiaMART page: it should show **200**. If the test adds a sample lead to Inquira's Leads, tick it and delete it.
+4. The card shows "Waiting for the first lead" until IndiaMART sends one, then **Connected** and "Last lead … ago".
+
+IndiaMART also shows or emails you a **Push key**. Inquira does not need it: IndiaMART sends each lead to the address, and the secret part of the address is what protects it. Keep the key private.
 
 If you ever lose the address or think someone else has it, click **New push address** and paste the new one into IndiaMART at once; the old one stops working.
 
-**To stop it:** **Disconnect** on the IndiaMART card forgets the key and turns the push address off; leads already imported stay. Also remove the address in IndiaMART's Lead Manager.
+**Step 2, Pull key (optional: older leads and a safety net):**
+1. In IndiaMART, open **Lead Manager → ⋮ → Import/Export Leads → Pull API** and generate the key. It is a different key from the Push key. Generating a new key ends the old one. Skip this step if IndiaMART does not offer it to you.
+2. In Inquira: **Settings → Integrations → IndiaMART → Step 2**, paste the key, **Save key**, then **Test Pull key**.
+3. Inquira then reads the last 30 days, one week every 10 minutes (IndiaMART allows one call every 5 minutes), and afterwards every 10 minutes.
+
+**To stop it:** **Disconnect IndiaMART** on the card turns the push address off and forgets the Pull key; leads already imported stay. Also switch Push off in IndiaMART's Lead Manager.
 
 The dashboard card **API and email today** compares how leads arrived. "API missed" means a lead came only by notification email although the API is connected: check the IndiaMART card for errors.
 

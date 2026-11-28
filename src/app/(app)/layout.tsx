@@ -79,7 +79,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 {/* One short line: connections grouped by what is wrong ("Gmail, IndiaMART: not connected"). */}
                 {[...problems.reduce((m, p) => {
                   const name = p.provider === "gmail" ? "Gmail" : p.provider === "indiamart" ? "IndiaMART" : "TradeIndia";
-                  const what = p.status === "reauth_required" ? (p.provider === "gmail" ? "access expired" : p.provider === "indiamart" ? "key rejected" : "credentials rejected") : p.status === "error" ? "sync failing" : "not connected";
+                  const what = p.status === "reauth_required" ? (p.provider === "gmail" ? "access expired" : p.provider === "indiamart" ? "key rejected" : "credentials rejected") : p.status === "error" ? "sync failing" : p.provider === "indiamart" && p.config.pushAddressCreatedAt ? "waiting for the first lead" : "not connected";
                   return m.set(what, [...(m.get(what) ?? []), name]);
                 }, new Map<string, string[]>())].map(([what, names]) => <span key={what} className="mr-3 inline-block"><strong>{names.join(", ")}:</strong> {what}</span>)}
               </span>

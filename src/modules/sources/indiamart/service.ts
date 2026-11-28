@@ -1,11 +1,13 @@
 /**
  * IndiaMART Lead Manager APIs (GOAL G-SRC-1, G-SRC-2, G-SRC-8).
  *
- * Push: IndiaMART POSTs each new lead to our HTTPS address the moment it arrives. The address ends with a
- * random secret (IndiaMART offers no other way to authenticate a push); only its SHA-256 hash is stored, in
- * the integration's config. The endpoint answers 200 once the lead is stored, so IndiaMART retries otherwise.
+ * Push (the main route; enough on its own): IndiaMART POSTs each new lead to our HTTPS address the moment it
+ * arrives. The address ends with a random secret (IndiaMART offers no other way to authenticate a push); only
+ * its SHA-256 hash is stored, in the integration's config. The endpoint answers 200 once the lead is stored, so
+ * IndiaMART retries otherwise. The "CRM Push key" IndiaMART shows or emails is not used: its pushes carry no key.
+ * The first pushed lead marks IndiaMART connected, with or without a Pull key.
  *
- * Pull: a safety net and history. At most one call per 5 minutes (IndiaMART's rule), 7 days per call, a
+ * Pull (optional): history from before Push was switched on, and a safety net. At most one call per 5 minutes (IndiaMART's rule), 7 days per call, a
  * 5-minute overlap with the previous call (as IndiaMART advises); the first run loads the last 30 days one
  * week at a time, one call per run. Leads are de-duplicated by UNIQUE_QUERY_ID, and merged with the same
  * enquiry's notification email (same buyer and product within 48 hours).
@@ -39,6 +41,15 @@ export type IndiaMartCursor = { lastSuccessTo?: string; windowStart?: string; at
 const hashSecret = (s: string) => createHash("sha256").update(s).digest("hex");
 export const pushUrlFor = (secret: string) => `${appUrl()}/api/webhooks/indiamart/${secret}`;
 
+/** What the integration's config holds for IndiaMART (shown on the Settings card; no secret is in it). */
+export type IndiaMartConfig = {
+  pushSecretHash?: string; pushAddressCreatedAt?: string; lastPushAt?: string;
+  /** When IndiaMART last sent a request without a lead (its Test button, or a format Inquira cannot read). */
+  lastEmptyPushAt?: string;
+  /** When a Pull API key was saved (named without "key" so it is shown, see `publicConfig`). */
+  pullSavedAt?: string;
+};
+
 export const saveIndiaMartKey = defineService({
   name: "indiamart.saveKey",
   input: z.object({ key: z.string().trim().min(10).max(300) }),
@@ -47,7 +58,11 @@ export const saveIndiaMartKey = defineService({
   handler: async (ctx, input, tx) => {
     const integ = await getIntegrationInternal(tx, ctx.orgId, "indiamart");
     await writeSecretsInternal(tx, ctx, integ, { key: input.key });
-    await updateIntegrationInternal(tx, ctx, integ.id, { status: "configured", lastError: null, consecutiveFailures: 0, backoffUntil: null }, "integration.configure");
+    const cfg = integ.config as IndiaMartConfig;
+    // Push already delivering: IndiaMART stays connected while the new Pull key waits for its test.
+    const status = integ.status === "connected" && cfg.lastPushAt ? "connected" : "configured";
+    await updateIntegrationInternal(tx, ctx, integ.id, { config: { ...integ.config, pullSavedAt: new Date().toISOString() } });
+    await updateIntegrationInternal(tx, ctx, integ.id, { status, lastError: null, consecutiveFailures: 0, backoffUntil: null }, "integration.configure");
     return { ok: true };
   },
 });
@@ -64,7 +79,7 @@ export const disconnectIndiaMart = defineService({
   handler: async (ctx, _i, tx) => {
     const integ = await getIntegrationInternal(tx, ctx.orgId, "indiamart");
     await writeSecretsInternal(tx, ctx, integ, { key: null });
-    const { pushSecretHash: _h, pushAddressCreatedAt: _a, ...config } = integ.config as Record<string, unknown>;
+    const { pushSecretHash: _h, pushAddressCreatedAt: _a, lastPushAt: _p, lastEmptyPushAt: _e, pullSavedAt: _k, ...config } = integ.config as IndiaMartConfig & Record<string, unknown>;
     // Keep the time of the last call: IndiaMART's five-minute rule still applies after a quick reconnect.
     const { lastCallAt } = (integ.cursor ?? {}) as IndiaMartCursor;
     await updateIntegrationInternal(tx, ctx, integ.id, { status: "not_connected", config, cursor: lastCallAt ? { lastCallAt } : {}, lastError: null, consecutiveFailures: 0, backoffUntil: null }, "integration.disconnect");
@@ -84,7 +99,11 @@ export const createIndiaMartPushAddress = defineService({
     if (!appUrl().startsWith("https://")) throw new AppError("VALIDATION", "IndiaMART only sends to an https:// address on the internet. Set APP_URL to your public https address first.");
     const integ = await getIntegrationInternal(tx, ctx.orgId, "indiamart");
     const secret = randomBytes(24).toString("base64url");
-    await updateIntegrationInternal(tx, ctx, integ.id, { config: { ...integ.config, pushSecretHash: hashSecret(secret), pushAddressCreatedAt: new Date().toISOString() } });
+    await updateIntegrationInternal(tx, ctx, integ.id, {
+      config: { ...integ.config, pushSecretHash: hashSecret(secret), pushAddressCreatedAt: new Date().toISOString() },
+      // Set up, waiting for IndiaMART's first lead (the first push marks it connected).
+      ...(integ.status === "not_connected" ? { status: "configured" as const } : {}),
+    });
     await audit(tx, ctx, { action: "indiamart.push_address", entityType: "integration", entityId: integ.id, changes: { rotated: !!integ.config.pushSecretHash } });
     return { url: pushUrlFor(secret) };
   },
@@ -93,8 +112,13 @@ export const createIndiaMartPushAddress = defineService({
 /**
  * Stores one pushed lead. Returns null when the secret is unknown (the route answers 404). Throws when the
  * lead cannot be stored, so the route answers with an error and IndiaMART sends it again later.
+ *
+ * A request with no lead in it (IndiaMART's Test button, or a format Inquira cannot read) is acknowledged
+ * (`leadId: null`, the route answers 200) so IndiaMART's test passes and it does not switch Push off after 48
+ * hours of refusals; it is recorded as a failed sync run and as `lastEmptyPushAt`, shown on the Settings card.
+ * The notification emails and the Pull API still bring such a lead in.
  */
-export async function receiveIndiaMartPush(secret: string, body: unknown): Promise<{ leadId: string; created: boolean } | null> {
+export async function receiveIndiaMartPush(secret: string, body: unknown): Promise<{ leadId: string | null; created: boolean } | null> {
   if (!/^[A-Za-z0-9_-]{20,64}$/.test(secret)) return null;
   const integ = await withSystemTx((tx) => integrationByPushSecretHashInternal(tx, hashSecret(secret)));
   if (!integ || !integ.enabled) return null;
@@ -105,15 +129,23 @@ export async function receiveIndiaMartPush(secret: string, body: unknown): Promi
   if (!lead) {
     await withSystemTx(async (tx) => {
       const run = await startSyncRunInternal(tx, ctx, "indiamart", "push");
-      await finishSyncRunInternal(tx, run.id, { status: "error", fetched: 1, created: 0, duplicates: 0, errors: 1, errorMessage: "Push without a readable lead (no UNIQUE_QUERY_ID)" });
+      await finishSyncRunInternal(tx, run.id, { status: "error", fetched: 1, created: 0, duplicates: 0, errors: 1, errorMessage: "Push without a readable lead (no UNIQUE_QUERY_ID): IndiaMART's Test, or a format Inquira cannot read" });
+      await updateIntegrationInternal(tx, ctx, integ.id, { config: { ...integ.config, lastEmptyPushAt: new Date().toISOString() } });
     });
-    throw new AppError("VALIDATION", "No lead in the request");
+    return { leadId: null, created: false };
   }
   return withSystemTx(async (tx) => {
     const r = await upsertLeadInternal(tx, ctx, lead);
     const run = await startSyncRunInternal(tx, ctx, "indiamart", "push");
     await finishSyncRunInternal(tx, run.id, { status: "ok", fetched: 1, created: r.created ? 1 : 0, duplicates: r.created ? 0 : 1, errors: 0, errorMessage: null, meta: { type: lead.channel } });
-    await updateIntegrationInternal(tx, ctx, integ.id, { config: { ...integ.config, lastPushAt: new Date().toISOString() } });
+    const now = new Date();
+    // The first pushed lead connects IndiaMART; a rejected Pull key or a failing Pull stays visible.
+    const connects = integ.status === "not_connected" || integ.status === "configured";
+    await updateIntegrationInternal(tx, ctx, integ.id, {
+      config: { ...integ.config, lastPushAt: now.toISOString() }, lastSyncAt: now, lastSuccessAt: now, ...(connects ? { status: "connected" as const } : {}),
+    });
+    if (connects) await audit(tx, ctx, { action: "integration.push_ok", entityType: "integration", entityId: integ.id, changes: { status: "connected" } });
+    if (connects) await emit(tx, ctx, { type: "integration.connected", entityType: "integration", entityId: integ.id, payload: { provider: "indiamart", via: "push" } });
     return { leadId: r.leadId, created: r.created };
   });
 }

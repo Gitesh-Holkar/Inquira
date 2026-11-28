@@ -100,10 +100,42 @@ describe("IndiaMART Push API (G-SRC-1)", () => {
     expect((await post("wrong-secret-wrong-secret-0000", JSON.stringify(push()))).status).toBe(404);
     expect((await post("short", JSON.stringify(push()))).status).toBe(404);
     expect((await post(secret, "not json")).status).toBe(400);
-    expect((await post(secret, JSON.stringify({ CODE: 200, RESPONSE: { SENDER_NAME: "no id" } }))).status).toBe(400);
+    // A request without a lead (IndiaMART's Test button) is acknowledged, so the test passes and Push stays on,
+    // but nothing is stored and the card says when it came.
+    const empty = await post(secret, JSON.stringify({ CODE: 200, RESPONSE: { SENDER_NAME: "no id" } }));
+    expect(empty.status).toBe(200);
+    expect(await empty.json()).toMatchObject({ ok: true, created: false });
+    expect((await post(secret, "{}")).status).toBe(200);
+    expect((await cursorOf(org.id)).config).toHaveProperty("lastEmptyPushAt");
     expect((await post(secret, "x".repeat(70_000))).status).toBe(413);
     const [bad] = await getDb().select().from(syncRuns).where(and(eq(syncRuns.orgId, org.id), eq(syncRuns.status, "error")));
     expect(bad!.errorMessage).toMatch(/no UNIQUE_QUERY_ID/);
+  });
+
+  it("Push alone connects IndiaMART (no Pull key): waiting after the address, connected on the first lead", async () => {
+    const { org, ctx, secret } = await withAddress();
+    let integ = await cursorOf(org.id);
+    expect(integ.status).toBe("configured"); // set up, waiting for IndiaMART's first lead
+    expect(integ.lastSuccessAt).toBeNull();
+    await receiveIndiaMartPush(secret, {}); // IndiaMART's Test: no lead, does not count as connected
+    expect((await cursorOf(org.id)).status).toBe("configured");
+    expect(await receiveIndiaMartPush(secret, push())).toMatchObject({ created: true });
+    integ = await cursorOf(org.id);
+    expect(integ).toMatchObject({ status: "connected" });
+    expect(integ.lastSuccessAt).not.toBeNull();
+    expect(integ.config).toHaveProperty("lastPushAt");
+    expect(await getDb().select().from(auditLogs).where(eq(auditLogs.action, "integration.push_ok"))).toHaveLength(1);
+    // The Pull sync has nothing to do without a key, and says so.
+    expect(await syncIndiaMart(systemCtx(org.id), { fetchImpl: fakePull().f })).toMatchObject({ skipped: "not configured" });
+    // Saving a Pull key later keeps IndiaMART connected (Push works) while the key waits for its test.
+    await saveIndiaMartKey(ctx, { key: KEY });
+    integ = await cursorOf(org.id);
+    expect(integ.status).toBe("connected");
+    expect(integ.config).toHaveProperty("pullSavedAt");
+    // A rejected Pull key stays visible even when Push keeps delivering.
+    await getDb().update(integrations).set({ status: "reauth_required" }).where(eq(integrations.id, integ.id));
+    await receiveIndiaMartPush(secret, push(lead({ UNIQUE_QUERY_ID: "2600000003" })));
+    expect((await cursorOf(org.id)).status).toBe("reauth_required");
   });
 
   it("a new address replaces the old one; the secret itself is never stored", async () => {
@@ -128,6 +160,8 @@ describe("IndiaMART Push API (G-SRC-1)", () => {
     const integ = await cursorOf(org.id);
     expect(integ.status).toBe("not_connected");
     expect(integ.config).not.toHaveProperty("pushSecretHash");
+    expect(integ.config).not.toHaveProperty("lastPushAt"); // the dashboard no longer counts the API as connected
+    expect(integ.config).not.toHaveProperty("pullSavedAt");
     expect(await syncIndiaMart(systemCtx(org.id), { fetchImpl: fakePull().f })).toMatchObject({ skipped: "not configured" });
     expect(await getDb().select().from(leads).where(eq(leads.orgId, org.id))).toHaveLength(1);
   });

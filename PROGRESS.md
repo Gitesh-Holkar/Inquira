@@ -42,6 +42,10 @@ Work in order, one at a time. Stop at every **OWNER GATE**.
 | M8 | Operations: follow-ups, time to first reply, members screen, backups | G-FUP-1, G-RPT-*, G-PLT-2, G-PLT-7 | **Built 22 Nov 2026.** Follow-ups came with M7 and the members screen on 17 Nov. Dashboard "Last 7 days" with time to first reply; daily summary email (off until switched on); nightly backups kept 14 days, owner download, restore command, tested restore (`tests/operations.test.ts`, and once by hand into a fresh database: 649 rows, counts matched) (ADR-033) |
 | Later | WhatsApp Cloud API, orders, attendance | G-OUT-8, G-ORD-*, G-ATT-1 | Waits on the owner: the WhatsApp per-message cost (G-OUT-8); proforma samples and the ClearTax template (GOAL phase 5). Attendance is a separate application (G-ATT-1). Conversation replies (G-CNV-2, G-CNV-3) were built in M7 |
 
+## 28 Nov 2026: IndiaMART with the Push key alone (owner found it)
+
+The owner has a Push key, but the IndiaMART card asked for a Pull key and Push alone never counted as connected. Now Push is step 1 and enough on its own (the first pushed lead connects IndiaMART), the Pull key is an optional step 2, the Push key is explained as not needed, and IndiaMART's Test gets a 200 (ADR-030 update). Tests: `tests/indiamart.test.ts` (Push-only connection), a browser check of the card.
+
 ## 28 Nov 2026: easier screens (owner's request)
 
 The owner asked for better UI/UX, starting with Rates → Edit. Done: the Rates table fits with Edit and Delete in view, quiet price boxes, lowest / highest behind a toggle, validity dates in the save bar, phone cards with Change rate; Edit product in three sections with removable grades, an Add grade button, sample choice as three buttons and buttons fixed at the bottom of the window; the top Edit product picker removed (the row pencil does it). Also: Leads filters fold on phones, tick box inline, dashboard tile names in full, lead Status box stacked, Outbox and Settings tabs wrap on phones. No database change. Checked with screenshots on a 1440 px screen and a phone, and the browser journeys.
@@ -113,7 +117,7 @@ Every service, screen and setting was checked against the rule in `AGENTS.md` se
 6. Rates → the pencil on each product's row → Quotation terms: HSN code, lead time and whether free samples are offered, per product; Settings → Organisation → Sample policy (Q-021). Replies that need an empty one wait for a person.
 
 **Connections and keys**
-7. IndiaMART: paste the Pull API key and register the push address (`docs/SETUP.md` section 6a); then compare one lead with IndiaMART (Q-019).
+7. IndiaMART: Settings → IndiaMART → **Create push address**, paste it in IndiaMART's Push API page (Other, "Inquira"), confirm the OTP, press Test (`docs/SETUP.md` section 6a). Your Push key is not needed. The Pull key is optional. Then compare one lead with IndiaMART (Q-019).
 8. AI: a Gemini key for Basic AI (`docs/SETUP.md` section 6b, Q-020). Optional: a Claude API key for Advanced.
 9. GitHub → the repository → Settings → Security: turn on **Private vulnerability reporting**, so `SECURITY.md`'s "Report a vulnerability" button works (an agent may not change repository settings).
 

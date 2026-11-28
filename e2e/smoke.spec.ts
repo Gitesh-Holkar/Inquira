@@ -204,6 +204,14 @@ test("main flows", async ({ page }) => {
   // Settings
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "TradeIndia" })).toBeVisible();
+  // IndiaMART: Push is step 1 and needs no key; the Pull key is optional (owner, 28 Nov 2026).
+  const push = page.getByRole("region", { name: /Step 1 · Push/ });
+  await expect(push).toContainText("The Push key IndiaMART gives you is not needed here");
+  await expect(push.getByText("Push needs the cloud site").or(push.getByRole("button", { name: /push address/ })).first()).toBeVisible();
+  const pull = page.getByRole("region", { name: /Step 2 · Pull key/ });
+  await expect(pull).toContainText("Optional");
+  await expect(pull.getByLabel("Pull API key")).toBeVisible();
+  await expect(pull.getByRole("button", { name: "Test Pull key" })).toHaveCount(0); // nothing to test before a key is saved
   await noHorizontalScroll(page);
   await shot(page, "08-settings");
   await page.goto("/settings?tab=mcp");

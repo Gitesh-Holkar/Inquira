@@ -31,3 +31,7 @@ Each route covers the other's failure. A secret path is the only authentication 
 - Push needs the public https site; a computer-only install uses Pull and email.
 - Field names come from IndiaMART's help pages; the Pull API is assumed to return the same fields as Push (QUESTIONS.md Q-019). The raw lead is stored, so leads can be re-read if a name differs.
 - The first load is 30 days, not 365, so old leads do not flood the inbox as new; changeable later.
+
+## Update, 28 Nov 2026
+
+The owner received only a Push key from IndiaMART, and the Settings card asked for a Pull key first, while Push alone never marked IndiaMART connected. Within this decision (Push and Pull, plus email): Push is now step 1 and enough on its own; the first pushed lead marks IndiaMART connected; the Pull key is an optional step 2. The "CRM Push key" IndiaMART gives is not used (its documented push carries no key). A request with no lead (IndiaMART's Test button needs a 200) is acknowledged and recorded on the card instead of refused, so IndiaMART does not switch Push off after 48 hours of refusals if its format changes; the notification emails remain the cross-check.

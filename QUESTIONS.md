@@ -148,7 +148,7 @@ Each item lists the question, what I assumed so the build could continue, and wh
 - **Assumed:**
   1. The Pull API returns the same field names as the Push API (the Pull page shows its sample only as an image). The raw lead is stored, so nothing is lost if a name differs.
   2. Pull times are written `18-Nov-202609:30:00` (the page's examples; its text says `DD-MM-YYYY`).
-  3. The push address is protected only by the random secret at its end (IndiaMART documents no signature; a "Unique CRM PUSH Key" appears only in a screenshot caption).
+  3. The push address is protected only by the random secret at its end (IndiaMART documents no signature; a "Unique CRM PUSH Key" appears only in a screenshot caption). The owner received a Push key (28 Nov 2026); Inquira does not use it, because IndiaMART's documented push carries no key. If IndiaMART's Test or a real lead arrives in a shape Inquira cannot read, the IndiaMART card says so.
   4. The first load reads 30 days, not the full 365, so months-old leads do not appear as new. Say if you want more.
 - **Please:** after connecting, open one IndiaMART lead in Inquira and compare it with the same lead in IndiaMART's Lead Manager.
 
