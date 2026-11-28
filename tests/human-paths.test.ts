@@ -19,7 +19,7 @@ import { createOutboundRule, getOutboundSettings } from "@/modules/outbound/serv
 import { planPriceListImport } from "@/modules/catalog/price-list-service";
 import { listTemplates } from "@/modules/templates/service";
 import { getBuyleadRules, getBuyleadSummary, listBuyleadDecisions, logBuyleadDecision, updateBuyleadRules } from "@/modules/buyleads/service";
-import { createClassificationRule, getReconciliation, ingestMessageInternal, listClassificationRules, listEmailsNeedingReview, submitEmailClassification } from "@/modules/email/service";
+import { createClassificationRule, getReconciliation, ingestMessageInternal, listClassificationRules, listEmailsNeedingReview, moveClassificationRule, submitEmailClassification } from "@/modules/email/service";
 import { listMcpTokens } from "@/modules/mcp/service";
 import { buildMime, formatAddress } from "@/modules/quotes/mime";
 import { fakeGoogle, fixture, toGmailMessage } from "./helpers/fake-google";
@@ -234,6 +234,25 @@ describe("rules, buy leads and audit", () => {
     expect(rows[0]!.changes).toMatchObject({ ignored: 1 });
   });
 
+  it("email rules are checked top to bottom; moving a rule changes which one decides; sales cannot move rules", async () => {
+    const { org, ctx } = await setupOrgWithUser("admin");
+    const ignore = await createClassificationRule(ctx, { name: "Vendor", matchType: "sender_domain", pattern: "vendor.example", action: "ignore" });
+    const enquiry = await createClassificationRule(ctx, { name: "Price", matchType: "subject_contains", pattern: "price", action: "needs_review" });
+    expect((await listClassificationRules(ctx, {})).map((r) => r.id)).toEqual([ignore.rule.id, enquiry.rule.id]); // a new rule goes last
+    const mail = (id: string) => withSystemTx((tx) => ingestMessageInternal(tx, systemCtx(org.id), {
+      gmailMessageId: id, gmailThreadId: `t-${id}`, fromEmail: "sales@vendor.example", fromName: "Vendor", toEmails: ["sales@seller.example"], ccEmails: [],
+      subject: "Price list for packaging", snippet: "x", text: "Our new price list", html: null, labelIds: ["INBOX"], headers: {}, receivedAt: new Date(),
+    }, { ownAddresses: ["sales@seller.example"] }));
+    expect((await mail("m-1")).classification).toBe("ignored");
+    await moveClassificationRule(ctx, { id: enquiry.rule.id, direction: "up" });
+    expect((await listClassificationRules(ctx, {})).map((r) => r.id)).toEqual([enquiry.rule.id, ignore.rule.id]);
+    expect((await mail("m-2")).classification).toBe("needs_review");
+    expect(await moveClassificationRule(ctx, { id: enquiry.rule.id, direction: "up" })).toEqual({ moved: false }); // already first
+    const sales = await createUser();
+    await addMember(org.id, sales, "sales");
+    await expect(moveClassificationRule(human(org.id, sales, "sales"), { id: ignore.rule.id, direction: "up" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
   it("Buy Leads are suggestions only: the daily limit counts suggestions, and nothing can be logged as bought (ADR-020)", async () => {
     const { org, ctx } = await setupOrgWithUser("admin");
     await updateBuyleadRules(ctx, { productTerms: [], excludedTerms: [], allowedCountries: ["India"], allowedStates: [], excludedStates: [], minQuantityKg: null, maxQuantityKg: null, dailyCap: 1 });
@@ -309,7 +328,7 @@ describe("Gmail sync robustness", () => {
     const r = await tick({ startBudgetMs: -1 });
     expect(r.processed).toBe(0);
     const rows = await getDb().select().from(jobs).where(eq(jobs.orgId, org.id));
-    expect(rows.map((j) => j.type).sort()).toEqual(["ai.work", "backup.nightly", "gmail.sync", "indiamart.sync", "leads.rescore", "outbound.plan", "outbound.send", "report.daily", "tradeindia.sync"]);
+    expect(rows.map((j) => j.type).sort()).toEqual(["ai.work", "backup.nightly", "gmail.sync", "indiamart.sync", "leads.cleanup", "leads.rescore", "outbound.plan", "outbound.send", "report.daily", "tradeindia.sync"]);
     expect(rows.every((j) => j.status === "queued")).toBe(true);
   });
 });

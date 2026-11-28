@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/auth";
 import { can } from "@/modules/core/permissions";
 import { listLeads } from "@/modules/leads/service";
 import { listProducts } from "@/modules/catalog/service";
+import { getOrgSettings } from "@/modules/core/service";
 import { INTENT_LABELS, LEAD_INTENTS, LEAD_SOURCES, LEAD_STATUSES, SOURCE_LABELS, STATUS_LABELS, type LeadIntent, type LeadSource, type LeadStatus } from "@/modules/leads/types";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, Input, PageHeader, Select } from "@/components/ui/primitives";
@@ -16,12 +17,16 @@ export const metadata: Metadata = { title: "Leads" };
 
 type SP = { view?: string; status?: string; source?: string; product?: string; intent?: string; sort?: string; q?: string; from?: string; to?: string; page?: string };
 
-const VIEWS = [["inbox", "Inbox"], ["details", "Needs details"], ["international", "International"]] as const;
+/**
+ * "Not replied" (the default) and "Replied" (owner's request of 28 Nov 2026): a lead moves to Replied only when a
+ * reply went out and nothing for it waits or failed in the Outbox; replied leads leave after some days.
+ */
+const VIEWS = [["inbox", "Not replied"], ["replied", "Replied"], ["details", "Needs details"], ["international", "International"]] as const;
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const s = await requireSession("leads.read");
   const sp = await searchParams;
-  const view = sp.view === "international" ? "international" : sp.view === "details" ? "details" : "inbox";
+  const view = sp.view === "international" ? "international" : sp.view === "details" ? "details" : sp.view === "replied" ? "replied" : "inbox";
   const intent = LEAD_INTENTS.includes(sp.intent as LeadIntent) ? (sp.intent as LeadIntent) : undefined;
   const sort = sp.sort === "score" ? "score" : "newest";
   const page = Math.max(1, Number(sp.page) || 1);
@@ -31,13 +36,17 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const to = sp.to && /^\d{4}-\d{2}-\d{2}$/.test(sp.to) ? `${sp.to}T23:59:59+05:30` : undefined;
   const productId = sp.product && /^[0-9a-f-]{36}$/.test(sp.product) ? sp.product : undefined;
 
-  const [res, products] = await Promise.all([
+  const [res, products, settings] = await Promise.all([
     listLeads(s.ctx, {
       status, source, productId, intent, sort, q: sp.q?.slice(0, 100) || undefined, from, to, page, pageSize: 25,
       international: view === "international" ? "only" : "exclude", needsDetails: view === "details" || undefined,
+      replied: view === "inbox" ? "no" : view === "replied" ? "yes" : undefined,
     }),
     listProducts(s.ctx, {}),
+    getOrgSettings(s.ctx, {}),
   ]);
+  const keepDays = settings.removeRepliedAfterDays && settings.removeRepliedAfterDays > 0 ? settings.removeRepliedAfterDays : null;
+  const mayWork = can(s.ctx, "leads.update_status");
   const pages = Math.max(1, Math.ceil(res.total / res.pageSize));
   const qs = (patch: Partial<SP>) => {
     const p = new URLSearchParams(Object.entries({ ...sp, ...patch }).filter(([, v]) => v) as [string, string][]);
@@ -48,12 +57,12 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
   return (
     <>
-      <PageHeader title="Leads" description={`${res.total} ${view === "international" ? "international (parked, no quotes)" : view === "details" ? "leads without a product or intent" : "leads"}${filtered ? " matching filters" : ""}`}
+      <PageHeader title="Leads" description={`${res.total} ${view === "international" ? "international (parked, no quotes)" : view === "details" ? "leads without a product or intent" : view === "replied" ? `replied${keepDays ? `; each leaves this list ${keepDays} days after the reply` : ""}` : "not replied yet"}${filtered ? " matching filters" : ""}`}
         actions={can(s.ctx, "leads.create") ? <NewLeadButton /> : undefined} />
-      <div role="tablist" aria-label="Lead views" className="mb-3 flex gap-1 rounded-lg bg-surface-2 p-1 text-sm">
+      <div role="tablist" aria-label="Lead views" className="mb-3 grid grid-cols-2 gap-1 rounded-lg bg-surface-2 p-1 text-sm sm:flex">
         {VIEWS.map(([v, label]) => (
           <Link key={v} role="tab" aria-selected={view === v} href={viewHref(v)}
-            className={cn("flex-1 rounded-md px-2 py-2 text-center font-medium text-muted", view === v && "bg-surface text-foreground shadow-card")}>
+            className={cn("flex min-h-11 flex-1 items-center justify-center rounded-md px-2 py-2 text-center font-medium text-muted", view === v && "bg-surface text-foreground shadow-card")}>
             {label}
           </Link>
         ))}
@@ -101,9 +110,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
       {res.items.length === 0 ? (
         <Card>
-          <EmptyState icon={<Inbox />} title={filtered ? "No leads match these filters" : view === "international" ? "No international inquiries" : view === "details" ? "Nothing to complete" : "No leads yet"}
+          <EmptyState icon={<Inbox />} title={filtered ? "No leads match these filters" : view === "international" ? "No international inquiries" : view === "details" ? "Nothing to complete" : view === "replied" ? "No replied leads" : "Every lead has a reply"}
             action={filtered ? <Button asChild variant="outline"><Link href="/leads">Clear filters</Link></Button> : view === "inbox" && can(s.ctx, "integrations.manage") ? <Button asChild><Link href="/settings">Connect TradeIndia or Gmail</Link></Button> : undefined}>
-            {filtered ? "Try a wider date range or clear the search." : view === "international" ? "Inquiries from outside India are parked here until USD pricing is supported." : view === "details" ? "Every open lead has a product and a request. Leads the rules and AI could not complete appear here for a person or Claude." : "No leads yet. Connect TradeIndia and Gmail in Settings and new inquiries will appear here within 10 minutes."}
+            {filtered ? "Try a wider date range or clear the search." : view === "international" ? "Inquiries from outside India are parked here until USD pricing is supported." : view === "details" ? "Every open lead has a product and a request. Leads the rules and AI could not complete appear here for a person or Claude." : view === "replied" ? `A lead moves here once its reply went out and nothing for it waits in the Outbox.${keepDays ? ` It leaves ${keepDays} days after the reply (Settings → Organisation).` : ""}` : "Nothing waits for a reply. New enquiries appear here within 10 minutes of arriving."}
           </EmptyState>
         </Card>
       ) : (
@@ -112,7 +121,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           city: l.city, state: l.state, country: l.country, contactName: l.contactName, companyName: l.companyName, phone: l.phone, email: l.email,
           receivedAt: l.receivedAt.toISOString(), isInternational: l.isInternational,
           intent: l.intent, belowMoq: l.belowMoq, score: l.score, needsDetails: !!l.understoodAt && (!l.productId || !l.intent) && !["won", "lost", "not_relevant"].includes(l.status),
-        }))} />
+          repliedAt: l.repliedAt?.toISOString() ?? null, outboxPending: l.outboxPending,
+          buyerWroteAgain: !!l.repliedAt && !!l.lastBuyerMessageAt && l.lastBuyerMessageAt > l.repliedAt,
+        }))} removeAfterDays={keepDays}
+          bulk={{ markReplied: mayWork && view !== "replied", markNotReplied: mayWork && view === "replied", delete: can(s.ctx, "leads.delete") }} />
       )}
 
       {pages > 1 ? (

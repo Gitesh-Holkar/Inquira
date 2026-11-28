@@ -262,7 +262,7 @@ async function OrgTab({ ctx, canEdit }: { ctx: Ctx; canEdit: boolean }) {
       </CardHeader>
       <CardContent>
         <CompanyNameForm name={s.orgName} isOwner={ctx.actor.kind === "human" && ctx.actor.role === "owner"} />
-        <OrgForm canEdit={canEdit} quoteValidityDays={s.quoteValidityDays} defaultPriceBasis={s.defaultPriceBasis} paymentTerms={s.paymentTerms ?? ""}
+        <OrgForm canEdit={canEdit} quoteValidityDays={s.quoteValidityDays} defaultPriceBasis={s.defaultPriceBasis} paymentTerms={s.paymentTerms ?? ""} removeRepliedAfterDays={s.removeRepliedAfterDays}
           samplePolicy={samplePolicySchema.catch({ freeSampleSize: null, requiredDetails: [], note: null }).parse(s.samplePolicy ?? {})} />
       </CardContent>
     </Card>

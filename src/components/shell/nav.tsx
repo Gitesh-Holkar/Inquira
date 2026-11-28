@@ -13,9 +13,9 @@ function active(path: string, href: string) {
 }
 
 /** `allowed` lists the pages this person may open (from their permissions); the others are not shown. */
-/** Badge counts: emails to review, messages waiting for a person. */
-export type NavCounts = { review: number; outbox: number };
-const badge = (href: string, c: NavCounts) => (href === "/review" ? c.review : href === "/outbox" ? c.outbox : 0);
+/** Badge counts: leads not replied yet, emails to review, messages waiting for a person. */
+export type NavCounts = { review: number; outbox: number; leads?: number };
+const badge = (href: string, c: NavCounts) => (href === "/review" ? c.review : href === "/outbox" ? c.outbox : href === "/leads" ? c.leads ?? 0 : 0);
 
 export function Sidebar({ counts, allowed }: { counts: NavCounts; allowed: readonly string[] }) {
   const path = usePathname();

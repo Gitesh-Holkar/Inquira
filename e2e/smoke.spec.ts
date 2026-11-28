@@ -443,6 +443,55 @@ test("reports and backups: last 7 days on the dashboard, back up now, download (
   await shot(page, "15-backups");
 });
 
+test("Leads: Not replied and Replied; mark as replied and back; the removal setting; email rules keep their order", async ({ page }) => {
+  const proj = test.info().project.name;
+  await signIn(page);
+  await page.goto("/leads");
+  await expect(page.getByRole("tab", { name: "Not replied", exact: true })).toHaveAttribute("aria-selected", "true");
+  await page.getByLabel("Search leads").fill("Sweet Potato Starch");
+  await page.getByRole("button", { name: "Filter" }).click();
+  const item = page.getByRole("list", { name: "Leads" }).getByRole("listitem").filter({ hasText: "Sweet Potato Starch" }).first();
+  // The dev server hydrates lazily: a tick before hydration is lost, so untick and tick again until the bar shows.
+  const pick = async (row: typeof item) => expect(async () => {
+    const box = row.getByRole("checkbox");
+    if (await box.isChecked()) await box.uncheck();
+    await box.check();
+    await expect(page.getByRole("region", { name: "Selected leads" })).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 30_000 });
+  await pick(item);
+  await page.getByRole("region", { name: "Selected leads" }).getByRole("button", { name: "Mark as replied" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Mark as replied" }).click();
+  await expect(page.getByText("1 marked as replied")).toBeVisible();
+  await page.getByRole("tab", { name: "Replied", exact: true }).click();
+  await expect(page).toHaveURL(/view=replied/);
+  const done = page.getByRole("list", { name: "Leads" }).getByRole("listitem").filter({ hasText: "Sweet Potato Starch" }).first();
+  await expect(done).toContainText(/Replied/);
+  await noHorizontalScroll(page);
+  await shot(page, "16-leads-replied");
+  await pick(done);
+  await page.getByRole("region", { name: "Selected leads" }).getByRole("button", { name: "Move to Not replied" }).click();
+  await expect(page.getByText("1 moved to Not replied")).toBeVisible();
+
+  await page.goto("/settings?tab=org");
+  await expect(page.getByLabel("Remove replied leads after (days)")).toHaveValue("7");
+
+  // Email rules: a new rule goes last; ↑ moves it up
+  await page.goto("/settings?tab=rules");
+  for (const v of [`first-${proj}.example`, `second-${proj}.example`]) {
+    await expect(async () => {
+      await page.getByLabel("Value").fill(v);
+      await page.getByRole("button", { name: "Add rule" }).click();
+      await expect(page.getByRole("list", { name: /checked in this order/ })).toContainText(v, { timeout: 3000 });
+    }).toPass({ timeout: 30_000 });
+  }
+  const rules = page.getByRole("list", { name: /checked in this order/ }).getByRole("listitem");
+  const last = await rules.count();
+  await expect(rules.nth(last - 1)).toContainText(`second-${proj}.example`);
+  await page.getByRole("button", { name: `Move rule ${last} up` }).click();
+  await expect(rules.nth(last - 2)).toContainText(`second-${proj}.example`);
+  await expect(rules.nth(last - 1)).toContainText(`first-${proj}.example`);
+});
+
 test("an Accounts member sees no Settings and cannot open it", async ({ page }) => {
   await signIn(page);
   const email = `accounts-${test.info().project.name}@example.com`;

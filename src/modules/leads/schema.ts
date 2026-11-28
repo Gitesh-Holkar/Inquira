@@ -50,6 +50,18 @@ export const leads = app.table("leads", {
   scoredAt: timestamp({ withTimezone: true }),
   /** When the outbound pipeline decided what to send for this new lead (src/modules/outbound); null = not yet. */
   outreachPlannedAt: timestamp({ withTimezone: true }),
+  /**
+   * Replied or not (the Leads tabs). A lead is "replied" when `repliedAt` is set, nothing for it waits or failed in
+   * the Outbox (`outboxPending`), and the buyer has not written since (`lastBuyerMessageAt`). `repliedAt` is set by a
+   * sent message (email or WhatsApp), a reply a person sent from Gmail in the lead's thread, or "Mark as replied".
+   */
+  repliedAt: timestamp({ withTimezone: true }),
+  /** The buyer's last message: the enquiry itself, or a reply in its thread. */
+  lastBuyerMessageAt: timestamp({ withTimezone: true }),
+  /** Something for this lead is prepared, held, waiting or failed in the Outbox (kept up to date by the outbound module). */
+  outboxPending: boolean().notNull().default(false),
+  /** Why the lead was deleted: "manual" (a person) or "replied" (removed automatically some days after the reply; a new buyer message brings it back). */
+  deletedReason: text(),
   message: text(),
   rawPayload: jsonb().$type<unknown>(),
   receivedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -68,6 +80,7 @@ export const leads = app.table("leads", {
   index("leads_org_thread_idx").on(t.orgId, t.gmailThreadId),
   index("leads_org_understood_idx").on(t.orgId, t.understoodAt),
   index("leads_org_score_idx").on(t.orgId, t.score, t.receivedAt),
+  index("leads_org_replied_idx").on(t.orgId, t.repliedAt),
 ]);
 
 export const leadNotes = app.table("lead_notes", {

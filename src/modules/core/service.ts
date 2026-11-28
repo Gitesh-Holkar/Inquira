@@ -48,6 +48,8 @@ export const updateOrgSettings = defineService({
     paymentTerms: z.string().trim().max(200).nullish(),
     /** Sample policy (G-KB-5); shape checked by `samplePolicySchema`. */
     samplePolicy: samplePolicySchema.optional(),
+    /** Replied leads leave the Leads list this many days after the reply; null = keep them. */
+    removeRepliedAfterDays: z.number().int().min(1).max(365).nullish(),
   }),
   permission: "settings.write",
   handler: async (ctx, input, tx) => {
@@ -57,6 +59,7 @@ export const updateOrgSettings = defineService({
     if (input.defaultPriceBasis !== undefined) patch.defaultPriceBasis = input.defaultPriceBasis;
     if (input.paymentTerms !== undefined) patch.paymentTerms = input.paymentTerms || null;
     if (input.samplePolicy !== undefined) patch.samplePolicy = input.samplePolicy;
+    if (input.removeRepliedAfterDays !== undefined) patch.removeRepliedAfterDays = input.removeRepliedAfterDays ?? null;
     const [after] = await tx.update(orgSettings).set(patch).where(eq(orgSettings.orgId, ctx.orgId)).returning();
     await audit(tx, ctx, { action: "settings.update", entityType: "org_settings", entityId: after!.id, changes: patch });
     return after!;

@@ -25,7 +25,7 @@ import { moqByProductInternal, productTermsInternal } from "@/modules/catalog/se
 import { samplePolicySchema } from "@/modules/catalog/types";
 import {
   getLeadInternal, isExistingCustomerInternal, leadIdsOfContactInternal, leadsToPlanInternal, markLeadPlannedInternal, markQuotedInternal,
-  touchLeadInternal, type Lead,
+  noteReplySentInternal, syncLeadOutboxInternal, type Lead,
 } from "@/modules/leads/service";
 import { leadEmailFactsInternal, markReplyPlannedInternal, repliesToPlanInternal, threadTextInternal } from "@/modules/email/service";
 import { greetingName, quoteItemsForProductInternal, renderQuote } from "@/modules/quotes/service";
@@ -285,6 +285,7 @@ export async function prepareMessageInternal(tx: Tx, ctx: Ctx, p: PrepareInput):
     template: c.templateId ? { id: c.templateId, version: c.templateVersion } : null, priceEntryIds: c.priceEntryIds, documentIds: c.documentIds,
   } });
   await emit(tx, ctx, { type: "message.prepared", entityType: "outgoing_message", entityId: m!.id, payload: { leadId: lead.id, purpose: p.purpose, state } });
+  await syncLeadOutboxInternal(tx, ctx.orgId, lead.id); // something waits: the lead is "Not replied"
   if (state === "held") {
     await notifyOnceInternal(tx, ctx, {
       kind: "message_held", entityType: "outgoing_message", entityId: m!.id, href: "/outbox",
@@ -415,7 +416,7 @@ async function recordSentInternal(tx: Tx, ctx: Ctx, m: OutgoingMessage, r: { gma
     state: "sent", sentAt: new Date(), sentBy: actorString(ctx.actor), gmailMessageId: r.gmailMessageId, gmailThreadId: r.threadId ?? m.gmailThreadId, error: null, attempts: m.attempts + 1,
   }).where(and(eq(outgoingMessages.id, m.id), eq(outgoingMessages.orgId, ctx.orgId))).returning();
   if (m.leadId && QUOTES.has(m.purpose as MessagePurpose)) await markQuotedInternal(tx, ctx, m.leadId);
-  if (m.leadId) await touchLeadInternal(tx, ctx.orgId, m.leadId);
+  if (m.leadId) await noteReplySentInternal(tx, ctx.orgId, m.leadId, after!.sentAt ?? new Date()); // replied, unless something else still waits
   // G-OUT-10: rule set, template version, rate entries and the actor, on every send.
   await audit(tx, ctx, { action: "outbound.sent", entityType: "outgoing_message", entityId: m.id, changes: {
     leadId: m.leadId, channel: m.channel, purpose: m.purpose, ruleSet: m.ruleSetVersion, mode: m.mode, automatic: m.autoApproved,
@@ -432,6 +433,7 @@ async function recordFailedInternal(ctx: Ctx, m: OutgoingMessage, error: string)
     await audit(tx, ctx, { action: "outbound.failed", entityType: "outgoing_message", entityId: m.id, changes: { error: error.slice(0, 300) } });
     await emit(tx, ctx, { type: "message.failed", entityType: "outgoing_message", entityId: m.id, payload: { leadId: m.leadId } });
     await notifyOnceInternal(tx, ctx, { kind: "message_failed", entityType: "outgoing_message", entityId: m.id, href: "/outbox?view=stopped", title: `Not sent: ${PURPOSE_LABELS[m.purpose as MessagePurpose].toLowerCase()}`, body: error.slice(0, 300) });
+    if (m.leadId) await syncLeadOutboxInternal(tx, ctx.orgId, m.leadId); // a failed send keeps the lead in "Not replied"
     return after!;
   });
 }
@@ -466,6 +468,7 @@ export async function runOutboundSend(ctx: Ctx, deps: SendDeps & { now?: Date } 
       if (check.stop) {
         await tx.update(outgoingMessages).set({ state: "cancelled", cancelledReason: check.stop }).where(eq(outgoingMessages.id, m.id));
         await audit(tx, ctx, { action: "outbound.cancel", entityType: "outgoing_message", entityId: m.id, changes: { reason: check.stop } });
+        if (m.leadId) await syncLeadOutboxInternal(tx, ctx.orgId, m.leadId);
         return "stop" as const;
       }
       const reasons = [...check.reasons, ...(capped ? [{ rule: "send_limit", detail: "The automatic send limit for this hour or day is reached" }] : [])];
@@ -578,6 +581,7 @@ export const rejectMessage = defineService({
     const rule = input.rule ? await createRuleInternal(tx, ctx, { ...input.rule, note: input.rule.note || input.reason }) : null;
     await audit(tx, ctx, { action: "outbound.reject", entityType: "outgoing_message", entityId: m.id, changes: { reason: input.reason, ruleId: rule?.id ?? null } });
     await emit(tx, ctx, { type: "message.cancelled", entityType: "outgoing_message", entityId: m.id, payload: { leadId: m.leadId } });
+    if (m.leadId) await syncLeadOutboxInternal(tx, ctx.orgId, m.leadId);
     return { message: after!, rule };
   },
 });

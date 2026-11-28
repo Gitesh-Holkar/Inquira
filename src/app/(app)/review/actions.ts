@@ -19,7 +19,7 @@ export async function classifyAction(input: { emailId: string; classification: "
     if (input.ignoreRule && input.classification === "ignored" && can(s.ctx, "rules.write")) {
       const r = input.ignoreRule;
       // Separate step: the email above is already classified even if the rule is refused.
-      const rr = await runAction(() => createClassificationRule(s.ctx, { name: `Ignore ${r.pattern}`, matchType: r.matchType, pattern: r.pattern, action: "ignore", priority: 100, enabled: true, applyToReviewQueue: true }));
+      const rr = await runAction(() => createClassificationRule(s.ctx, { name: `Ignore ${r.pattern}`, matchType: r.matchType, pattern: r.pattern, action: "ignore", enabled: true, applyToReviewQueue: true }));
       if (rr.ok) applied = rr.data.applied;
       else ruleError = rr.error;
     }

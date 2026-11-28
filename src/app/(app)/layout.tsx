@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/auth";
 import { appUrl } from "@/lib/env";
 import { listIntegrations, listNotifications } from "@/modules/core/service";
 import { getOutboxCounts } from "@/modules/outbound/service";
+import { getNotRepliedCount } from "@/modules/leads/service";
 import { NotificationBell } from "@/components/shell/notification-bell";
 import { getReconciliation } from "@/modules/email/service";
 import { BottomNav, Sidebar } from "@/components/shell/nav";
@@ -20,12 +21,13 @@ const ROLE_NAMES = { owner: "owner", admin: "admin", sales: "sales", qa: "QA", a
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const s = await requireSession();
-  const [integrations, rec, outbox, notes] = await Promise.all([
+  const [integrations, rec, outbox, notes, notReplied] = await Promise.all([
     can(s.ctx, "integrations.read") ? listIntegrations(s.ctx, {}) : Promise.resolve([]), getReconciliation(s.ctx, {}),
     can(s.ctx, "quotes.read") ? getOutboxCounts(s.ctx, {}) : Promise.resolve({ review: 0 }), listNotifications(s.ctx, { limit: 1 }),
+    can(s.ctx, "leads.read") ? getNotRepliedCount(s.ctx, {}) : Promise.resolve(0),
   ]);
   const allowed = Object.entries(PAGE_PERMISSION).filter(([, perm]) => can(s.ctx, perm)).map(([href]) => href);
-  const counts = { review: rec.pendingReview + rec.olderBacklog, outbox: outbox.review };
+  const counts = { review: rec.pendingReview + rec.olderBacklog, outbox: outbox.review, leads: notReplied };
   const problems = integrations.filter((i) => i.status !== "connected");
   const isAdmin = can(s.ctx, "integrations.manage");
   // A wrong APP_URL silently breaks Gmail OAuth, the Claude connector URL and email links.

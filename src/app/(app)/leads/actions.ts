@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth";
 import { runAction } from "@/lib/actions";
-import { addLeadNote, removeLeadNote, createManualLead, deleteLead, updateLead, updateLeadStatus } from "@/modules/leads/service";
+import { addLeadNote, deleteLeads, markLeadsNotReplied, markLeadsReplied, removeLeadNote, createManualLead, deleteLead, updateLead, updateLeadStatus } from "@/modules/leads/service";
 import { createQuoteDraft, whatsappForLead } from "@/modules/quotes/service";
 import type { LeadStatus } from "@/modules/leads/types";
 import type { DocumentType } from "@/modules/documents/types";
@@ -68,4 +68,28 @@ export async function deleteLeadAction(leadId: string) {
   revalidatePath("/leads");
   revalidatePath("/");
   return r.ok ? { ok: true as const, message: r.message } : r;
+}
+
+/** Leads list (one or many) and the lead page: the team answered outside Inquira. */
+export async function markRepliedAction(leadIds: string[]) {
+  const s = await requireSession("leads.update_status");
+  const r = await runAction(() => markLeadsReplied(s.ctx, { leadIds }));
+  revalidatePath("/leads", "layout");
+  return r.ok ? { ok: true as const, data: { count: r.data.count } } : r;
+}
+
+/** Undo "Mark as replied". */
+export async function markNotRepliedAction(leadIds: string[]) {
+  const s = await requireSession("leads.update_status");
+  const r = await runAction(() => markLeadsNotReplied(s.ctx, { leadIds }));
+  revalidatePath("/leads", "layout");
+  return r.ok ? { ok: true as const, data: { count: r.data.count } } : r;
+}
+
+/** Leads list → select → Delete. */
+export async function deleteLeadsAction(leadIds: string[]) {
+  const s = await requireSession("leads.delete");
+  const r = await runAction(() => deleteLeads(s.ctx, { leadIds }));
+  revalidatePath("/leads", "layout");
+  return r.ok ? { ok: true as const, data: { count: r.data.count } } : r;
 }

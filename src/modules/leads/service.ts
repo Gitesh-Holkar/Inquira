@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, notInArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, not, notInArray, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
-import type { Tx } from "@/db/client";
+import { withSystemTx, type Tx } from "@/db/client";
 import { notFound, AppError, forbidden } from "@/lib/errors";
 import { can } from "@/modules/core/permissions";
 import { normalizeEmail, phoneCountry, toE164 } from "@/lib/phone";
@@ -9,7 +9,8 @@ import { defineService } from "@/modules/core/service-kit";
 import { actorString, type Ctx } from "@/modules/core/types";
 import { resolveContactInternal, cleanEmail } from "@/modules/contacts/service";
 import { matchProduct, moqByProductInternal, productMatcherCatalog, productNameById } from "@/modules/catalog/service";
-import { enqueueJobInternal } from "@/modules/core/service";
+import { enqueueJobInternal, getOrgSettingsInternal } from "@/modules/core/service";
+import { cancelPendingMessagesInternal, isInquiraSentInternal, leadHasPendingMessagesInternal } from "@/modules/outbound/cancel";
 import { markAiCorrectedInternal } from "@/modules/ai/corrections";
 import { leadNotes, leads, leadStatusChanges } from "./schema";
 import { LEAD_INTENTS, LEAD_STATUSES, listLeadsInput, type LeadFilledBy, type LeadIntent, type NormalizedLead } from "./types";
@@ -136,6 +137,7 @@ export async function upsertLeadInternal(tx: Tx, ctx: Ctx, input: NormalizedLead
       rawPayload: input.rawPayload ?? null,
       receivedAt: input.receivedAt,
       lastActivityAt: input.receivedAt,
+      lastBuyerMessageAt: input.receivedAt,
       gmailThreadId: input.gmailThreadId ?? null,
       gmailMessageId: input.gmailMessageId ?? null,
       createdBy: actorString(ctx.actor),
@@ -191,6 +193,153 @@ async function fillMissing(tx: Tx, ctx: Ctx, lead: Lead, input: NormalizedLead &
   }
 }
 
+// ---------- replied or not (the Leads tabs; owner's request of 28 Nov 2026) ----------
+
+/**
+ * A lead is replied when a reply went out (`replied_at`), nothing for it waits or failed in the Outbox, and the
+ * buyer has not written since. Everything else is "Not replied", so a message that failed to send never hides a lead.
+ */
+const REPLIED = and(isNotNull(leads.repliedAt), eq(leads.outboxPending, false), or(isNull(leads.lastBuyerMessageAt), gte(leads.repliedAt, leads.lastBuyerMessageAt)))!;
+
+/** Re-reads whether anything for this lead waits or failed in the Outbox. Called by the outbound module after any change. */
+export async function syncLeadOutboxInternal(tx: Tx, orgId: string, leadId: string) {
+  const pending = await leadHasPendingMessagesInternal(tx, orgId, leadId);
+  await tx.update(leads).set({ outboxPending: pending }).where(and(eq(leads.id, leadId), eq(leads.orgId, orgId)));
+  return pending;
+}
+
+/** A message to the buyer was sent (email or WhatsApp): the lead is replied unless something else still waits. */
+export async function noteReplySentInternal(tx: Tx, orgId: string, leadId: string, at: Date) {
+  await tx.update(leads).set({ repliedAt: sql`greatest(${leads.repliedAt}, ${at.toISOString()}::timestamptz)`, lastActivityAt: new Date() })
+    .where(and(eq(leads.id, leadId), eq(leads.orgId, orgId)));
+  await syncLeadOutboxInternal(tx, orgId, leadId);
+}
+
+/**
+ * The buyer wrote again (a reply in the lead's thread): the lead is "Not replied" until someone answers. A lead that
+ * was removed automatically after its reply comes back; one a person deleted stays deleted.
+ */
+export async function noteBuyerMessageInternal(tx: Tx, ctx: Ctx, leadId: string, at: Date) {
+  const [l] = await tx.select({ deletedAt: leads.deletedAt, deletedReason: leads.deletedReason }).from(leads).where(and(eq(leads.id, leadId), eq(leads.orgId, ctx.orgId)));
+  if (!l || (l.deletedAt && l.deletedReason !== "replied")) return false;
+  await tx.update(leads).set({
+    lastBuyerMessageAt: sql`greatest(${leads.lastBuyerMessageAt}, ${at.toISOString()}::timestamptz)`, lastActivityAt: new Date(),
+    ...(l.deletedAt ? { deletedAt: null, deletedReason: null } : {}),
+  }).where(eq(leads.id, leadId));
+  if (l.deletedAt) await audit(tx, ctx, { action: "lead.restore", entityType: "lead", entityId: leadId, changes: { reason: "The buyer wrote again" } });
+  return true;
+}
+
+/**
+ * A person replied from Gmail in the lead's thread (seen by the Gmail sync). Counts as a reply, and Inquira's unsent
+ * email messages for this lead are stopped so the buyer never gets a second answer. WhatsApp messages stay.
+ * Messages Inquira itself sent are recognised and skipped (they are counted when sent).
+ */
+export async function noteOwnGmailReplyInternal(tx: Tx, ctx: Ctx, leadId: string, at: Date, gmailMessageId: string) {
+  if (await isInquiraSentInternal(tx, ctx.orgId, gmailMessageId)) return { counted: false, cancelled: 0 };
+  const cancelled = await cancelPendingMessagesInternal(tx, ctx, leadId, "all", "A person replied by email from Gmail", { includeFailed: true, channel: "email" });
+  await noteReplySentInternal(tx, ctx.orgId, leadId, at);
+  await audit(tx, ctx, { action: "lead.replied", entityType: "lead", entityId: leadId, changes: { by: "gmail", cancelled } });
+  return { counted: true, cancelled };
+}
+
+const leadIdsInput = z.object({ leadIds: z.array(z.string().uuid()).min(1).max(100) });
+
+async function liveLeads(tx: Tx, orgId: string, ids: string[]) {
+  return tx.select({ id: leads.id }).from(leads).where(and(eq(leads.orgId, orgId), inArray(leads.id, [...new Set(ids)]), isNull(leads.deletedAt)));
+}
+
+/**
+ * "Mark as replied" (lead page and the Leads list, one or many): the team answered outside Inquira, for example
+ * on WhatsApp or by phone. Inquira's unsent messages for these leads are stopped so nobody gets a second answer.
+ */
+export const markLeadsReplied = defineService({
+  name: "leads.markReplied",
+  input: leadIdsInput,
+  permission: "leads.update_status",
+  handler: async (ctx, input, tx) => {
+    let cancelled = 0;
+    const rows = await liveLeads(tx, ctx.orgId, input.leadIds);
+    for (const { id } of rows) {
+      const n = await cancelPendingMessagesInternal(tx, ctx, id, "all", "Replied outside Inquira", { includeFailed: true });
+      cancelled += n;
+      await tx.update(leads).set({ repliedAt: new Date(), outboxPending: false, lastActivityAt: new Date() }).where(eq(leads.id, id));
+      await audit(tx, ctx, { action: "lead.replied", entityType: "lead", entityId: id, changes: { by: "person", cancelled: n } });
+    }
+    return { count: rows.length, cancelled };
+  },
+});
+
+/** Moves leads back to "Not replied" (undo a mistaken "Mark as replied"). */
+export const markLeadsNotReplied = defineService({
+  name: "leads.markNotReplied",
+  input: leadIdsInput,
+  permission: "leads.update_status",
+  handler: async (ctx, input, tx) => {
+    const rows = await liveLeads(tx, ctx.orgId, input.leadIds);
+    for (const { id } of rows) {
+      await tx.update(leads).set({ repliedAt: null, lastActivityAt: new Date() }).where(eq(leads.id, id));
+      await audit(tx, ctx, { action: "lead.not_replied", entityType: "lead", entityId: id, changes: {} });
+    }
+    return { count: rows.length };
+  },
+});
+
+/** Deletes one lead (soft): it leaves every list, and its unsent messages are stopped. Audited. */
+async function deleteLeadInternal(tx: Tx, ctx: Ctx, leadId: string, reason: "manual" | "replied") {
+  const cancelled = await cancelPendingMessagesInternal(tx, ctx, leadId, "all", reason === "manual" ? "The lead was deleted" : "The lead was removed after its reply", { includeFailed: true });
+  await tx.update(leads).set({ deletedAt: new Date(), deletedReason: reason, outboxPending: false }).where(and(eq(leads.id, leadId), eq(leads.orgId, ctx.orgId)));
+  await audit(tx, ctx, { action: reason === "manual" ? "lead.delete" : "lead.auto_remove", entityType: "lead", entityId: leadId, changes: { soft: true, cancelledMessages: cancelled } });
+}
+
+/** Deletes several leads at once (Leads list → select → Delete). */
+export const deleteLeads = defineService({
+  name: "leads.deleteMany",
+  input: leadIdsInput,
+  permission: "leads.delete",
+  handler: async (ctx, input, tx) => {
+    const rows = await liveLeads(tx, ctx.orgId, input.leadIds);
+    for (const { id } of rows) await deleteLeadInternal(tx, ctx, id, "manual");
+    return { count: rows.length };
+  },
+});
+
+/**
+ * Job `leads.cleanup`: leads replied more than the company's number of days ago (Settings → Organisation, default 7)
+ * leave the list. Only leads that are still replied: nothing waits or failed in the Outbox, and the buyer has not
+ * written since. They stay in the database (hidden), so the same enquiry is never imported twice, reports stay
+ * right, and a new message from the buyer brings the lead back.
+ */
+export async function cleanupRepliedLeads(ctx: Ctx, opts: { now?: Date; limit?: number } = {}, tx?: Tx) {
+  const run = async (t: Tx) => {
+    const settings = await getOrgSettingsInternal(t, ctx.orgId);
+    const days = settings.removeRepliedAfterDays;
+    if (!days || days <= 0) return { removed: 0, skipped: "Keeping replied leads (Settings → Organisation)" };
+    const before = new Date((opts.now ?? new Date()).getTime() - days * 86400_000);
+    const due = await t.select({ id: leads.id }).from(leads)
+      .where(and(eq(leads.orgId, ctx.orgId), isNull(leads.deletedAt), REPLIED, lte(leads.repliedAt, before)))
+      .limit(opts.limit ?? 200);
+    for (const { id } of due) await deleteLeadInternal(t, ctx, id, "replied");
+    return { removed: due.length };
+  };
+  return tx ? run(tx) : withSystemTx(run);
+}
+
+/** Leads not replied yet (dashboard), India only: international leads have their own view. */
+export async function countNotRepliedInternal(tx: Tx, orgId: string) {
+  const [r] = await tx.select({ n: sql<number>`count(*)::int` }).from(leads)
+    .where(and(eq(leads.orgId, orgId), isNull(leads.deletedAt), eq(leads.isInternational, false), not(REPLIED)));
+  return r?.n ?? 0;
+}
+
+/** The Leads menu badge: leads not replied yet. */
+export const getNotRepliedCount = defineService({
+  name: "leads.notRepliedCount",
+  input: z.object({}).default({}),
+  permission: "leads.read",
+  handler: (ctx, _i, tx) => countNotRepliedInternal(tx, ctx.orgId),
+});
+
 // ---------- queries ----------
 
 function listWhere(orgId: string, input: z.output<typeof listLeadsInput>): SQL | undefined {
@@ -201,6 +350,8 @@ function listWhere(orgId: string, input: z.output<typeof listLeadsInput>): SQL |
   if (input.productId) conds.push(eq(leads.productId, input.productId));
   if (input.intent) conds.push(eq(leads.intent, input.intent));
   if (input.minScore !== undefined) conds.push(gte(leads.score, input.minScore));
+  if (input.replied === "yes") conds.push(REPLIED);
+  if (input.replied === "no") conds.push(not(REPLIED));
   if (input.needsDetails) {
     conds.push(isNotNull(leads.understoodAt), or(isNull(leads.productId), isNull(leads.intent)), notInArray(leads.status, ["won", "lost", "not_relevant"]));
   }
@@ -418,8 +569,7 @@ export const deleteLead = defineService({
   handler: async (ctx, input, tx) => {
     const lead = await getLeadInternal(tx, ctx.orgId, input.leadId);
     if (!lead) throw notFound("Lead");
-    await tx.update(leads).set({ deletedAt: new Date() }).where(eq(leads.id, lead.id));
-    await audit(tx, ctx, { action: "lead.delete", entityType: "lead", entityId: lead.id, changes: { soft: true } });
+    await deleteLeadInternal(tx, ctx, lead.id, "manual");
     return { ok: true };
   },
 });
@@ -450,10 +600,7 @@ export async function leadStatsInternal(tx: Tx, orgId: string, since: Date) {
     .from(leads)
     .where(and(eq(leads.orgId, orgId), isNull(leads.deletedAt), gte(leads.receivedAt, since)))
     .groupBy(leads.source);
-  const [{ needing = 0 } = {}] = await tx
-    .select({ needing: sql<number>`count(*)::int` })
-    .from(leads)
-    .where(and(eq(leads.orgId, orgId), isNull(leads.deletedAt), eq(leads.status, "new"), eq(leads.isInternational, false)));
+  const needing = await countNotRepliedInternal(tx, orgId);
   const [{ intl = 0 } = {}] = await tx
     .select({ intl: sql<number>`count(*)::int` })
     .from(leads)
@@ -461,17 +608,21 @@ export async function leadStatsInternal(tx: Tx, orgId: string, since: Date) {
   return { bySource, needingAction: needing, international: intl };
 }
 
-export async function findLeadByThreadInternal(tx: Tx, orgId: string, threadId: string) {
-  const [l] = await tx.select().from(leads).where(and(eq(leads.orgId, orgId), eq(leads.gmailThreadId, threadId), isNull(leads.deletedAt))).limit(1);
+/** Not deleted, or (with `includeAutoRemoved`) removed automatically after a reply: a buyer message brings those back. */
+const visibleOr = (includeAutoRemoved?: boolean) => (includeAutoRemoved ? or(isNull(leads.deletedAt), eq(leads.deletedReason, "replied")) : isNull(leads.deletedAt));
+
+export async function findLeadByThreadInternal(tx: Tx, orgId: string, threadId: string, opts: { includeAutoRemoved?: boolean } = {}) {
+  const [l] = await tx.select().from(leads).where(and(eq(leads.orgId, orgId), eq(leads.gmailThreadId, threadId), visibleOr(opts.includeAutoRemoved)))
+    .orderBy(sql`${leads.deletedAt} is not null`, desc(leads.receivedAt)).limit(1);
   return l ?? null;
 }
 
-export async function findRecentLeadByContactInternal(tx: Tx, orgId: string, c: { phone?: string | null; email?: string | null }, source?: NormalizedLead["source"]) {
+export async function findRecentLeadByContactInternal(tx: Tx, orgId: string, c: { phone?: string | null; email?: string | null }, source?: NormalizedLead["source"], opts: { includeAutoRemoved?: boolean } = {}) {
   const phone = toE164(c.phone);
   const email = cleanEmail(c.email);
   if (!phone && !email) return null;
   const [l] = await tx.select().from(leads)
-    .where(and(eq(leads.orgId, orgId), isNull(leads.deletedAt), source ? eq(leads.source, source) : undefined,
+    .where(and(eq(leads.orgId, orgId), visibleOr(opts.includeAutoRemoved), source ? eq(leads.source, source) : undefined,
       or(phone ? eq(leads.phone, phone) : undefined, email ? eq(leads.email, email) : undefined)))
     .orderBy(desc(leads.receivedAt)).limit(1);
   return l ?? null;

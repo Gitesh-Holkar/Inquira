@@ -1,8 +1,12 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { toast } from "sonner";
+import { CheckCheck, Trash2, Undo2, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog, Dialog, DialogContent } from "@/components/ui/dialog";
+import { deleteLeadsAction, markNotRepliedAction, markRepliedAction } from "@/app/(app)/leads/actions";
 import { SourceBadge, StatusBadge } from "@/components/status";
 import { formatPhone } from "@/lib/phone";
 import { formatDateTime, formatRelative } from "@/lib/format";
@@ -16,13 +20,27 @@ export type InboxLead = {
   city: string | null; state: string | null; country: string | null; contactName: string | null; companyName: string | null;
   phone: string | null; email: string | null; receivedAt: string; isInternational: boolean;
   intent: LeadIntent | null; belowMoq: boolean | null; needsDetails: boolean; score: number;
+  /** Reply state (the Not replied / Replied tabs). */
+  repliedAt: string | null; outboxPending: boolean; buyerWroteAgain: boolean;
 };
+
+/** What the person may do with selected leads. */
+export type BulkActions = { markReplied: boolean; markNotReplied: boolean; delete: boolean };
 
 const SHORTCUTS = [["j / k", "Next / previous lead"], ["e or Enter", "Open lead"], ["w", "WhatsApp"], ["q", "Create quote draft"], ["?", "Show this help"]];
 
-export function InboxList({ leads }: { leads: InboxLead[] }) {
+export function InboxList({ leads, bulk = { markReplied: false, markNotReplied: false, delete: false }, removeAfterDays = null }: { leads: InboxLead[]; bulk?: BulkActions; removeAfterDays?: number | null }) {
   const router = useRouter();
   const [sel, setSel] = useState(0);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [pending, start] = useTransition();
+  const canPick = bulk.markReplied || bulk.markNotReplied || bulk.delete;
+  const toggle = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const allPicked = leads.length > 0 && leads.every((l) => picked.has(l.id));
+  const run = (fn: (ids: string[]) => Promise<{ ok: boolean; error?: string; data?: { count: number } }>, done: (n: number) => string) => start(async () => {
+    const r = await fn([...picked]);
+    if (r.ok) { toast.success(done(r.data?.count ?? picked.size)); setPicked(new Set()); router.refresh(); } else toast.error(r.error ?? "That did not work");
+  });
   const [help, setHelp] = useState(false);
   const wa = useRef<Record<string, () => void>>({});
   const qt = useRef<Record<string, () => void>>({});
@@ -58,6 +76,14 @@ export function InboxList({ leads }: { leads: InboxLead[] }) {
 
   return (
     <>
+      {canPick ? (
+        <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
+          <label className="flex min-h-11 items-center gap-2 px-1">
+            <input type="checkbox" className="size-5" checked={allPicked} onChange={() => setPicked(allPicked ? new Set() : new Set(leads.map((l) => l.id)))} aria-label="Select all leads on this page" />
+            Select all on this page
+          </label>
+        </div>
+      ) : null}
       <ul className="grid grid-cols-1 gap-2" aria-label="Leads">
         {leads.map((l, i) => {
           const where = [l.city, l.state, l.isInternational ? l.country : null].filter(Boolean).join(", ");
@@ -66,6 +92,12 @@ export function InboxList({ leads }: { leads: InboxLead[] }) {
               className={cn("min-w-0 rounded-lg border border-border bg-surface shadow-card", i === sel && "ring-2 ring-ring")}
               onMouseEnter={() => setSel(i)}>
               <div className="flex flex-col gap-3 p-3 md:flex-row md:items-center">
+                {canPick ? (
+                  <label className="-m-1 flex size-11 shrink-0 items-center justify-center self-start md:self-center" title="Select">
+                    <input type="checkbox" className="size-5" checked={picked.has(l.id)} onChange={() => toggle(l.id)}
+                      aria-label={`Select ${l.contactName ?? l.companyName ?? "lead"}: ${l.productText ?? "product not stated"}`} />
+                  </label>
+                ) : null}
                 <Link href={`/leads/${l.id}`} className="min-w-0 flex-1 rounded-md">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <StatusBadge status={l.status} />
@@ -73,6 +105,11 @@ export function InboxList({ leads }: { leads: InboxLead[] }) {
                     {l.intent && l.intent !== "new_enquiry" ? <Badge tone="info">{INTENT_LABELS[l.intent]}</Badge> : null}
                     {l.belowMoq ? <Badge tone="warning">Below MOQ</Badge> : null}
                     {l.needsDetails ? <Badge tone="warning">Needs details</Badge> : null}
+                    {l.buyerWroteAgain ? <Badge tone="warning">Buyer wrote again</Badge> : null}
+                    {l.outboxPending ? <Badge tone="info" title="A message for this lead waits, is held or failed in the Outbox">In Outbox</Badge> : null}
+                    {l.repliedAt && !l.outboxPending && !l.buyerWroteAgain ? (
+                      <Badge tone="success" title={removeAfterDays ? `Leaves this list ${removeAfterDays} days after the reply` : undefined}>Replied {formatRelative(l.repliedAt)}</Badge>
+                    ) : null}
                     <Badge tone={l.score >= 70 ? "success" : l.score >= 40 ? "info" : "neutral"} title="Lead score: product, quantity against MOQ and buyer details">Score {l.score}</Badge>
                     <span className="ml-auto text-xs text-muted md:ml-0" title={formatDateTime(l.receivedAt)}>{formatRelative(l.receivedAt)}</span>
                   </div>
@@ -98,6 +135,29 @@ export function InboxList({ leads }: { leads: InboxLead[] }) {
           );
         })}
       </ul>
+      {picked.size ? (
+        <div role="region" aria-label="Selected leads" className="sticky bottom-20 z-20 mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface p-3 shadow-card lg:bottom-4">
+          <span className="text-sm"><strong>{picked.size}</strong> selected</span>
+          <div className="ml-auto flex flex-wrap gap-2">
+            {bulk.markReplied ? (
+              <ConfirmDialog title={`Mark ${picked.size} as replied?`} confirmLabel="Mark as replied"
+                description="Use this when you answered on WhatsApp, by phone or outside Inquira. Messages Inquira prepared for these leads and has not sent are stopped, so nobody gets a second answer."
+                trigger={<Button disabled={pending}><CheckCheck />Mark as replied</Button>}
+                onConfirm={() => run(markRepliedAction, (n) => `${n} marked as replied`)} />
+            ) : null}
+            {bulk.markNotReplied ? (
+              <Button variant="outline" disabled={pending} onClick={() => run(markNotRepliedAction, (n) => `${n} moved to Not replied`)}><Undo2 />Move to Not replied</Button>
+            ) : null}
+            {bulk.delete ? (
+              <ConfirmDialog danger title={`Delete ${picked.size} lead${picked.size === 1 ? "" : "s"}?`} confirmLabel="Delete"
+                description="They leave every list, and their unsent messages are stopped. Use this for spam, tests and duplicates."
+                trigger={<Button variant="outline" className="text-danger" disabled={pending}><Trash2 />Delete</Button>}
+                onConfirm={() => run(deleteLeadsAction, (n) => `${n} deleted`)} />
+            ) : null}
+            <Button variant="ghost" onClick={() => setPicked(new Set())} aria-label="Clear the selection"><X />Clear</Button>
+          </div>
+        </div>
+      ) : null}
       <p className="mt-3 hidden text-xs text-muted lg:block">Tip: press <kbd className="rounded border border-border px-1">?</kbd> for keyboard shortcuts.</p>
       <Dialog open={help} onOpenChange={setHelp}>
         <DialogContent title="Keyboard shortcuts">

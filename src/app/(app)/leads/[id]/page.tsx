@@ -23,7 +23,7 @@ import { Alert, Badge, Card, CardContent, CardHeader, CardTitle } from "@/compon
 import { Button } from "@/components/ui/button";
 import { EMAIL_CLASS_LABEL, SourceBadge, StatusBadge } from "@/components/status";
 import { CallButton, CopyButton, QuoteButton, WhatsAppButton } from "@/components/leads/actions";
-import { DeleteLeadButton, EditLeadButton, NoteForm, RemoveNoteButton, StatusChanger } from "@/components/leads/detail-client";
+import { DeleteLeadButton, EditLeadButton, NoteForm, RemoveNoteButton, ReplyState, StatusChanger } from "@/components/leads/detail-client";
 
 export const metadata: Metadata = { title: "Lead" };
 
@@ -209,6 +209,14 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         </div>
 
         <div className="grid content-start gap-4">
+          <Card>
+            <CardHeader><CardTitle>Reply</CardTitle></CardHeader>
+            <CardContent>
+              <ReplyState leadId={lead.id} canEdit={canWrite} state={
+                lead.outboxPending ? "outbox" : lead.repliedAt && lead.lastBuyerMessageAt && lead.lastBuyerMessageAt > lead.repliedAt ? "buyer_wrote" : lead.repliedAt ? "replied" : "not_replied"
+              } repliedAt={lead.repliedAt?.toISOString() ?? null} />
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader><CardTitle>Status</CardTitle></CardHeader>
             <CardContent><StatusChanger key={lead.status} leadId={lead.id} status={lead.status} disabled={!canWrite} /></CardContent>

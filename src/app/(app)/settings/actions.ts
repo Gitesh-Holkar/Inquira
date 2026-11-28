@@ -7,7 +7,7 @@ import { disconnectTradeIndia, saveTradeIndiaCredentials, syncTradeIndia, testTr
 import { disconnectGmail, saveGmailClient, startGmailConnect, syncGmail } from "@/modules/sources/gmail/service";
 import { createIndiaMartPushAddress, disconnectIndiaMart, saveIndiaMartKey, syncIndiaMart, testIndiaMartConnection } from "@/modules/sources/indiamart/service";
 import { createMcpToken, revokeMcpToken } from "@/modules/mcp/service";
-import { createClassificationRule, updateClassificationRule } from "@/modules/email/service";
+import { createClassificationRule, moveClassificationRule, updateClassificationRule } from "@/modules/email/service";
 import { updateBuyleadRules } from "@/modules/buyleads/service";
 import { authorize } from "@/modules/core/permissions";
 import { removeAiKey, saveAiTier, testAiTier, type saveAiTierInput } from "@/modules/ai/service";
@@ -57,9 +57,14 @@ export async function revokeTokenAction(id: string) {
   const s = await requireSession("mcp_tokens.manage");
   return done(await runAction(() => revokeMcpToken(s.ctx, { id })));
 }
-export async function createRuleAction(input: { name: string; matchType: "sender_email" | "sender_domain" | "subject_contains" | "body_contains"; pattern: string; action: "ignore" | "needs_review" | "international" | "inquiry"; priority: number }) {
+export async function createRuleAction(input: { name: string; matchType: "sender_email" | "sender_domain" | "subject_contains" | "body_contains"; pattern: string; action: "ignore" | "needs_review" | "international" | "inquiry" }) {
   const s = await requireSession("rules.write");
   return done(await runAction(() => createClassificationRule(s.ctx, { ...input, enabled: true, applyToReviewQueue: input.action === "ignore" })));
+}
+/** Settings → Email rules → ↑ / ↓. */
+export async function moveRuleAction(id: string, direction: "up" | "down") {
+  const s = await requireSession("rules.write");
+  return done(await runAction(() => moveClassificationRule(s.ctx, { id, direction })));
 }
 export async function updateRuleAction(id: string, patch: { enabled?: boolean; deleted?: boolean }) {
   const s = await requireSession("rules.write");
@@ -69,7 +74,7 @@ export async function saveBuyleadRulesAction(input: Parameters<typeof updateBuyl
   const s = await requireSession("buylead.rules.write");
   return done(await runAction(() => updateBuyleadRules(s.ctx, input)));
 }
-export async function saveOrgAction(input: { quoteValidityDays: number; defaultPriceBasis: string; paymentTerms: string; samplePolicy?: { freeSampleSize: string | null; requiredDetails: string[]; note: string | null } }) {
+export async function saveOrgAction(input: { quoteValidityDays: number; defaultPriceBasis: string; paymentTerms: string; removeRepliedAfterDays?: number | null; samplePolicy?: { freeSampleSize: string | null; requiredDetails: string[]; note: string | null } }) {
   const s = await requireSession("settings.write");
   return done(await runAction(() => updateOrgSettings(s.ctx, input)));
 }

@@ -7,7 +7,7 @@
 
 - **Goal:** `docs/GOAL.md` (requirement IDs `G-…`). **Rules:** `AGENTS.md`. **Where things are:** `docs/INDEX.md`, `docs/CODEMAP.md`.
 - **Built:** every milestone M0 to M8 that does not wait on the owner. The owner asked on 22 Nov 2026 to finish the whole app first and keep only what needs his input; that list is "What only the owner can do" below.
-- **Live site:** deployed on Vercel from this branch; sign-in is on. Every migration up to `0016` is applied to the live database. The live site still has the September rates until the owner imports the November list (item 4 below).
+- **Live site:** deployed on Vercel from this branch; sign-in is on. Every migration up to `0017` is applied to the live database. The live site still has the September rates until the owner imports the November list (item 4 below).
 - **Sending:** the Outbox runs in **shadow** mode: a person sends every message.
 - **Next for an agent:** nothing is open that does not need the owner. When he answers an item below, do that item (for example the licence file, assisted mode, the orders phase once samples arrive).
 
@@ -42,6 +42,10 @@ Work in order, one at a time. Stop at every **OWNER GATE**.
 | M8 | Operations: follow-ups, time to first reply, members screen, backups | G-FUP-1, G-RPT-*, G-PLT-2, G-PLT-7 | **Built 22 Nov 2026.** Follow-ups came with M7 and the members screen on 17 Nov. Dashboard "Last 7 days" with time to first reply; daily summary email (off until switched on); nightly backups kept 14 days, owner download, restore command, tested restore (`tests/operations.test.ts`, and once by hand into a fresh database: 649 rows, counts matched) (ADR-033) |
 | Later | WhatsApp Cloud API, orders, attendance | G-OUT-8, G-ORD-*, G-ATT-1 | Waits on the owner: the WhatsApp per-message cost (G-OUT-8); proforma samples and the ClearTax template (GOAL phase 5). Attendance is a separate application (G-ATT-1). Conversation replies (G-CNV-2, G-CNV-3) were built in M7 |
 
+## 28 Nov 2026: Not replied / Replied (owner's request)
+
+Leads opens on **Not replied**; a lead moves to **Replied** only when its reply went out and nothing for it waits or failed in the Outbox; a new buyer message brings it back; replied leads are hidden after 7 days (setting) and restored by a buyer message (ADR-034). Mark as replied and Delete work on one or many leads. Email rules have an order (↑ / ↓). Migration 0017, applied live. Tests: `tests/replied.test.ts`, rule order in `tests/human-paths.test.ts`, a browser journey.
+
 ## Feature check of 23 Nov 2026 (the owner found a missing action)
 
 The owner could not find how to delete a product: the action existed but sat at the bottom of the Edit product dialog after picking the product. Every screen was then checked for actions a person would look for, every service for a screen that uses it, and every page and tab was opened on desktop and phone (no errors, no sideways scroll).
@@ -59,7 +63,7 @@ The owner could not find how to delete a product: the action existed but sat at 
 | Removing a mistyped note | Remove on the note (author, or who may delete leads) |
 | Small tap targets on phones (standalone links, placeholder buttons) | At least 44 px |
 
-Still not built, on purpose (no screen shows them): restoring a deleted lead or a removed document (both ask for confirmation first; re-add instead), the priority order of email rules (rules apply in the order they were created), assigning a lead to a person.
+Still not built, on purpose (no screen shows them): restoring a lead a person deleted or a removed document (both ask for confirmation first; re-add instead). Email rule order was built on 28 Nov 2026. **Assigning a lead to a person is not needed** (owner, 28 Nov 2026: "it is just a lead, not a client; what comes after the lead we handle ourselves in WhatsApp and email"); `leads.assigned_to` stays unused.
 
 ## Feature check of 17 Nov 2026 ("complete before more")
 

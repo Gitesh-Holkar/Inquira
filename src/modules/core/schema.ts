@@ -31,6 +31,8 @@ export const orgSettings = app.table("org_settings", {
   defaultPriceBasis: text().notNull().default("Ex-factory"),
   /** Printed on quotations, e.g. "100% advance". Empty until the company enters it (never invented). */
   paymentTerms: text(),
+  /** Replied leads leave the Leads list this many days after the reply (leads.cleanup job). Empty = never. */
+  removeRepliedAfterDays: integer().default(7),
   /**
    * How this company's price list maps onto its catalogue (headings → GST and pack size, list names →
    * product and grade). Shape: `priceListMapSchema` in the catalog module, which validates it on read.

@@ -238,6 +238,8 @@ Inquira prepares a reply for every new enquiry in **Outbox** (email when the buy
 4. **Settings → Sending:** send window, limits per hour and day, follow-up days, the **pause** switch, and the **daily summary** email.
 5. After about two weeks in which the prepared quotations needed few edits, an owner may switch email to **assisted** (clean first quotations go automatically, inside the window). Switch back to shadow or press pause at any time.
 
+**Leads → Not replied / Replied.** A new enquiry is in **Not replied** until its reply went out: every message prepared for it was sent (email and WhatsApp) or stopped, and nothing failed. A failed send keeps it there, so no lead is lost. When the buyer writes again it comes back. If you answered on WhatsApp or by phone, tick the lead and press **Mark as replied** (this also stops Inquira's unsent messages for it). A reply you send yourself from Gmail in the enquiry's thread counts too. Replied leads leave the list after 7 days (**Settings → Organisation → Remove replied leads after**; empty = keep them); they come back if the buyer writes again. To delete leads (spam, tests), tick them and press **Delete**.
+
 ## 6d. Backups and the daily summary
 
 - **Backups** run by themselves every night after 01:00 IST and are kept 14 days, in the private `documents` bucket (folder `backups/`). They need `SUPABASE_SERVICE_ROLE_KEY` in Vercel (section 2); without it Settings → Backups says file storage is not set up. Once a week, an owner opens **Settings → Backups → Download** and keeps the file somewhere else (another drive or account). Restoring: `docs/RUNBOOK.md` section 5.

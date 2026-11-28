@@ -4,6 +4,16 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 28 Nov 2026 — Leads: Not replied and Replied; email rule order
+- **Leads** now opens on **Not replied**: enquiries nobody has answered yet. A lead moves to **Replied** only when its reply really went out (every message prepared for it, email and WhatsApp, was sent or stopped) and nothing waits or failed in the Outbox. A send that fails keeps the lead in Not replied, so it is never lost. When the buyer writes again, the lead comes back to Not replied.
+- A reply you send yourself from Gmail in the enquiry's thread counts as replied, and Inquira then stops its own unsent email for that lead so the buyer never gets two answers.
+- **Mark as replied** (tick one or many leads, or on the lead page): for answers given on WhatsApp or by phone. It also stops Inquira's unsent messages for those leads. **Move to Not replied** undoes it.
+- **Delete** many leads at once: tick them, then Delete. Their unsent messages are stopped.
+- Replied leads leave the list **7 days** after the reply (**Settings → Organisation → Remove replied leads after**; empty = keep them). They are kept hidden, so the same enquiry is never imported twice, and they come back if the buyer writes again.
+- The menu shows how many leads are not replied; the dashboard tile is now **Not replied**.
+- **Settings → Email rules:** ↑ and ↓ set the order; rules are checked from the top and the first that matches decides. A new rule goes to the bottom.
+- Database: migration 0017.
+
 ### 23 Nov 2026 — Missing actions found in a check of every screen
 - **Rates:** each product now has its own **Edit** (pencil) and **Delete** (bin) on its row, on desktop and phones. Deleting keeps the rates and history; **Deleted products** at the bottom brings one back.
 - **Rates → Edit:** a grade no longer sold can be **removed** (its rates stay in history; adding the same grade name again, or a price list naming it, brings it back with its history).

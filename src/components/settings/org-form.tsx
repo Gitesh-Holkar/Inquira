@@ -24,7 +24,7 @@ export function CompanyNameForm({ name, isOwner }: { name: string; isOwner: bool
 
 export type SamplePolicyView = { freeSampleSize: string | null; requiredDetails: string[]; note: string | null };
 
-export function OrgForm({ quoteValidityDays, defaultPriceBasis, paymentTerms, samplePolicy, canEdit }: { quoteValidityDays: number; defaultPriceBasis: string; paymentTerms: string; samplePolicy: SamplePolicyView; canEdit: boolean }) {
+export function OrgForm({ quoteValidityDays, defaultPriceBasis, paymentTerms, samplePolicy, removeRepliedAfterDays, canEdit }: { quoteValidityDays: number; defaultPriceBasis: string; paymentTerms: string; samplePolicy: SamplePolicyView; removeRepliedAfterDays: number | null; canEdit: boolean }) {
   const [pending, start] = useTransition();
   return (
     <form
@@ -36,6 +36,7 @@ export function OrgForm({ quoteValidityDays, defaultPriceBasis, paymentTerms, sa
           const text = (k: string) => String(f.get(k) ?? "").trim();
           const r = await saveOrgAction({
             quoteValidityDays: Number(f.get("days")), defaultPriceBasis: text("basis"), paymentTerms: text("payment"),
+            removeRepliedAfterDays: text("removeDays") ? Number(text("removeDays")) : null,
             samplePolicy: {
               freeSampleSize: text("sampleSize") || null,
               requiredDetails: text("sampleDetails").split(",").map((x) => x.trim()).filter(Boolean),
@@ -55,6 +56,10 @@ export function OrgForm({ quoteValidityDays, defaultPriceBasis, paymentTerms, sa
       </Field>
       <Field label="Payment terms" htmlFor="org-payment" hint="Printed on every quotation, for example “100% advance”. Leave empty to leave the line out.">
         <Input id="org-payment" name="payment" defaultValue={paymentTerms} maxLength={200} disabled={!canEdit} />
+      </Field>
+      <Field label="Remove replied leads after (days)" htmlFor="org-remove-days"
+        hint="A lead leaves Leads → Replied this many days after its reply. It is kept hidden (so the same enquiry is never imported twice) and comes back if the buyer writes again. Empty = keep them.">
+        <Input id="org-remove-days" name="removeDays" type="number" min={1} max={365} defaultValue={removeRepliedAfterDays ?? ""} disabled={!canEdit} />
       </Field>
       <fieldset className="grid gap-3 border-t border-border pt-3">
         <legend className="pt-3 text-sm font-semibold">Sample policy</legend>

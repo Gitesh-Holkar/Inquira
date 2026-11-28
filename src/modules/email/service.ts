@@ -8,7 +8,7 @@ import { defineService } from "@/modules/core/service-kit";
 import { actorString, type Ctx } from "@/modules/core/types";
 import { enqueueJobInternal } from "@/modules/core/service";
 import { markAiCorrectedInternal } from "@/modules/ai/corrections";
-import { findLeadByThreadInternal, findRecentLeadByContactInternal, getLeadInternal, touchLeadInternal, upsertLeadInternal } from "@/modules/leads/service";
+import { findLeadByThreadInternal, findRecentLeadByContactInternal, getLeadInternal, noteBuyerMessageInternal, noteOwnGmailReplyInternal, upsertLeadInternal } from "@/modules/leads/service";
 import type { LeadSource, NormalizedLead } from "@/modules/leads/types";
 import { classificationRules, emailMessages } from "./schema";
 import { classifyEmail, ruleMatches, type ClassifyResult } from "./classify";
@@ -32,9 +32,11 @@ function portalSource(fromEmail: string | null): LeadSource {
   return "gmail";
 }
 
+/** The team's rules in the order they are checked: top of Settings → Email rules first (priority, then age). */
 async function activeRules(tx: Tx, orgId: string) {
   return tx.select().from(classificationRules)
-    .where(and(eq(classificationRules.orgId, orgId), isNull(classificationRules.deletedAt), eq(classificationRules.enabled, true)));
+    .where(and(eq(classificationRules.orgId, orgId), isNull(classificationRules.deletedAt), eq(classificationRules.enabled, true)))
+    .orderBy(asc(classificationRules.priority), asc(classificationRules.createdAt), asc(classificationRules.id));
 }
 
 /**
@@ -46,7 +48,8 @@ export async function ingestMessageInternal(tx: Tx, ctx: Ctx, m: IngestMessage, 
     .where(and(eq(emailMessages.orgId, ctx.orgId), eq(emailMessages.gmailMessageId, m.gmailMessageId)));
   if (existing) return { emailId: existing.id, duplicate: true, classification: null, leadId: null, leadCreated: false };
 
-  const threadLead = await findLeadByThreadInternal(tx, ctx.orgId, m.gmailThreadId);
+  // A lead removed automatically after its reply still counts: the buyer writing again brings it back.
+  const threadLead = await findLeadByThreadInternal(tx, ctx.orgId, m.gmailThreadId, { includeAutoRemoved: true });
   const rules = await activeRules(tx, ctx.orgId);
   const input = {
     id: m.gmailMessageId, threadId: m.gmailThreadId, from: m.fromName ? `${m.fromName} <${m.fromEmail}>` : m.fromEmail ?? "",
@@ -69,6 +72,11 @@ export async function ingestMessageInternal(tx: Tx, ctx: Ctx, m: IngestMessage, 
   }).returning();
 
   const { leadId, leadCreated } = await applyClassification(tx, ctx, row!, r, threadLead?.id ?? null);
+  // A person replied from Gmail in a lead's thread: the lead counts as replied (Inquira's own sends are skipped there).
+  if (m.labelIds.includes("SENT") && threadLead && !threadLead.deletedAt) {
+    await tx.update(emailMessages).set({ leadId: threadLead.id }).where(eq(emailMessages.id, row!.id));
+    await noteOwnGmailReplyInternal(tx, ctx, threadLead.id, m.receivedAt, m.gmailMessageId);
+  }
   // Emails the rules could not settle go to the Advanced AI tier first, if the company turned it on (G-AI-6).
   if (r.classification === "needs_review") await enqueueJobInternal(tx, ctx, { type: "ai.work", dedupeKey: "ai.work" });
   await audit(tx, ctx, { action: "email.ingest", entityType: "email_message", entityId: row!.id, changes: { classification: r.classification, by: r.by, leadId } });
@@ -107,10 +115,11 @@ async function applyClassification(tx: Tx, ctx: Ctx, row: EmailRow, r: ClassifyR
     leadId = threadLeadId;
     if (!leadId) {
       const f = r.parsed?.fields;
-      const l = await findRecentLeadByContactInternal(tx, ctx.orgId, { phone: f?.phone, email: f?.email ?? row.fromEmail }, r.parsed?.source);
+      const l = await findRecentLeadByContactInternal(tx, ctx.orgId, { phone: f?.phone, email: f?.email ?? row.fromEmail }, r.parsed?.source, { includeAutoRemoved: true });
       leadId = l?.id ?? null;
     }
-    if (leadId) await touchLeadInternal(tx, ctx.orgId, leadId);
+    // The buyer wrote again: back to "Not replied" (and back in the list if it was removed after its reply).
+    if (leadId && !row.isOutgoing && !(await noteBuyerMessageInternal(tx, ctx, leadId, row.receivedAt))) leadId = null;
   }
   if (leadId) await tx.update(emailMessages).set({ leadId }).where(eq(emailMessages.id, row.id));
   return { leadId, leadCreated };
@@ -227,11 +236,11 @@ export async function classifyEmailInternal(tx: Tx, ctx: Ctx, input: EmailClassi
     leadId = res.leadId;
     leadCreated = res.created;
   } else if (input.classification === "conversation") {
-    leadId = input.leadId ?? (await findLeadByThreadInternal(tx, ctx.orgId, row.gmailThreadId))?.id
-      ?? (await findRecentLeadByContactInternal(tx, ctx.orgId, { email: input.lead?.email ?? row.fromEmail, phone: input.lead?.phone }))?.id ?? null;
+    leadId = input.leadId ?? (await findLeadByThreadInternal(tx, ctx.orgId, row.gmailThreadId, { includeAutoRemoved: true }))?.id
+      ?? (await findRecentLeadByContactInternal(tx, ctx.orgId, { email: input.lead?.email ?? row.fromEmail, phone: input.lead?.phone }, undefined, { includeAutoRemoved: true }))?.id ?? null;
     if (!leadId) throw new AppError("VALIDATION", "Conversation needs a leadId (no lead matches this thread or sender).");
+    if (!row.isOutgoing) await noteBuyerMessageInternal(tx, ctx, leadId, row.receivedAt); // brings back a lead removed after its reply
     if (!(await getLeadInternal(tx, ctx.orgId, leadId))) throw notFound("Lead");
-    await touchLeadInternal(tx, ctx.orgId, leadId);
   }
 
   await tx.update(emailMessages).set({
@@ -259,7 +268,8 @@ export const ruleInput = z.object({
   matchType: z.enum(["sender_email", "sender_domain", "subject_contains", "body_contains"]),
   pattern: z.string().trim().toLowerCase().min(2).max(200),
   action: z.enum(["ignore", "needs_review", "international", "inquiry"]),
-  priority: z.number().int().min(1).max(1000).default(100),
+  /** Position in the check order (lower first). Left out, a new rule goes to the end of the list. */
+  priority: z.number().int().min(1).max(1000).optional(),
   enabled: z.boolean().default(true),
 });
 
@@ -278,7 +288,12 @@ export const createClassificationRule = defineService({
     if (rule.matchType === "sender_domain" && FREE_MAIL_DOMAINS.has(rule.pattern.replace(/^@/, ""))) {
       throw new AppError("VALIDATION", `${rule.pattern} is a public email provider used by many buyers. Make a rule for the exact sender address instead.`, { fieldErrors: { pattern: ["Use the full sender address for public email providers"] } });
     }
-    const [r] = await tx.insert(classificationRules).values({ orgId: ctx.orgId, ...rule, createdBy: actorString(ctx.actor) }).returning();
+    if (rule.priority === undefined) {
+      const [{ max } = { max: 0 }] = await tx.select({ max: sql<number>`coalesce(max(${classificationRules.priority}), 0)::int` }).from(classificationRules)
+        .where(and(eq(classificationRules.orgId, ctx.orgId), isNull(classificationRules.deletedAt)));
+      rule.priority = Math.min(1000, max + 1);
+    }
+    const [r] = await tx.insert(classificationRules).values({ orgId: ctx.orgId, ...rule, priority: rule.priority, createdBy: actorString(ctx.actor) }).returning();
     await audit(tx, ctx, { action: "rule.create", entityType: "classification_rule", entityId: r!.id, changes: rule });
     await emit(tx, ctx, { type: "rule.created", entityType: "classification_rule", entityId: r!.id });
     let applied = 0;
@@ -298,6 +313,33 @@ export const createClassificationRule = defineService({
       }
     }
     return { rule: r!, applied };
+  },
+});
+
+/**
+ * Settings → Email rules → ↑ / ↓: moves a rule one place in the check order. The first rule that matches an email
+ * decides, so order matters when two rules could match (for example "ignore @vendor.com" above "inquiry: subject
+ * contains price"). Every rule is renumbered 1, 2, 3… in one go, so the order stays exact.
+ */
+export const moveClassificationRule = defineService({
+  name: "email.moveRule",
+  input: z.object({ id: z.string().uuid(), direction: z.enum(["up", "down"]) }),
+  permission: "rules.write",
+  handler: async (ctx, input, tx) => {
+    const all = await tx.select({ id: classificationRules.id, priority: classificationRules.priority }).from(classificationRules)
+      .where(and(eq(classificationRules.orgId, ctx.orgId), isNull(classificationRules.deletedAt)))
+      .orderBy(asc(classificationRules.priority), asc(classificationRules.createdAt), asc(classificationRules.id));
+    const i = all.findIndex((r) => r.id === input.id);
+    if (i < 0) throw notFound("Rule");
+    const j = input.direction === "up" ? i - 1 : i + 1;
+    if (j < 0 || j >= all.length) return { moved: false };
+    [all[i], all[j]] = [all[j]!, all[i]!];
+    for (const [k, r] of all.entries()) {
+      const priority = Math.min(1000, k + 1);
+      if (r.priority !== priority) await tx.update(classificationRules).set({ priority }).where(eq(classificationRules.id, r.id));
+    }
+    await audit(tx, ctx, { action: "rule.move", entityType: "classification_rule", entityId: input.id, changes: { direction: input.direction, position: [i + 1, j + 1] } });
+    return { moved: true };
   },
 });
 

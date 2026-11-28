@@ -156,6 +156,7 @@ Every source implements the same three steps: **fetch → normalize to `Normaliz
 | `outbound.send` | Sends emails the pipeline approved: inside the send window, under the caps, not while paused, after re-checking the rules | every tick |
 | `report.daily` | The owner's daily summary email (G-RPT-2), when switched on in Settings → Sending; through the one send path | every tick; sends once a day after 19:30 IST |
 | `backup.nightly` | Backs up the company to its file storage and removes backups older than 14 days (G-PLT-7) | every tick; runs once a day after 01:00 IST |
+| `leads.cleanup` | Replied leads leave the list after the company's days (Settings → Organisation, default 7); they stay hidden and come back if the buyer writes again (ADR-034) | every tick; 200 per run |
 | `leads.rescore` | Refreshes scores of open leads not scored today (MOQs change with rates); 300 per run | every tick; does nothing once the day's pass is done |
 | `ai.work` | Leads the rules left open go to Basic, then Advanced, then the review queue; review emails go to Advanced (ADR-031). 15 s budget, 10 items per run; `{ more: true }` queues a follow-up | when a lead or review email arrives that rules could not settle, and every tick |
 
@@ -232,6 +233,19 @@ quote sent N days┘    rates, terms, docs)   └─ approved (mode allows) ─�
 - Modes (email): shadow (default), assisted, automatic. WhatsApp is always a person's tap.
 - `src/modules/outbound/send.ts` is the only code that sends; a test enforces it.
 - Held messages, failed sends and buyer replies are told once under the bell (`notifications`).
+
+## Replied or not (the Leads tabs, ADR-034)
+
+```
+new enquiry ──► Not replied ──(every prepared message sent or stopped, at least one reply out)──► Replied ──(N days)──► hidden
+     ▲              ▲  ▲                                                                            │
+     │              │  └── a message waits, is held or failed in the Outbox                         │
+     │              └───── the buyer writes again ◄────────────────────────────────────────────────┘ (also brings a hidden one back)
+```
+
+- The leads module owns the state (`replied_at`, `last_buyer_message_at`, `outbox_pending`); the outbound module calls `syncLeadOutboxInternal` / `noteReplySentInternal` after every prepare, send, failure and cancel; the email module calls `noteBuyerMessageInternal` for a buyer's reply and `noteOwnGmailReplyInternal` for a reply a person sent from Gmail (which also stops Inquira's unsent email for that lead).
+- "Mark as replied" (answered on WhatsApp or by phone) stops the lead's unsent messages so nobody gets two answers.
+- WhatsApp counts as sent when a person opens it from Inquira: Inquira cannot see inside WhatsApp.
 
 ## Who may do what
 

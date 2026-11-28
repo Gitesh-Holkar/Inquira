@@ -39,6 +39,7 @@ Each file has: Context, Problem, Options, Decision, Reasoning, Consequences, Sta
 | [ADR-031](ADR-031-ai-tiers.md) | AI tiers behind one provider interface, rules first, code decides | Accepted | 18 Nov 2026 |
 | [ADR-032](ADR-032-outbound-pipeline.md) | One outbound pipeline with hold rules and modes; sending only through it | Accepted | 22 Nov 2026 |
 | [ADR-033](ADR-033-backups-as-company-files.md) | Backups are one file per company in its own file storage | Accepted | 22 Nov 2026 |
+| [ADR-034](ADR-034-replied-leads-hidden-not-erased.md) | Replied leads are hidden after some days, not erased | Accepted | 28 Nov 2026 |
 
 ## To be written when the work reaches them
 

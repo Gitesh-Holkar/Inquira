@@ -11,7 +11,7 @@ import { getOrgSettingsInternal } from "@/modules/core/service";
 import { actorString, type Ctx } from "@/modules/core/types";
 import { currentRatesInternal, productInfoById, productTermsInternal } from "@/modules/catalog/service";
 import type { CurrentRate } from "@/modules/catalog/types";
-import { getLeadInternal, markQuotedInternal, type Lead } from "@/modules/leads/service";
+import { getLeadInternal, markQuotedInternal, syncLeadOutboxInternal, type Lead } from "@/modules/leads/service";
 import { getDefaultTemplateInternal, getTemplateInternal } from "@/modules/templates/service";
 import { DEFAULT_ITEM_BLOCK, render, type TemplateVars } from "@/modules/templates/engine";
 import { getMessageMetaInternal } from "@/modules/email/service";
@@ -172,6 +172,7 @@ export async function createQuoteDraft(ctx: Ctx, raw: z.input<typeof createInput
       await markQuotedInternal(tx, ctx, lead.id);
       // Quoted by hand: the pipeline's own first quotation for this lead must not go out as well.
       await cancelPendingMessagesInternal(tx, ctx, lead.id, ["first_quotation", "detailed_quotation"], "Quoted by hand through a Gmail draft");
+      await syncLeadOutboxInternal(tx, ctx.orgId, lead.id);
       await audit(tx, ctx, { action: "quote.draft", entityType: "quotation", entityId: q.id, changes: {
         gmailDraftId: draft.id, threaded: !!lead.gmailThreadId, signature: !!signatureHtml,
         attached: files.filter((f) => attachments.some((a) => a.fileName === f.document.fileName)).map((f) => ({ documentId: f.document.id, type: f.document.type, fileName: f.document.fileName })),
