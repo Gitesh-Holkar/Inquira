@@ -39,7 +39,7 @@ export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLab
 export function Field({ label, htmlFor, error, hint, children, className }: { label: string; htmlFor: string; error?: string | string[] | null; hint?: React.ReactNode; children: React.ReactNode; className?: string }) {
   const err = Array.isArray(error) ? error[0] : error;
   return (
-    <div className={cn("grid gap-1.5", className)}>
+    <div className={cn("grid content-start gap-1.5", className)}>
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {err ? <p id={`${htmlFor}-error`} className="text-xs text-danger" role="alert">{err}</p> : hint ? <p className="text-xs text-muted">{hint}</p> : null}

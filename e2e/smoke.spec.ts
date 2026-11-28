@@ -94,6 +94,8 @@ test("main flows", async ({ page }) => {
   const price = page.getByLabel("Pea Protein Isolate Standard Price ₹/kg", { exact: true }).locator("visible=true");
   const newPrice = test.info().project.name === "mobile" ? "356" : "355";
   await expect(async () => {
+    // Phones show a short card: "Change rate" opens its fields.
+    if (test.info().project.name === "mobile" && !(await price.count())) await page.getByRole("button", { name: "Change rate for Pea Protein Isolate · Standard" }).click();
     await price.fill(newPrice);
     await expect(page.getByRole("button", { name: /Save 1 change/ })).toBeVisible({ timeout: 1500 });
   }).toPass({ timeout: 30_000 });
@@ -101,14 +103,18 @@ test("main flows", async ({ page }) => {
   await page.getByRole("button", { name: "Save rates" }).click();
   await expect(page.getByText(/Saved 1 rate/)).toBeVisible();
 
-  // Edit a product: add another name buyers use
-  const editDialog = page.getByRole("dialog", { name: "Edit product" });
+  // Edit a product from its row: add another name buyers use
+  await page.getByLabel("Filter products").fill("Mung Starch");
+  const editDialog = page.getByRole("dialog", { name: "Edit Mung Starch" });
   await expect(async () => {
-    if (!(await editDialog.isVisible())) await page.getByRole("button", { name: "Edit product" }).click();
+    if (!(await editDialog.isVisible())) await page.getByRole("button", { name: "Edit Mung Starch" }).locator("visible=true").first().click();
     await expect(editDialog).toBeVisible({ timeout: 1500 });
   }).toPass({ timeout: 30_000 });
-  await editDialog.getByLabel("Product", { exact: true }).selectOption({ label: "Mung Starch" });
-  await editDialog.getByLabel("Other names buyers use (comma separated)").fill(`moong starch, mung bean starch ${test.info().project.name}`);
+  await editDialog.getByLabel("Other names buyers use").fill(`moong starch, mung bean starch ${test.info().project.name}`);
+  await editDialog.locator("label").filter({ hasText: /^Offered$/ }).click(); // the choice is a labelled button
+  await expect(editDialog.getByRole("radio", { name: "Offered", exact: true })).toBeChecked();
+  await noHorizontalScroll(page);
+  await shot(page, "06c-edit-product");
   await editDialog.getByRole("button", { name: "Save product" }).click();
   await expect(page.getByText("Product saved")).toBeVisible();
 
@@ -128,7 +134,9 @@ test("main flows", async ({ page }) => {
     if (!(await rowEdit.isVisible())) await page.getByRole("button", { name: "Edit Mung Starch" }).locator("visible=true").first().click();
     await expect(rowEdit).toBeVisible({ timeout: 1500 });
   }).toPass({ timeout: 30_000 });
-  await rowEdit.getByLabel("Add grades (comma separated)").fill(`Fine ${test.info().project.name}`);
+  await rowEdit.getByLabel("New grade").fill(`Fine ${test.info().project.name}`);
+  await rowEdit.getByRole("button", { name: "Add grade" }).click();
+  await expect(rowEdit.getByRole("list", { name: "Grades" })).toContainText(`Fine ${test.info().project.name}`);
   await rowEdit.getByRole("button", { name: "Save product" }).click();
   await expect(page.getByText("Product saved")).toBeVisible();
   await expect(rowEdit).toBeHidden();
@@ -450,7 +458,8 @@ test("Leads: Pending and Replied; WhatsApp counts as sent; mark as replied and b
   await page.goto("/leads");
   await expect(page.getByRole("tab", { name: "Pending", exact: true })).toHaveAttribute("aria-selected", "true");
   await page.getByLabel("Search leads").fill("Sweet Potato Starch");
-  await page.getByRole("button", { name: "Filter" }).click();
+  await page.getByLabel("Search leads").press("Enter"); // phones: the filters are folded away, Enter searches
+  await expect(page).toHaveURL(/q=Sweet\+Potato\+Starch/);
   const item = page.getByRole("list", { name: "Leads" }).getByRole("listitem").filter({ hasText: "Sweet Potato Starch" }).first();
   // Opening WhatsApp from the list counts as sent: this lead (phone only) moves to Replied, no question asked.
   const waDialog = page.getByRole("dialog", { name: "WhatsApp message" });

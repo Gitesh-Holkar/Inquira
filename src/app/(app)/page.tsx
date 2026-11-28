@@ -14,11 +14,11 @@ export const metadata: Metadata = { title: "Dashboard" };
 function Stat({ label, value, href, icon, tone }: { label: string; value: number | string; href?: string; icon: React.ReactNode; tone?: string }) {
   const inner = (
     <Card className="h-full transition-colors hover:border-primary">
-      <CardContent className="flex items-center gap-3 py-4">
-        <div className={`grid size-10 shrink-0 place-items-center rounded-md ${tone ?? "bg-primary-soft text-primary"} [&_svg]:size-5`}>{icon}</div>
+      <CardContent className="flex items-center gap-3 px-3 py-4 sm:px-4">
+        <div className={`grid size-9 shrink-0 place-items-center rounded-md sm:size-10 ${tone ?? "bg-primary-soft text-primary"} [&_svg]:size-5`}>{icon}</div>
         <div className="min-w-0">
           <p className="text-2xl font-semibold leading-none">{value}</p>
-          <p className="mt-1 truncate text-sm text-muted">{label}</p>
+          <p className="mt-1 text-sm leading-snug text-muted">{label}</p>
         </div>
       </CardContent>
     </Card>

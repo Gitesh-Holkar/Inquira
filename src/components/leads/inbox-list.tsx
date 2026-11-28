@@ -91,13 +91,14 @@ export function InboxList({ leads, bulk = { markReplied: false, markNotReplied: 
             <li key={l.id} ref={(el) => { rows.current[i] = el; }} data-selected={i === sel || undefined}
               className={cn("min-w-0 rounded-lg border border-border bg-surface shadow-card", i === sel && "ring-2 ring-ring")}
               onMouseEnter={() => setSel(i)}>
-              <div className="flex flex-col gap-3 p-3 md:flex-row md:items-center">
+              <div className="flex items-start gap-1 p-3 md:items-center md:gap-2">
                 {canPick ? (
-                  <label className="-m-1 flex size-11 shrink-0 items-center justify-center self-start md:self-center" title="Select">
+                  <label className="-my-2.5 -ml-2.5 flex size-11 shrink-0 items-center justify-center md:my-0" title="Select">
                     <input type="checkbox" className="size-5" checked={picked.has(l.id)} onChange={() => toggle(l.id)}
                       aria-label={`Select ${l.contactName ?? l.companyName ?? "lead"}: ${l.productText ?? "product not stated"}`} />
                   </label>
                 ) : null}
+                <div className="flex min-w-0 flex-1 flex-col gap-3 md:flex-row md:items-center">
                 <Link href={`/leads/${l.id}`} className="min-w-0 flex-1 rounded-md">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <StatusBadge status={l.status} />
@@ -129,6 +130,7 @@ export function InboxList({ leads, bulk = { markReplied: false, markNotReplied: 
                   ) : null}
                   {l.email ? <CopyButton value={l.email} label="email" compact icon="email" /> : null}
                   <QuoteButton leadId={l.id} compact disabled={l.isInternational} reason="Quotes are disabled for international leads (no USD pricing yet)." runRef={(fn) => (qt.current[l.id] = fn)} />
+                </div>
                 </div>
               </div>
             </li>

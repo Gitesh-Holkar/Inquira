@@ -233,7 +233,7 @@ Basic never receives a buyer's email, phone, name, company or city: Inquira remo
 Inquira prepares a reply for every new enquiry in **Outbox** (email when the buyer has a real email, WhatsApp when there is a phone). It starts in **shadow mode**: a person sends every message, so nothing reaches a buyer by itself.
 
 1. **Templates:** check the text for each kind of message (Templates → First quotation, Documents, Sample reply, …). No sign-off: your Gmail signature is added.
-2. **Product terms** (Rates → Edit product) and **sample policy** (Settings → Organisation) fill the replies; while one a reply needs is empty, that reply is held.
+2. **Product terms** (Rates → the pencil on the product's row) and **sample policy** (Settings → Organisation) fill the replies; while one a reply needs is empty, that reply is held.
 3. Each day, open **Outbox → Needs a person**. Held ones say why. **Send**, **Edit**, or **Don't send** (you can turn the reason into a rule).
 4. **Settings → Sending:** send window, limits per hour and day, follow-up days, the **pause** switch, and the **daily summary** email.
 5. After about two weeks in which the prepared quotations needed few edits, an owner may switch email to **assisted** (clean first quotations go automatically, inside the window). Switch back to shadow or press pause at any time.
@@ -359,7 +359,7 @@ A product that is not in your catalogue is only added when Inquira knows its GST
 
 **One price:** change it directly on the **Rates** screen.
 
-**A product's name, its other names or its grades:** the pencil on the product's row on **Rates** (or **Edit product** at the top). Other names are what buyers call the product; they help match enquiries and price list lines to it. A grade can be renamed, added, or removed when it is no longer sold: its rates stay in history, and adding the same grade name again brings it back.
+**A product's name, its other names or its grades:** the pencil on the product's row on **Rates**. Other names are what buyers call the product; they help match enquiries and price list lines to it. A grade can be renamed, added, or removed when it is no longer sold: its rates stay in history, and adding the same grade name again brings it back.
 
 **A discontinued product:** the bin on the product's row on **Rates** → **Delete product**. It disappears from rates, quotations, lead matching and Buy Lead suggestions; its rates and history are kept. To bring it back: **Deleted products** at the bottom of the Rates screen → **Restore**.
 

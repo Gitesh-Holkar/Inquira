@@ -70,13 +70,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           {sp.gmail_error}
         </Alert>
       ) : null}
-      <nav aria-label="Settings sections" className="mb-4 flex gap-1 overflow-x-auto rounded-lg bg-surface-2 p-1 text-sm">
+      {/* Phones: every section in a 3-column grid, so none hides off the edge of the screen. */}
+      <nav aria-label="Settings sections" className="mb-4 grid grid-cols-3 gap-1 rounded-lg bg-surface-2 p-1 text-sm sm:flex sm:flex-wrap">
         {TABS.map(([t, label]) => (
           <Link
             key={t}
             href={`/settings?tab=${t}`}
             aria-current={tab === t ? "page" : undefined}
-            className={cn("whitespace-nowrap rounded-md px-3 py-2 font-medium text-muted", tab === t && "bg-surface text-foreground shadow-card")}
+            className={cn("flex min-h-11 items-center justify-center rounded-md px-2 py-1.5 text-center font-medium leading-tight text-muted sm:px-3 lg:min-h-9", tab === t && "bg-surface text-foreground shadow-card")}
           >
             {label}
           </Link>

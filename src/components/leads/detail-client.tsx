@@ -32,7 +32,7 @@ export function StatusChanger({ leadId, status, disabled }: { leadId: string; st
   const [reason, setReason] = useState("");
   const [pending, start] = useTransition();
   return (
-    <form className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]" onSubmit={(e) => {
+    <form className="grid gap-2" onSubmit={(e) => {
       e.preventDefault();
       start(async () => {
         const r = await setStatusAction(leadId, value, reason);

@@ -9,7 +9,6 @@ import { can } from "@/modules/core/permissions";
 import { Card, EmptyState, PageHeader } from "@/components/ui/primitives";
 import { RatesEditor } from "@/components/rates/rates-editor";
 import { AddProductButton } from "@/components/rates/add-product";
-import { EditProductButton } from "@/components/rates/edit-product";
 import { RemovedProducts } from "@/components/rates/removed-products";
 import { Button } from "@/components/ui/button";
 
@@ -28,12 +27,11 @@ export default async function RatesPage({ searchParams }: { searchParams: Promis
   const removed = canCatalog ? await listRemovedProducts(s.ctx, {}) : [];
   return (
     <>
-      <PageHeader title="Rates" description={`${priced} of ${rates.length} grades have a current rate. Prices are per kg in INR, GST shown separately. Every change is kept in history.`}
+      <PageHeader title="Rates" description={`Prices per kg in ₹, GST separate. ${priced} of ${rates.length} grades have a rate; every change is kept in history.`}
         actions={canCatalog ? (
           <>
             {can(s.ctx, "rates.write") ? <Button asChild variant="outline"><Link href="/rates/import"><FileUp />Import price list</Link></Button> : null}
-            {editable.length ? <EditProductButton products={editable} /> : null}
-            <AddProductButton />
+            <AddProductButton categories={[...new Set(rates.map((r) => r.category).filter((c): c is string => !!c))].sort()} />
           </>
         ) : undefined} />
       {rates.length === 0 ? (

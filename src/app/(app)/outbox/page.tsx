@@ -37,10 +37,10 @@ export default async function OutboxPage({ searchParams }: { searchParams: Promi
           {sending?.settings.paused ? "Automatic sending is paused. " : ""}Change it under <Link href="/settings?tab=sending" className="underline underline-offset-2">Settings → Sending</Link>.
         </Alert>
       ) : null}
-      <nav aria-label="Outbox views" className="mb-3 flex gap-1 overflow-x-auto rounded-lg bg-surface-2 p-1 text-sm">
+      <nav aria-label="Outbox views" className="mb-3 grid grid-cols-2 gap-1 rounded-lg bg-surface-2 p-1 text-sm sm:flex">
         {VIEWS.map(([v, label]) => (
           <Link key={v} href={v === "review" ? "/outbox" : `/outbox?view=${v}`} aria-current={view === v ? "page" : undefined}
-            className={cn("flex-1 whitespace-nowrap rounded-md px-3 py-2 text-center font-medium text-muted", view === v && "bg-surface text-foreground shadow-card")}>
+            className={cn("flex min-h-11 flex-1 items-center justify-center rounded-md px-2 py-2 text-center font-medium text-muted", view === v && "bg-surface text-foreground shadow-card")}>
             {label}{v === "review" && counts.review ? ` (${counts.review})` : v === "waiting" && counts.waiting ? ` (${counts.waiting})` : ""}
           </Link>
         ))}

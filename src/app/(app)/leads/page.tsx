@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, EmptyState, Input, PageHeader, Select } from "@/components/ui/primitives";
 import { InboxList } from "@/components/leads/inbox-list";
 import { NewLeadButton } from "@/components/leads/new-lead";
+import { FilterPanel } from "@/components/leads/filter-panel";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Leads" };
@@ -70,10 +71,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       <Card className="mb-4 p-3">
         <form className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8" action="/leads" role="search">
           {view !== "inbox" ? <input type="hidden" name="view" value={view} /> : null}
-          <div className="relative col-span-2">
+          <FilterPanel active={[status, source, productId, intent, from || to, sort === "score"].filter(Boolean).length} search={<>
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden />
-            <Input name="q" defaultValue={sp.q} placeholder="Name, company, phone, product…" aria-label="Search leads" className="pl-9" />
-          </div>
+            <Input type="search" name="q" defaultValue={sp.q} placeholder="Name, phone, product…" aria-label="Search leads" enterKeyHint="search" className="pl-9" />
+          </>}>
           <Select name="status" defaultValue={status ?? ""} aria-label="Status">
             <option value="">All statuses</option>
             {LEAD_STATUSES.map((x) => <option key={x} value={x}>{STATUS_LABELS[x]}</option>)}
@@ -105,6 +106,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
               <Input type="date" name="to" defaultValue={sp.to} aria-label="To date" />
             </div>
           </details>
+          </FilterPanel>
         </form>
       </Card>
 

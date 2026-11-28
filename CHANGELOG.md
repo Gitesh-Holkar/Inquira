@@ -4,6 +4,17 @@ What a user or an operator would notice, newest first. Internal refactors are no
 
 ## Unreleased
 
+### 28 Nov 2026 — Easier screens (Rates, Edit product, Leads on phones and more)
+- **Rates:** the table fits the screen with the Edit (pencil) and Delete (bin) buttons always in view. Prices look like plain text until you click one. **Lowest / highest price** columns appear only when you tick **Show lowest / highest price**. The **Valid from / until** dates sit in the save bar that appears once you change a price. On phones each grade is a short card; **Change rate** opens its boxes.
+- The **Edit product** button at the top of Rates is gone: use the pencil on the product's row.
+- **Edit product** is now in three parts: **Product** (name, category, other names buyers use), **Grades** (each grade has a bin to remove it and **Keep** to undo; **Add grade** adds a new one) and **Quotation terms** (HSN, lead time, payment terms, and **Free samples** as three buttons: Not decided, Offered, Not offered). Save, Cancel and Delete product stay at the bottom of the window while you scroll.
+- **Add product** suggests the categories you already use.
+- **Leads on phones:** the filters fold behind a **Filters** button next to the search box (a number on it shows how many are in use), so the leads start near the top. Press Enter (or Search on the keyboard) to search. The tick box sits beside each lead instead of on its own row.
+- **Dashboard on phones:** the tile names are shown in full ("New leads today", "International (parked)").
+- **Lead page:** the Status box no longer cuts off the status and reason on a computer.
+- **Outbox and Settings on phones:** every tab is visible at once (two rows in Outbox, three in Settings) instead of hiding off the edge.
+- The "not connected" bar names every disconnected service in one line.
+
 ### 28 Nov 2026 — Pending tab; WhatsApp from a lead counts as sent
 - The **Not replied** tab is now called **Pending** (and "Move to Not replied" is **Move to Pending**).
 - Pressing **Open WhatsApp** on a lead (Leads list or lead page) now counts as sent, like the Outbox's WhatsApp button, with no question afterwards. The WhatsApp message waiting in the Outbox for that lead is recorded as sent with the text you opened. Opened by mistake? Tick the lead under Replied and press **Move to Pending**.

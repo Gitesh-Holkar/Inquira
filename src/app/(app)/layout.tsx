@@ -76,12 +76,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1">
               <AlertTriangle className="size-4 shrink-0" aria-hidden />
               <span className="min-w-0 flex-1">
-                {problems.map((p) => (
-                  <span key={p.provider} className="mr-3 inline-block">
-                    <strong>{p.provider === "gmail" ? "Gmail" : p.provider === "indiamart" ? "IndiaMART" : "TradeIndia"}:</strong>{" "}
-                    {p.status === "reauth_required" ? (p.provider === "gmail" ? "access expired — Reconnect Gmail" : p.provider === "indiamart" ? "key rejected" : "credentials rejected") : p.status === "error" ? "sync failing" : "not connected"}
-                  </span>
-                ))}
+                {/* One short line: connections grouped by what is wrong ("Gmail, IndiaMART: not connected"). */}
+                {[...problems.reduce((m, p) => {
+                  const name = p.provider === "gmail" ? "Gmail" : p.provider === "indiamart" ? "IndiaMART" : "TradeIndia";
+                  const what = p.status === "reauth_required" ? (p.provider === "gmail" ? "access expired" : p.provider === "indiamart" ? "key rejected" : "credentials rejected") : p.status === "error" ? "sync failing" : "not connected";
+                  return m.set(what, [...(m.get(what) ?? []), name]);
+                }, new Map<string, string[]>())].map(([what, names]) => <span key={what} className="mr-3 inline-block"><strong>{names.join(", ")}:</strong> {what}</span>)}
               </span>
               {isAdmin ? <Link href="/settings" className="inline-flex min-h-11 items-center font-medium underline underline-offset-2 lg:min-h-0">{problems.some((p) => p.status === "reauth_required" && p.provider === "gmail") ? "Reconnect Gmail" : "Open Settings"}</Link> : null}
             </div>
